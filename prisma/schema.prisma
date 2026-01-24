@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+enum BillStatus {
+  DRAFT
+  RECEIVED
+  PAID
+  VOID
+}
+
+enum InventoryMoveType {
+  IN
+  OUT
+  ADJUST
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices  SalesInvoice[]
+}
+
+model Vendor {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bills     PurchaseBill[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  orgId       String
+  sku         String
+  name        String
+  unit        String   @default("pcs")
+  priceCents  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoiceLines SalesInvoiceLine[]
+  billLines    PurchaseBillLine[]
+  moves        InventoryMove[]
+
+  @@unique([orgId, sku])
+}
+
+model SalesInvoice {
+  id          String        @id @default(cuid())
+  orgId       String
+  number      String
+  status      InvoiceStatus @default(DRAFT)
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoiceDate DateTime      @default(now())
+  dueDate     DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  lines       SalesInvoiceLine[]
+
+  @@unique([orgId, number])
+}
+
+model SalesInvoiceLine {
+  id          String       @id @default(cuid())
+  invoiceId   String
+  invoice     SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description String
+  qty         Int
+  unitPriceCents Int
+}
+
+model PurchaseBill {
+  id        String      @id @default(cuid())
+  orgId     String
+  number    String
+  status    BillStatus  @default(DRAFT)
+  vendorId  String
+  vendor    Vendor      @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  billDate  DateTime    @default(now())
+  dueDate   DateTime?
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  lines     PurchaseBillLine[]
+
+  @@unique([orgId, number])
+}
+
+model PurchaseBillLine {
+  id          String       @id @default(cuid())
+  billId      String
+  bill        PurchaseBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description String
+  qty         Int
+  unitPriceCents Int
+}
+
+model InventoryMove {
+  id        String            @id @default(cuid())
+  orgId     String
+  productId String
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type      InventoryMoveType
+  qty       Int
+  note      String?
+  createdAt DateTime          @default(now())
+}
+
+model Account {
+  id        String      @id @default(cuid())
+  orgId     String
+  code      String
+  name      String
+  type      AccountType
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  lines     JournalLine[]
+
+  @@unique([orgId, code])
+}
+
+model JournalEntry {
+  id        String      @id @default(cuid())
+  orgId     String
+  date      DateTime    @default(now())
+  memo      String?
+  createdAt DateTime    @default(now())
+
+  lines     JournalLine[]
+}
+
+model JournalLine {
+  id         String       @id @default(cuid())
+  entryId    String
+  entry      JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId  String
+  account    Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  debitCents Int          @default(0)
+  creditCents Int         @default(0)
+}
