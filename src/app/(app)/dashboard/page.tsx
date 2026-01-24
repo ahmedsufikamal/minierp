@@ -1,29 +1,54 @@
-import PageHeader from "@/components/page-header";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
-import { InitAccountsButton } from "./components";
-import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Users,
+  Truck,
+  Package,
+  FileText,
+  Receipt,
+  Boxes,
+  BookOpen,
+} from "lucide-react";
+import { initChartOfAccountsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-function Card({
+function StatCard({
   title,
   value,
   href,
+  Icon,
 }: {
   title: string;
   value: number;
   href: string;
+  Icon: any;
 }) {
   return (
-    <Link
-      href={href}
-      className="rounded-2xl border p-5 hover:shadow-sm transition"
-    >
-      <div className="text-sm text-slate-600">{title}</div>
-      <div className="mt-2 text-3xl font-semibold">{value}</div>
-      <div className="mt-3 text-xs text-slate-500">View →</div>
-    </Link>
+    <Card className="hover:shadow-md transition">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <div className="text-sm text-slate-600 dark:text-slate-300">{title}</div>
+            <div className="text-3xl font-semibold tracking-tight">{value}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200/60 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between">
+          <Badge>View</Badge>
+          <Link href={href}>
+            <Button variant="dark" size="sm">Open</Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -52,21 +77,28 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        subtitle="Quick snapshot of your miniERP data."
-        actions={<InitAccountsButton />}
-      />
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            A quick snapshot of your miniERP data.
+          </p>
+        </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Customers" value={customers} href="/customers" />
-        <Card title="Vendors" value={vendors} href="/vendors" />
-        <Card title="Products" value={products} href="/products" />
-        <Card title="Invoices" value={invoices} href="/invoices" />
-        <Card title="Bills" value={bills} href="/bills" />
-        <Card title="Inventory moves" value={moves} href="/inventory" />
-        <Card title="Accounts" value={accounts} href="/accounting" />
-        <Card title="Journal entries" value={entries} href="/accounting" />
+        <form action={initChartOfAccountsAction}>
+          <Button variant="dark">Initialize chart of accounts</Button>
+        </form>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Customers" value={customers} href="/customers" Icon={Users} />
+        <StatCard title="Vendors" value={vendors} href="/vendors" Icon={Truck} />
+        <StatCard title="Products" value={products} href="/products" Icon={Package} />
+        <StatCard title="Invoices" value={invoices} href="/invoices" Icon={FileText} />
+        <StatCard title="Bills" value={bills} href="/bills" Icon={Receipt} />
+        <StatCard title="Inventory moves" value={moves} href="/inventory" Icon={Boxes} />
+        <StatCard title="Accounts" value={accounts} href="/accounting" Icon={BookOpen} />
+        <StatCard title="Journal entries" value={entries} href="/accounting" Icon={BookOpen} />
       </div>
     </div>
   );

@@ -2,35 +2,25 @@
 
 import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
-import { revalidatePath } from "next/cache";
 
-const DEFAULT_ACCOUNTS = [
-  { code: "1000", name: "Cash", type: "ASSET" as const },
-  { code: "1100", name: "Accounts Receivable", type: "ASSET" as const },
-  { code: "1200", name: "Inventory", type: "ASSET" as const },
-
-  { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
-  { code: "2100", name: "Taxes Payable", type: "LIABILITY" as const },
-
-  { code: "3000", name: "Owner's Equity", type: "EQUITY" as const },
-
-  { code: "4000", name: "Sales Revenue", type: "INCOME" as const },
-
-  { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
-  { code: "5100", name: "Operating Expenses", type: "EXPENSE" as const },
-];
-
-export async function initChartOfAccounts() {
+export async function initChartOfAccountsAction() {
   const orgId = await getOrgIdOrUserId();
 
+  // Only seed if empty
   const existing = await prisma.account.count({ where: { orgId } });
-  if (existing > 0) return { ok: true, message: "Chart of accounts already exists." };
+  if (existing > 0) return;
 
   await prisma.account.createMany({
-    data: DEFAULT_ACCOUNTS.map((a) => ({ ...a, orgId })),
+    data: [
+      { orgId, code: "1000", name: "Cash", type: "ASSET" },
+      { orgId, code: "1100", name: "Accounts Receivable", type: "ASSET" },
+      { orgId, code: "1200", name: "Inventory", type: "ASSET" },
+      { orgId, code: "2000", name: "Accounts Payable", type: "LIABILITY" },
+      { orgId, code: "3000", name: "Owner's Equity", type: "EQUITY" },
+      { orgId, code: "4000", name: "Sales", type: "INCOME" },
+      { orgId, code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" },
+      { orgId, code: "5100", name: "Operating Expenses", type: "EXPENSE" },
+      { orgId, code: "5200", name: "Utilities Expense", type: "EXPENSE" },
+    ],
   });
-
-  revalidatePath("/accounting");
-  revalidatePath("/dashboard");
-  return { ok: true, message: "Chart of accounts initialized." };
 }
