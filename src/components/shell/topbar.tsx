@@ -1,7 +1,9 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
+import { logout } from "@/app/auth-actions";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 
 function titleFromPath(pathname: string | null) {
   if (!pathname) return "Dashboard";
@@ -22,7 +24,15 @@ export function Topbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <UserButton afterSignOutUrl="/" />
+           <Button 
+              onClick={() => logout()} 
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+            >
+              <LogOut size={16} />
+              Sign Out
+            </Button>
         </div>
       </div>
     </header>

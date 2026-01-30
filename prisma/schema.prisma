@@ -35,6 +35,17 @@ enum AccountType {
   EXPENSE
 }
 
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("USER")
+  orgId        String   @default("default-org") // Simplification: each user belongs to an org
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Customer {
   id        String   @id @default(cuid())
   orgId     String
@@ -45,7 +56,11 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  invoices  SalesInvoice[]
+  invoices    SalesInvoice[]
+  contacts    Contact[]
+  opportunities Opportunity[]
+  activities  Activity[]
+  tasks       Task[]
 }
 
 model Vendor {
@@ -179,4 +194,92 @@ model JournalLine {
   account    Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
   debitCents Int          @default(0)
   creditCents Int         @default(0)
+}
+
+// CRM Models
+
+model Contact {
+  id        String   @id @default(cuid())
+  orgId     String
+  customerId String
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String?
+  email     String?
+  phone     String?
+  jobTitle  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum OpportunityStage {
+  NEW
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+model Opportunity {
+  id          String           @id @default(cuid())
+  orgId       String
+  title       String
+  valueCents  Int              @default(0)
+  stage       OpportunityStage @default(NEW)
+  customerId  String
+  customer    Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  closeDate   DateTime?
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  activities Activity[]
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+}
+
+model Activity {
+  id            String       @id @default(cuid())
+  orgId         String
+  type          ActivityType
+  subject       String
+  description   String?
+  date          DateTime     @default(now())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  orgId       String
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  customerId  String?
+  customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }

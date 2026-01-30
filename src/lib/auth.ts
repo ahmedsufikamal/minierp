@@ -1,8 +1,15 @@
-import { auth } from "@clerk/nextjs/server";
+import { verifySession } from "@/lib/session";
+import { redirect } from "next/navigation";
 
-// Clerk auth() is async in recent versions.
-export async function getOrgIdOrUserId(): Promise<string> {
-  const { orgId, userId } = await auth();
-  if (!userId) throw new Error("Unauthenticated");
-  return orgId ?? userId;
+export async function getOrgIdOrUserId() {
+  const session = await verifySession();
+  if (!session) {
+    redirect("/sign-in");
+  }
+  return session.orgId || session.userId;
+}
+
+export async function getUser() {
+  const session = await verifySession();
+  return session;
 }

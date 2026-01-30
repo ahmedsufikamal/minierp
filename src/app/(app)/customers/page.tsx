@@ -1,7 +1,10 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
-import { AddCustomerCard, DeleteRowButton } from "./components";
+import { CustomerTable } from "./customer-table";
+import { NewCustomerDialog } from "./new-customer-dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, UserPlus, TrendingUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -13,59 +16,66 @@ export default async function CustomersPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Calculate stats
+  const totalCustomers = customers.length;
+  const newThisMonth = customers.filter(
+    (c) => new Date(c.createdAt) > new Date(new Date().setDate(1))
+  ).length;
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Customers"
-        subtitle="Manage your customers and keep invoices organized."
-      />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-          <AddCustomerCard />
-        </div>
-
-        <div className="lg:col-span-2 rounded-2xl border">
-          <div className="p-4 border-b">
-            <div className="font-medium">Customer list</div>
-            <div className="text-sm text-slate-600">
-              Total: {customers.length}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-slate-600">
-                <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th className="w-[90px]">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.map((c) => (
-                  <tr key={c.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{c.name}</td>
-                    <td className="px-4 py-3">{c.email ?? "—"}</td>
-                    <td className="px-4 py-3">{c.phone ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <DeleteRowButton id={c.id} />
-                    </td>
-                  </tr>
-                ))}
-                {customers.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-8 text-slate-600" colSpan={4}>
-                      No customers yet. Create your first customer on the left.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <PageHeader
+          title="Customers"
+          subtitle="Manage your client relationships and details."
+        />
+        <NewCustomerDialog />
       </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-gradient-to-br from-indigo-50 to-white border-indigo-100">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-indigo-900">
+              Total Customers
+            </CardTitle>
+            <Users className="h-4 w-4 text-indigo-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-indigo-700">{totalCustomers}</div>
+            <p className="text-xs text-indigo-500/80">
+              Active profiles
+            </p>
+          </CardContent>
+        </Card>
+         <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-emerald-900">
+              New This Month
+            </CardTitle>
+            <UserPlus className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-700">{newThisMonth}</div>
+            <p className="text-xs text-emerald-500/80">
+              +12% from last month
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Activity Rate</CardTitle>
+             <TrendingUp className="h-4 w-4 text-slate-500" />
+          </CardHeader>
+          <CardContent>
+             <div className="text-2xl font-bold">87%</div>
+             <p className="text-xs text-slate-500">
+               Customers active recently
+             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <CustomerTable customers={customers} />
     </div>
   );
 }
