@@ -59,9 +59,7 @@ export async function createInvoice(formData: FormData): Promise<void> {
   if (lines.length === 0) throw new Error("Invoice must have at least 1 line");
 
   const invoiceDateValue =
-    toDateOrUndefined(issueDate) ??
-    toDateOrUndefined(invoiceDate) ??
-    new Date();
+    toDateOrUndefined(issueDate) ?? toDateOrUndefined(invoiceDate) ?? new Date();
 
   const dueDateValue = toDateOrUndefined(dueDate);
 
@@ -70,7 +68,7 @@ export async function createInvoice(formData: FormData): Promise<void> {
       orgId,
       customerId,
       number,
-      invoiceDate: invoiceDateValue,     // ✅ schema field
+      invoiceDate: invoiceDateValue, // ✅ schema field
       dueDate: dueDateValue ?? null,
       notes: notes?.trim() ? notes.trim() : null,
       lines: {

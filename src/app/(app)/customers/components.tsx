@@ -36,7 +36,12 @@ export function AddCustomerCard() {
       </div>
 
       {open ? (
-        <form action={async (formData: FormData) => { await createCustomer(formData); }} className="mt-4 grid gap-3">
+        <form
+          action={async (formData: FormData) => {
+            await createCustomer(formData);
+          }}
+          className="mt-4 grid gap-3"
+        >
           <input
             name="name"
             placeholder="Customer name"
@@ -72,7 +77,11 @@ export function DeleteRowButton({ id }: { id: string }) {
 
   return (
     <button
-      onClick={() => start(() => { void deleteCustomer(id); })}
+      onClick={() =>
+        start(() => {
+          void deleteCustomer(id);
+        })
+      }
       disabled={pending}
       className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
     >

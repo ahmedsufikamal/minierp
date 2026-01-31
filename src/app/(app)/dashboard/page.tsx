@@ -12,6 +12,7 @@ import {
   Receipt,
   Boxes,
   BookOpen,
+  LucideIcon,
 } from "lucide-react";
 import { initChartOfAccountsAction } from "./actions";
 
@@ -26,7 +27,7 @@ function StatCard({
   title: string;
   value: number;
   href: string;
-  Icon: any;
+  Icon: LucideIcon;
 }) {
   return (
     <Card className="hover:shadow-md transition">
@@ -44,7 +45,9 @@ function StatCard({
         <div className="mt-4 flex items-center justify-between">
           <Badge>View</Badge>
           <Link href={href}>
-            <Button variant="dark" size="sm">Open</Button>
+            <Button variant="dark" size="sm">
+              Open
+            </Button>
           </Link>
         </div>
       </CardContent>
@@ -55,25 +58,17 @@ function StatCard({
 export default async function DashboardPage() {
   const orgId = await getOrgIdOrUserId();
 
-  const [
-    customers,
-    vendors,
-    products,
-    invoices,
-    bills,
-    moves,
-    accounts,
-    entries,
-  ] = await Promise.all([
-    prisma.customer.count({ where: { orgId } }),
-    prisma.vendor.count({ where: { orgId } }),
-    prisma.product.count({ where: { orgId } }),
-    prisma.salesInvoice.count({ where: { orgId } }),
-    prisma.purchaseBill.count({ where: { orgId } }),
-    prisma.inventoryMove.count({ where: { orgId } }),
-    prisma.account.count({ where: { orgId } }),
-    prisma.journalEntry.count({ where: { orgId } }),
-  ]);
+  const [customers, vendors, products, invoices, bills, moves, accounts, entries] =
+    await Promise.all([
+      prisma.customer.count({ where: { orgId } }),
+      prisma.vendor.count({ where: { orgId } }),
+      prisma.product.count({ where: { orgId } }),
+      prisma.salesInvoice.count({ where: { orgId } }),
+      prisma.purchaseBill.count({ where: { orgId } }),
+      prisma.inventoryMove.count({ where: { orgId } }),
+      prisma.account.count({ where: { orgId } }),
+      prisma.journalEntry.count({ where: { orgId } }),
+    ]);
 
   return (
     <div className="space-y-6">

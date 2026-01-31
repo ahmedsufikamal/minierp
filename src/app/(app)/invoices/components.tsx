@@ -58,7 +58,7 @@ export function NewInvoiceCard({
           description: l.description.trim(),
           qty: Number(l.qty),
           unitPriceCents: moneyToCents(l.unitPrice),
-        }))
+        })),
     );
   }, [lines]);
 
@@ -78,7 +78,12 @@ export function NewInvoiceCard({
       </div>
 
       {open ? (
-        <form action={async (formData: FormData) => { await createInvoice(formData); }} className="mt-4 grid gap-3">
+        <form
+          action={async (formData: FormData) => {
+            await createInvoice(formData);
+          }}
+          className="mt-4 grid gap-3"
+        >
           <div className="grid grid-cols-2 gap-3">
             <input
               name="number"
@@ -117,9 +122,7 @@ export function NewInvoiceCard({
           </div>
 
           <div className="rounded-xl border overflow-hidden">
-            <div className="px-3 py-2 text-xs text-slate-600 border-b bg-slate-50">
-              Line items
-            </div>
+            <div className="px-3 py-2 text-xs text-slate-600 border-b bg-slate-50">Line items</div>
 
             <div className="p-3 grid gap-2">
               {lines.map((line, idx) => (
@@ -139,8 +142,8 @@ export function NewInvoiceCard({
                                 description: p ? `${p.name} (${p.sku})` : l.description,
                                 unitPrice: p ? p.priceCents / 100 : l.unitPrice,
                               }
-                            : l
-                        )
+                            : l,
+                        ),
                       );
                     }}
                   >
@@ -158,7 +161,7 @@ export function NewInvoiceCard({
                     value={line.description}
                     onChange={(e) =>
                       setLines((prev) =>
-                        prev.map((l, i) => (i === idx ? { ...l, description: e.target.value } : l))
+                        prev.map((l, i) => (i === idx ? { ...l, description: e.target.value } : l)),
                       )
                     }
                   />
@@ -170,7 +173,7 @@ export function NewInvoiceCard({
                     value={line.qty}
                     onChange={(e) =>
                       setLines((prev) =>
-                        prev.map((l, i) => (i === idx ? { ...l, qty: Number(e.target.value) } : l))
+                        prev.map((l, i) => (i === idx ? { ...l, qty: Number(e.target.value) } : l)),
                       )
                     }
                   />
@@ -184,8 +187,8 @@ export function NewInvoiceCard({
                     onChange={(e) =>
                       setLines((prev) =>
                         prev.map((l, i) =>
-                          i === idx ? { ...l, unitPrice: Number(e.target.value) } : l
-                        )
+                          i === idx ? { ...l, unitPrice: Number(e.target.value) } : l,
+                        ),
                       )
                     }
                   />
@@ -196,7 +199,9 @@ export function NewInvoiceCard({
                 <button
                   type="button"
                   className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50"
-                  onClick={() => setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])}
+                  onClick={() =>
+                    setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])
+                  }
                 >
                   Add line
                 </button>
@@ -235,7 +240,11 @@ export function DeleteRowButton({ id }: { id: string }) {
   const [pending, start] = useTransition();
   return (
     <button
-      onClick={() => start(() => { void deleteInvoice(id); })}
+      onClick={() =>
+        start(() => {
+          void deleteInvoice(id);
+        })
+      }
       disabled={pending}
       className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
     >

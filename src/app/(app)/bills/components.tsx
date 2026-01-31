@@ -33,13 +33,7 @@ function moneyToCents(v: number) {
   return Math.round(v * 100);
 }
 
-export function NewBillCard({
-  vendors,
-  products,
-}: {
-  vendors: Vendor[];
-  products: Product[];
-}) {
+export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products: Product[] }) {
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<LineState[]>([
     { description: "Expense / Item", qty: 1, unitPrice: 0 },
@@ -58,7 +52,7 @@ export function NewBillCard({
           description: l.description.trim(),
           qty: Number(l.qty),
           unitPriceCents: moneyToCents(l.unitPrice),
-        }))
+        })),
     );
   }, [lines]);
 
@@ -78,7 +72,12 @@ export function NewBillCard({
       </div>
 
       {open ? (
-        <form action={async (formData: FormData) => { await createBill(formData); }} className="mt-4 grid gap-3">
+        <form
+          action={async (formData: FormData) => {
+            await createBill(formData);
+          }}
+          className="mt-4 grid gap-3"
+        >
           <div className="grid grid-cols-2 gap-3">
             <input
               name="number"
@@ -117,9 +116,7 @@ export function NewBillCard({
           </div>
 
           <div className="rounded-xl border overflow-hidden">
-            <div className="px-3 py-2 text-xs text-slate-600 border-b bg-slate-50">
-              Line items
-            </div>
+            <div className="px-3 py-2 text-xs text-slate-600 border-b bg-slate-50">Line items</div>
 
             <div className="p-3 grid gap-2">
               {lines.map((line, idx) => (
@@ -139,8 +136,8 @@ export function NewBillCard({
                                 description: p ? `${p.name} (${p.sku})` : l.description,
                                 unitPrice: p ? p.priceCents / 100 : l.unitPrice,
                               }
-                            : l
-                        )
+                            : l,
+                        ),
                       );
                     }}
                   >
@@ -158,7 +155,7 @@ export function NewBillCard({
                     value={line.description}
                     onChange={(e) =>
                       setLines((prev) =>
-                        prev.map((l, i) => (i === idx ? { ...l, description: e.target.value } : l))
+                        prev.map((l, i) => (i === idx ? { ...l, description: e.target.value } : l)),
                       )
                     }
                   />
@@ -170,7 +167,7 @@ export function NewBillCard({
                     value={line.qty}
                     onChange={(e) =>
                       setLines((prev) =>
-                        prev.map((l, i) => (i === idx ? { ...l, qty: Number(e.target.value) } : l))
+                        prev.map((l, i) => (i === idx ? { ...l, qty: Number(e.target.value) } : l)),
                       )
                     }
                   />
@@ -184,8 +181,8 @@ export function NewBillCard({
                     onChange={(e) =>
                       setLines((prev) =>
                         prev.map((l, i) =>
-                          i === idx ? { ...l, unitPrice: Number(e.target.value) } : l
-                        )
+                          i === idx ? { ...l, unitPrice: Number(e.target.value) } : l,
+                        ),
                       )
                     }
                   />
@@ -196,7 +193,9 @@ export function NewBillCard({
                 <button
                   type="button"
                   className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50"
-                  onClick={() => setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])}
+                  onClick={() =>
+                    setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])
+                  }
                 >
                   Add line
                 </button>
@@ -221,9 +220,7 @@ export function NewBillCard({
           </div>
 
           {vendors.length === 0 ? (
-            <p className="text-xs text-amber-700">
-              You need at least 1 vendor to create a bill.
-            </p>
+            <p className="text-xs text-amber-700">You need at least 1 vendor to create a bill.</p>
           ) : null}
         </form>
       ) : null}
@@ -235,7 +232,11 @@ export function DeleteRowButton({ id }: { id: string }) {
   const [pending, start] = useTransition();
   return (
     <button
-      onClick={() => start(() => { void deleteBill(id); })}
+      onClick={() =>
+        start(() => {
+          void deleteBill(id);
+        })
+      }
       disabled={pending}
       className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
     >

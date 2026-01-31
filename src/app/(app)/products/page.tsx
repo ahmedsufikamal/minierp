@@ -16,7 +16,10 @@ export default async function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Products" subtitle="Catalog items used in invoices, bills, and inventory." />
+      <PageHeader
+        title="Products"
+        subtitle="Catalog items used in invoices, bills, and inventory."
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1">

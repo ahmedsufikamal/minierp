@@ -25,9 +25,7 @@ export function AddProductCard() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Add product</div>
-          <div className="text-sm text-slate-600">
-            SKU, unit, and default selling price.
-          </div>
+          <div className="text-sm text-slate-600">SKU, unit, and default selling price.</div>
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -38,12 +36,36 @@ export function AddProductCard() {
       </div>
 
       {open ? (
-        <form action={async (formData: FormData) => { await createProduct(formData); }} className="mt-4 grid gap-3">
-          <input name="sku" placeholder="SKU (e.g., P-001)" className="w-full rounded-xl border px-3 py-2 text-sm" required />
-          <input name="name" placeholder="Product name" className="w-full rounded-xl border px-3 py-2 text-sm" required />
+        <form
+          action={async (formData: FormData) => {
+            await createProduct(formData);
+          }}
+          className="mt-4 grid gap-3"
+        >
+          <input
+            name="sku"
+            placeholder="SKU (e.g., P-001)"
+            className="w-full rounded-xl border px-3 py-2 text-sm"
+            required
+          />
+          <input
+            name="name"
+            placeholder="Product name"
+            className="w-full rounded-xl border px-3 py-2 text-sm"
+            required
+          />
           <div className="grid grid-cols-2 gap-3">
-            <input name="unit" placeholder="Unit (pcs, kg)" className="w-full rounded-xl border px-3 py-2 text-sm" required />
-            <input name="price" placeholder="Default price" className="w-full rounded-xl border px-3 py-2 text-sm" />
+            <input
+              name="unit"
+              placeholder="Unit (pcs, kg)"
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+              required
+            />
+            <input
+              name="price"
+              placeholder="Default price"
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+            />
           </div>
           <div className="flex justify-end">
             <SubmitButton label="Create" />
@@ -58,7 +80,11 @@ export function DeleteRowButton({ id }: { id: string }) {
   const [pending, start] = useTransition();
   return (
     <button
-      onClick={() => start(() => { void deleteProduct(id); })}
+      onClick={() =>
+        start(() => {
+          void deleteProduct(id);
+        })
+      }
       disabled={pending}
       className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
     >

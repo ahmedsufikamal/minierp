@@ -43,9 +43,7 @@ export default async function InventoryPage() {
           <div className="rounded-2xl border">
             <div className="p-4 border-b">
               <div className="font-medium">Stock snapshot (based on moves)</div>
-              <div className="text-sm text-slate-600">
-                Latest computed stock per product.
-              </div>
+              <div className="text-sm text-slate-600">Latest computed stock per product.</div>
             </div>
 
             <div className="overflow-x-auto">
@@ -64,9 +62,7 @@ export default async function InventoryPage() {
                       <td className="px-4 py-3 font-mono text-xs">{p.sku}</td>
                       <td className="px-4 py-3">{p.name}</td>
                       <td className="px-4 py-3">{p.unit}</td>
-                      <td className="px-4 py-3 font-medium">
-                        {stock.get(p.id) ?? 0}
-                      </td>
+                      <td className="px-4 py-3 font-medium">{stock.get(p.id) ?? 0}</td>
                     </tr>
                   ))}
                   {products.length === 0 ? (

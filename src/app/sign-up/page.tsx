@@ -5,7 +5,14 @@ import { useFormStatus } from "react-dom";
 import { signup } from "../auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+  CardDescription,
+} from "@/components/ui/card";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -36,40 +43,69 @@ export default function SignUpPage() {
       <Card className="w-full max-w-md shadow-2xl border-0 z-10 bg-white/80 backdrop-blur-md">
         <CardHeader className="space-y-1 text-center pb-8 border-b border-slate-100">
           <div className="mx-auto h-12 w-12 rounded-xl bg-slate-900 flex items-center justify-center mb-4 shadow-lg shadow-slate-900/20">
-             <div className="text-white font-bold text-xl">mE</div>
+            <div className="text-white font-bold text-xl">mE</div>
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>
           <CardDescription>Enter your email below to create your account</CardDescription>
         </CardHeader>
         <CardContent className="pt-8">
           <form action={formAction} className="space-y-4">
-             <div className="space-y-2">
-              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="name">
+            <div className="space-y-2">
+              <label
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                htmlFor="name"
+              >
                 Full Name
               </label>
-              <Input id="name" name="name" placeholder="John Doe" required className="bg-white/50" />
+              <Input
+                id="name"
+                name="name"
+                placeholder="John Doe"
+                required
+                className="bg-white/50"
+              />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">
+              <label
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                htmlFor="email"
+              >
                 Email
               </label>
-              <Input id="email" name="email" type="email" placeholder="name@example.com" required className="bg-white/50" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="name@example.com"
+                required
+                className="bg-white/50"
+              />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
+              <label
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                htmlFor="password"
+              >
                 Password
               </label>
-              <Input id="password" name="password" type="password" required className="bg-white/50" minLength={8} />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="bg-white/50"
+                minLength={8}
+              />
             </div>
-            
+
             {state?.error && (
               <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center justify-center">
                 {state.error}
               </div>
             )}
-            
+
             <div className="pt-2">
-               <SubmitButton />
+              <SubmitButton />
             </div>
           </form>
         </CardContent>
@@ -80,9 +116,7 @@ export default function SignUpPage() {
               Sign in
             </Link>
           </div>
-           <div className="text-xs text-slate-400 text-center">
-            Secured by Custom Auth
-          </div>
+          <div className="text-xs text-slate-400 text-center">Secured by Custom Auth</div>
         </CardFooter>
       </Card>
     </div>

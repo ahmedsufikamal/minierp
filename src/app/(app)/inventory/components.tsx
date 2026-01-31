@@ -27,9 +27,7 @@ export function NewMoveCard({ products }: { products: Product[] }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">New inventory move</div>
-          <div className="text-sm text-slate-600">
-            Record stock in/out adjustments.
-          </div>
+          <div className="text-sm text-slate-600">Record stock in/out adjustments.</div>
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -40,7 +38,12 @@ export function NewMoveCard({ products }: { products: Product[] }) {
       </div>
 
       {open ? (
-        <form action={async (formData: FormData) => { await createMove(formData); }} className="mt-4 grid gap-3">
+        <form
+          action={async (formData: FormData) => {
+            await createMove(formData);
+          }}
+          className="mt-4 grid gap-3"
+        >
           <select
             name="productId"
             className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
@@ -103,7 +106,11 @@ export function DeleteRowButton({ id }: { id: string }) {
   const [pending, start] = useTransition();
   return (
     <button
-      onClick={() => start(() => { void deleteMove(id); })}
+      onClick={() =>
+        start(() => {
+          void deleteMove(id);
+        })
+      }
       disabled={pending}
       className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
     >

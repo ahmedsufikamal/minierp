@@ -1,6 +1,6 @@
 "use client";
 
-import { Opportunity, Customer, OpportunityStage } from "@prisma/client";
+import { Opportunity, Customer } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
@@ -30,13 +30,13 @@ export function DealsTab({ customer }: { customer: CustomerWithDeals }) {
   async function handleAddDeal(formData: FormData) {
     formData.append("customerId", customer.id);
     formData.append("stage", "NEW");
-    
+
     try {
       await createOpportunityAction(formData);
       toast.success("Deal created successfully");
       formRef.current?.reset();
       setIsOpen(false);
-    } catch (error) {
+    } catch {
       toast.error("Failed to create deal");
     }
   }
@@ -46,11 +46,9 @@ export function DealsTab({ customer }: { customer: CustomerWithDeals }) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium tracking-tight">Deals Pipeline</h3>
-          <p className="text-sm text-slate-500">
-            Manage your opportunities with {customer.name}
-          </p>
+          <p className="text-sm text-slate-500">Manage your opportunities with {customer.name}</p>
         </div>
-        
+
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" variant="dark">
@@ -79,7 +77,9 @@ export function DealsTab({ customer }: { customer: CustomerWithDeals }) {
                 <Input id="description" name="description" placeholder="Optional notes..." />
               </div>
               <DialogFooter>
-                <Button type="submit" variant="dark">Create Deal</Button>
+                <Button type="submit" variant="dark">
+                  Create Deal
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -87,11 +87,8 @@ export function DealsTab({ customer }: { customer: CustomerWithDeals }) {
       </div>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden -mx-6 px-6 pb-2">
-         {/* We pass all opportunities to the board, it will filter them into columns */}
-        <KanbanBoard 
-          initialOpportunities={customer.opportunities} 
-          customerId={customer.id} 
-        />
+        {/* We pass all opportunities to the board, it will filter them into columns */}
+        <KanbanBoard initialOpportunities={customer.opportunities} customerId={customer.id} />
       </div>
     </div>
   );

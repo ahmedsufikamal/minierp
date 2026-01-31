@@ -24,15 +24,10 @@ export function Topbar() {
         </div>
 
         <div className="flex items-center gap-3">
-           <Button 
-              onClick={() => logout()} 
-              variant="secondary"
-              size="sm"
-              className="gap-2"
-            >
-              <LogOut size={16} />
-              Sign Out
-            </Button>
+          <Button onClick={() => logout()} variant="secondary" size="sm" className="gap-2">
+            <LogOut size={16} />
+            Sign Out
+          </Button>
         </div>
       </div>
     </header>

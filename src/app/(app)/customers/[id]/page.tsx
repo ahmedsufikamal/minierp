@@ -3,11 +3,10 @@ import { getOrgIdOrUserId } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Mail, Phone, MapPin, Plus, Calendar, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin } from "lucide-react";
 import Link from "next/link";
-import { format } from "date-fns";
 
 // Components for the different tabs
 import { OverviewTab } from "./overview";
@@ -34,26 +33,18 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
     notFound();
   }
 
-  // Calculate simple stats
-  const totalRevenue = customer.invoices
-    .reduce((sum, inv) => sum + 10000, 0); // Placeholder revenue calculation (needs actual line items)
-  
-  const openDealsValue = customer.opportunities
-     .filter(o => o.stage !== 'WON' && o.stage !== 'LOST')
-     .reduce((sum, o) => sum + o.valueCents, 0);
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4">
-        <Link 
-          href="/customers" 
+        <Link
+          href="/customers"
           className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors w-fit"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Customers
         </Link>
-        
+
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow-sm">
@@ -85,7 +76,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline">Edit Profile</Button> 
+            <Button variant="outline">Edit Profile</Button>
             <Button variant="dark">New Deal</Button>
           </div>
         </div>
@@ -94,35 +85,44 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
       {/* Main Content */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
-          <TabsTrigger 
-            value="overview" 
+          <TabsTrigger
+            value="overview"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent px-4 py-3"
           >
             Overview
           </TabsTrigger>
-          <TabsTrigger 
-            value="contacts" 
+          <TabsTrigger
+            value="contacts"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent px-4 py-3"
           >
-            Contacts <Badge variant="secondary" className="ml-2 text-xs">{customer.contacts.length}</Badge>
+            Contacts{" "}
+            <Badge variant="secondary" className="ml-2 text-xs">
+              {customer.contacts.length}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger 
-            value="deals" 
+          <TabsTrigger
+            value="deals"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent px-4 py-3"
           >
-            Deals <Badge variant="secondary" className="ml-2 text-xs">{customer.opportunities.length}</Badge>
+            Deals{" "}
+            <Badge variant="secondary" className="ml-2 text-xs">
+              {customer.opportunities.length}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger 
-            value="invoices" 
+          <TabsTrigger
+            value="invoices"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent px-4 py-3"
           >
-            Invoices <Badge variant="secondary" className="ml-2 text-xs">{customer.invoices.length}</Badge>
+            Invoices{" "}
+            <Badge variant="secondary" className="ml-2 text-xs">
+              {customer.invoices.length}
+            </Badge>
           </TabsTrigger>
         </TabsList>
-        
+
         <div className="mt-6">
           <TabsContent value="overview">
-             <OverviewTab customer={customer} />
+            <OverviewTab customer={customer} />
           </TabsContent>
           <TabsContent value="contacts">
             <ContactsTab customer={customer} />

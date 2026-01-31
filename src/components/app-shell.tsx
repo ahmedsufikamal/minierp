@@ -12,9 +12,9 @@ import {
   Receipt,
   Boxes,
   BookOpen,
-  LogOut
+  LogOut,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 import { logout } from "@/app/auth-actions";
 
 const nav = [
@@ -49,7 +49,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                    active ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
+                    active
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900",
                   )}
                 >
                   <Icon size={18} />
@@ -60,8 +62,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="mt-auto pt-4 border-t">
-            <button 
-              onClick={() => logout()} 
+            <button
+              onClick={() => logout()}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
             >
               <LogOut size={18} />
@@ -76,8 +78,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <div className="md:hidden font-semibold">miniERP</div>
               {/* Could add a mobile menu toggle here */}
               <div className="flex items-center gap-3 ml-auto">
-                 {/* Placeholder for user profile if needed */}
-                 <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
+                {/* Placeholder for user profile if needed */}
+                <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
               </div>
             </div>
           </header>

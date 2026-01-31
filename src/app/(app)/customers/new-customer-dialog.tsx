@@ -23,10 +23,10 @@ export function NewCustomerDialog() {
   async function handleSubmit(formData: FormData) {
     const res = await createCustomer(formData);
     if (res.ok) {
-        toast.success("Customer created successfully");
-        setOpen(false);
+      toast.success("Customer created successfully");
+      setOpen(false);
     } else {
-        toast.error("Failed to create customer");
+      toast.error("Failed to create customer");
     }
   }
 
@@ -42,7 +42,7 @@ export function NewCustomerDialog() {
         <DialogHeader>
           <DialogTitle>Add Customer</DialogTitle>
           <DialogDescription>
-            Create a new customer profile here. Click save when you're done.
+            Create a new customer profile here. Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         <form action={handleSubmit} className="grid gap-4 py-4">
@@ -50,37 +50,21 @@ export function NewCustomerDialog() {
             <Label htmlFor="name" className="text-right">
               Name
             </Label>
-            <Input
-              id="name"
-              name="name"
-              placeholder="Acme Inc."
-              className="col-span-3"
-              required
-            />
+            <Input id="name" name="name" placeholder="Acme Inc." className="col-span-3" required />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="email" className="text-right">
               Email
             </Label>
-            <Input
-              id="email"
-              name="email"
-              placeholder="contact@acme.com"
-              className="col-span-3"
-            />
+            <Input id="email" name="email" placeholder="contact@acme.com" className="col-span-3" />
           </div>
-           <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="phone" className="text-right">
               Phone
             </Label>
-            <Input
-              id="phone"
-              name="phone"
-              placeholder="+1 (555) 000-0000"
-              className="col-span-3"
-            />
+            <Input id="phone" name="phone" placeholder="+1 (555) 000-0000" className="col-span-3" />
           </div>
-           <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="address" className="text-right">
               Address
             </Label>
@@ -92,7 +76,9 @@ export function NewCustomerDialog() {
             />
           </div>
           <DialogFooter>
-            <Button type="submit" variant="dark">Save changes</Button>
+            <Button type="submit" variant="dark">
+              Save changes
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

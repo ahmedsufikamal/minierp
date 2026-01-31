@@ -29,15 +29,14 @@ export default async function AccountingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Accounting"
-        subtitle="Chart of accounts + simple double-entry journal."
-      />
+      <PageHeader title="Accounting" subtitle="Chart of accounts + simple double-entry journal." />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-4">
           <NewAccountCard />
-          <NewJournalEntryCard accounts={accounts.map((a) => ({ id: a.id, code: a.code, name: a.name, type: a.type }))} />
+          <NewJournalEntryCard
+            accounts={accounts.map((a) => ({ id: a.id, code: a.code, name: a.name, type: a.type }))}
+          />
         </div>
 
         <div className="lg:col-span-2 space-y-4">
@@ -70,7 +69,8 @@ export default async function AccountingPage() {
                   {accounts.length === 0 ? (
                     <tr>
                       <td className="px-4 py-8 text-slate-600" colSpan={4}>
-                        No accounts yet. Click “Init chart of accounts” on Dashboard for a quick setup.
+                        No accounts yet. Click “Init chart of accounts” on Dashboard for a quick
+                        setup.
                       </td>
                     </tr>
                   ) : null}

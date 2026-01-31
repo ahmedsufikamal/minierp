@@ -117,7 +117,6 @@ export async function createOpportunityAction(formData: FormData) {
   return { ok: true };
 }
 
-
 const ActivitySchema = z.object({
   customerId: z.string(),
   type: z.enum(["CALL", "EMAIL", "MEETING", "NOTE"]),

@@ -1,6 +1,7 @@
 # miniERP (Next.js + Clerk + Prisma) — Ubuntu 24.04 LTS ready
 
 This is a clean, modern mini-ERP starter built with:
+
 - Next.js App Router
 - Clerk authentication (supports Organizations for multi-tenant)
 - Prisma ORM (Prisma 7 config-first)
@@ -8,6 +9,7 @@ This is a clean, modern mini-ERP starter built with:
 - Tailwind CSS v4
 
 ## Features (MVP)
+
 - Customers
 - Vendors
 - Products
@@ -21,19 +23,24 @@ This is a clean, modern mini-ERP starter built with:
 ## 1) Prerequisites (Ubuntu 24.04.3 LTS)
 
 ### Install Node.js (recommended Node 22 LTS)
+
 Use NodeSource or your preferred method.
 
 ### Install PostgreSQL
+
 ```bash
 sudo apt update
 sudo apt install -y postgresql postgresql-contrib
 ```
 
 Create DB + user:
+
 ```bash
 sudo -u postgres psql
 ```
+
 Inside psql:
+
 ```sql
 CREATE USER minierp_user WITH PASSWORD 'CHANGE_ME_STRONG';
 CREATE DATABASE minierp OWNER minierp_user;
@@ -43,6 +50,7 @@ CREATE DATABASE minierp OWNER minierp_user;
 ---
 
 ## 2) Clerk setup
+
 1. Create a Clerk application
 2. Copy the keys into `.env` (see below)
 3. (Optional) Enable Organizations in Clerk if you want multi-tenant separation
@@ -84,11 +92,13 @@ npm run prisma:migrate:dev -- --name init
 ---
 
 ## 5) Run the app
+
 ```bash
 npm run dev
 ```
 
 Open:
+
 - http://localhost:3000
 
 ---
@@ -96,17 +106,21 @@ Open:
 ## 6) Production (simple, VM-friendly)
 
 Build:
+
 ```bash
 npm run build
 ```
 
 Run:
+
 ```bash
 npm start
 ```
 
 ### Optional: systemd service
+
 Create `/etc/systemd/system/minierp.service`:
+
 ```ini
 [Unit]
 Description=miniERP Next.js
@@ -127,6 +141,7 @@ WantedBy=multi-user.target
 ```
 
 Enable:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now minierp
@@ -136,5 +151,6 @@ sudo systemctl status minierp
 ---
 
 ## Notes
+
 - Auth protection is in `src/proxy.ts` (Next.js 16 middleware replacement).
 - If you want “single-tenant” only, keep Organizations disabled; the app falls back to `userId` as tenant id.
