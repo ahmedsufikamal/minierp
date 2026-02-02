@@ -1,57 +1,64 @@
-@config "../../tailwind.config.ts";
 @import "tailwindcss";
 
-@config "../../tailwind.config.ts";
-@import "tailwindcss";
+@theme {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+  --radius: 0.5rem;
 
-:root {
-  color-scheme: light;
-  /* Colors - Light Mode */
-  --color-background-primary: #ffffff;
-  --color-background-secondary: #f8fafc; /* slate-50 */
-  --color-text-primary: #0f172a; /* slate-900 */
-  --color-text-secondary: #64748b; /* slate-500 */
-  --color-border-primary: #e2e8f0; /* slate-200 */
-  --color-brand-primary: #4f46e5; /* indigo-600 */
-  --color-brand-secondary: #eef2ff; /* indigo-50 */
-
-  /* Status Colors */
-  --color-status-success: #16a34a; /* green-600 */
-  --color-status-warning: #f97316; /* orange-500 */
-  --color-status-error: #dc2626; /* red-600 */
-  --color-status-info: #2563eb; /* blue-600 */
-
-  /* Typography */
-  --font-sans: 'Inter', sans-serif;
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
-
-  /* Spacing (4px scale) */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-4: 16px;
-  --space-8: 32px;
-
-  /* Radii */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-full: 9999px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-
-  /* Data Density */
-  --density-comfortable-y: 16px; /* py-4 */
-  --density-comfortable-x: 24px; /* px-6 */
-  --density-compact-y: 8px;    /* py-2 */
-  --density-compact-x: 12px;   /* px-3 */
+  /* Custom Status Colors from Spec */
+  --color-status-success: #22c55e;
+  --color-status-warning: #f59e0b;
+  --color-status-error: #ef4444;
+  --color-status-info: #0ea5e9;
 }
-.dark {
-  color-scheme: dark;
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
 }

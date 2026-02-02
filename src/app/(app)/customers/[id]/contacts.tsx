@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { User, Mail, Phone } from "lucide-react";
-import { createContactAction } from "../actions";
+import { createContactAction } from "./actions";
 import { useRef, useState } from "react";
 
 // Actually, I'll use a simple inline form for now to minimize dependencies, or a separate card.
@@ -32,7 +32,7 @@ export function ContactsTab({ customer }: { customer: CustomerWithContacts }) {
         <h3 className="text-lg font-medium">Contacts</h3>
         <Button
           onClick={() => setIsAdding(!isAdding)}
-          variant={isAdding ? "secondary" : "dark"}
+          variant={isAdding ? "secondary" : "default"}
           size="sm"
         >
           {isAdding ? "Cancel" : "Add Contact"}
@@ -73,7 +73,7 @@ export function ContactsTab({ customer }: { customer: CustomerWithContacts }) {
                 <Input name="phone" placeholder="+1..." className="bg-white" />
               </div>
               <div className="md:col-span-2 flex justify-end pt-2">
-                <Button type="submit" variant="dark">
+                <Button type="submit" variant="default">
                   Save Contact
                 </Button>
               </div>

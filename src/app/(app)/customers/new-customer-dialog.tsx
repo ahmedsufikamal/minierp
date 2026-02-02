@@ -33,7 +33,7 @@ export function NewCustomerDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2" variant="dark">
+        <Button className="gap-2" variant="default">
           <Plus className="h-4 w-4" />
           Add Customer
         </Button>
@@ -76,7 +76,7 @@ export function NewCustomerDialog() {
             />
           </div>
           <DialogFooter>
-            <Button type="submit" variant="dark">
+            <Button type="submit" variant="default">
               Save changes
             </Button>
           </DialogFooter>

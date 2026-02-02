@@ -51,7 +51,7 @@ export function DealsTab({ customer }: { customer: CustomerWithDeals }) {
 
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2" variant="dark">
+            <Button className="gap-2" variant="default">
               <Plus className="h-4 w-4" />
               New Deal
             </Button>
@@ -77,7 +77,7 @@ export function DealsTab({ customer }: { customer: CustomerWithDeals }) {
                 <Input id="description" name="description" placeholder="Optional notes..." />
               </div>
               <DialogFooter>
-                <Button type="submit" variant="dark">
+                <Button type="submit" variant="default">
                   Create Deal
                 </Button>
               </DialogFooter>

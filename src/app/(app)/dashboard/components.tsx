@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { initChartOfAccounts } from "./actions";
+import { initChartOfAccountsAction } from "./actions";
 
 export function InitAccountsButton() {
   const [pending, start] = useTransition();
@@ -10,7 +10,7 @@ export function InitAccountsButton() {
     <button
       onClick={() =>
         start(() => {
-          void initChartOfAccounts();
+          void initChartOfAccountsAction();
         })
       }
       disabled={pending}

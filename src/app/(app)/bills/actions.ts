@@ -63,12 +63,7 @@ export async function createBill(formData: FormData) {
     description: l.description,
     qty: l.qty,
     unitPriceCents: l.unitPriceCents,
-    lineTotalCents: l.qty * l.unitPriceCents,
   }));
-
-  const subtotalCents = lines.reduce((sum, l) => sum + l.lineTotalCents, 0);
-  const taxCents = 0;
-  const totalCents = subtotalCents + taxCents;
 
   await prisma.purchaseBill.create({
     data: {
@@ -78,9 +73,6 @@ export async function createBill(formData: FormData) {
       billDate: parseDate(billDate) ?? new Date(),
       dueDate: parseDate(dueDate),
       notes: notes || null,
-      subtotalCents,
-      taxCents,
-      totalCents,
       lines: { create: lines },
     },
   });

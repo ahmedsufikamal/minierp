@@ -107,7 +107,7 @@ export function OverviewTab({ customer }: { customer: CustomerWithRelations }) {
           <CardContent className="p-4 space-y-4">
             <form ref={taskFormRef} action={handleAddTask} className="flex gap-2 mb-4">
               <Input name="title" placeholder="Add a task..." className="h-9 text-sm" />
-              <Button size="sm" type="submit" variant="dark">
+              <Button size="sm" type="submit" variant="default">
                 Add
               </Button>
             </form>

@@ -12,7 +12,7 @@ export default async function BillsPage() {
   const [bills, vendors, products] = await Promise.all([
     prisma.purchaseBill.findMany({
       where: { orgId },
-      include: { vendor: true },
+      include: { vendor: true, lines: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.vendor.findMany({
@@ -59,7 +59,7 @@ export default async function BillsPage() {
                     <td className="px-4 py-3 font-mono text-xs">{b.number}</td>
                     <td className="px-4 py-3">{b.vendor.name}</td>
                     <td className="px-4 py-3">{b.status}</td>
-                    <td className="px-4 py-3">{formatMoney(b.totalCents, b.currency)}</td>
+                    <td className="px-4 py-3">{formatMoney(b.lines.reduce((acc, line) => acc + line.qty * line.unitPriceCents, 0))}</td>
                     <td className="px-4 py-3">
                       <DeleteRowButton id={b.id} />
                     </td>

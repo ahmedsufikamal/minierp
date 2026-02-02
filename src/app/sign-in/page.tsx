@@ -19,7 +19,7 @@ import { Loader2 } from "lucide-react";
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button disabled={pending} type="submit" className="w-full font-bold" variant="dark">
+    <Button disabled={pending} type="submit" className="w-full font-bold" variant="default">
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sign In"}
     </Button>
   );

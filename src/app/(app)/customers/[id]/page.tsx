@@ -77,7 +77,7 @@ export default async function CustomerDetailPage({ params }: { params: { id: str
 
           <div className="flex items-center gap-2">
             <Button variant="outline">Edit Profile</Button>
-            <Button variant="dark">New Deal</Button>
+            <Button variant="default">New Deal</Button>
           </div>
         </div>
       </div>

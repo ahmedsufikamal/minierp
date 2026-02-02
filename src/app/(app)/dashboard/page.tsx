@@ -45,7 +45,7 @@ function StatCard({
         <div className="mt-4 flex items-center justify-between">
           <Badge>View</Badge>
           <Link href={href}>
-            <Button variant="dark" size="sm">
+            <Button variant="default" size="sm">
               Open
             </Button>
           </Link>
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
         </div>
 
         <form action={initChartOfAccountsAction}>
-          <Button variant="dark">Initialize chart of accounts</Button>
+          <Button variant="default">Initialize chart of accounts</Button>
         </form>
       </div>
 
