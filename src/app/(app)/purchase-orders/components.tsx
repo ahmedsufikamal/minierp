@@ -3,10 +3,15 @@
 import { useMemo, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { createBill, deleteBill, updateBillStatus } from "./actions";
-import { formatMoney } from "@/lib/utils";
+import {
+  createPurchaseOrder,
+  deletePurchaseOrder,
+  updatePurchaseOrderStatus,
+  convertPurchaseOrderToBill,
+} from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatMoney } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Vendor = { id: string; name: string };
 type Product = { id: string; sku: string; name: string; unit: string; priceCents: number };
@@ -17,7 +22,7 @@ function SubmitButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
+      className="inline-flex items-center rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
     >
       {pending ? "Saving..." : label}
     </button>
@@ -36,35 +41,35 @@ function moneyToCents(v: number) {
   return Math.round(v * 100);
 }
 
-export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products: Product[] }) {
+const PO_STATUSES = ["DRAFT", "SENT", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"] as const;
+
+export function NewPOCard({ vendors, products }: { vendors: Vendor[]; products: Product[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [lines, setLines] = useState<LineState[]>([
-    { description: "Expense / Item", qty: 1, unitPrice: 0 },
-  ]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [lines, setLines] = useState<LineState[]>([{ description: "Item", qty: 1, unitPrice: 0 }]);
 
-  const subtotalCents = useMemo(() => {
-    return lines.reduce((sum, l) => sum + moneyToCents(l.unitPrice) * l.qty, 0);
-  }, [lines]);
-
-  const linesJson = useMemo(() => {
-    return JSON.stringify(
-      lines
-        .filter((l) => l.description.trim().length > 0 && l.qty > 0)
-        .map((l) => ({
-          productId: l.productId || null,
-          description: l.description.trim(),
-          qty: Number(l.qty),
-          unitPriceCents: moneyToCents(l.unitPrice),
-        })),
-    );
-  }, [lines]);
+  const linesJson = useMemo(
+    () =>
+      JSON.stringify(
+        lines
+          .filter((l) => l.description.trim().length > 0 && l.qty > 0)
+          .map((l) => ({
+            productId: l.productId || null,
+            description: l.description.trim(),
+            qty: Number(l.qty),
+            unitPriceCents: moneyToCents(l.unitPrice),
+          })),
+      ),
+    [lines],
+  );
 
   return (
     <div className="rounded-2xl border p-5">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-medium">Create bill</div>
-          <div className="text-sm text-slate-600">Add vendor + line items.</div>
+          <div className="font-medium">Create purchase order</div>
+          <div className="text-sm text-slate-600">Vendor and line items.</div>
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -77,14 +82,24 @@ export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products
       {open ? (
         <form
           action={async (formData: FormData) => {
-            await createBill(formData);
+            setFormError(null);
+            const res = await createPurchaseOrder(formData);
+            if (res.ok) {
+              toast.success("Purchase order created");
+              setOpen(false);
+              router.refresh();
+            } else {
+              const err = res.error;
+              setFormError(typeof err === "string" ? err : "Please fix the errors below");
+              toast.error(typeof err === "string" ? err : "Invalid form data");
+            }
           }}
           className="mt-4 grid gap-3"
         >
           <div className="grid grid-cols-2 gap-3">
             <input
               name="number"
-              placeholder="BILL-0001"
+              placeholder="PO-001"
               className="w-full rounded-xl border px-3 py-2 text-sm"
               required
             />
@@ -104,23 +119,12 @@ export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products
               ))}
             </select>
           </div>
-
           <div className="grid grid-cols-2 gap-3">
-            <input
-              type="date"
-              name="billDate"
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-            />
-            <input
-              type="date"
-              name="dueDate"
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-            />
+            <input type="date" name="orderDate" className="w-full rounded-xl border px-3 py-2 text-sm" />
+            <input type="date" name="expectedDate" className="w-full rounded-xl border px-3 py-2 text-sm" />
           </div>
-
           <div className="rounded-xl border overflow-hidden">
             <div className="px-3 py-2 text-xs text-slate-600 border-b bg-slate-50">Line items</div>
-
             <div className="p-3 grid gap-2">
               {lines.map((line, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-center">
@@ -151,7 +155,6 @@ export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products
                       </option>
                     ))}
                   </select>
-
                   <input
                     className="col-span-4 rounded-lg border px-2 py-2 text-xs"
                     placeholder="Description"
@@ -162,7 +165,6 @@ export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products
                       )
                     }
                   />
-
                   <input
                     type="number"
                     className="col-span-2 rounded-lg border px-2 py-2 text-xs"
@@ -174,7 +176,6 @@ export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products
                       )
                     }
                   />
-
                   <input
                     type="number"
                     className="col-span-2 rounded-lg border px-2 py-2 text-xs"
@@ -191,49 +192,32 @@ export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products
                   />
                 </div>
               ))}
-
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50"
-                  onClick={() =>
-                    setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])
-                  }
-                >
-                  Add line
-                </button>
-
-                <div className="text-sm font-medium">
-                  Subtotal: {formatMoney(subtotalCents, "BDT")}
-                </div>
-              </div>
+              <button
+                type="button"
+                className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50"
+                onClick={() => setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])}
+              >
+                Add line
+              </button>
             </div>
           </div>
-
           <textarea
             name="notes"
             placeholder="Notes (optional)"
-            className="w-full rounded-xl border px-3 py-2 text-sm min-h-[80px]"
+            className="w-full rounded-xl border px-3 py-2 text-sm min-h-[60px]"
           />
-
           <input type="hidden" name="linesJson" value={linesJson} />
-
+          {formError && <p className="text-sm text-red-600">{formError}</p>}
           <div className="flex justify-end">
-            <SubmitButton label="Create bill" />
+            <SubmitButton label="Create order" />
           </div>
-
-          {vendors.length === 0 ? (
-            <p className="text-xs text-amber-700">You need at least 1 vendor to create a bill.</p>
-          ) : null}
         </form>
       ) : null}
     </div>
   );
 }
 
-const BILL_STATUSES = ["DRAFT", "RECEIVED", "PAID", "VOID"] as const;
-
-export function BillStatusSelect({
+export function POStatusSelect({
   id,
   currentStatus,
 }: {
@@ -250,11 +234,11 @@ export function BillStatusSelect({
       className="rounded-lg border px-2 py-1 text-xs bg-white disabled:opacity-60"
       onChange={(e) => {
         const status = e.target.value;
-        if (!BILL_STATUSES.includes(status as (typeof BILL_STATUSES)[number])) return;
+        if (!PO_STATUSES.includes(status as (typeof PO_STATUSES)[number])) return;
         startTransition(async () => {
           const formData = new FormData();
           formData.set("status", status);
-          const res = await updateBillStatus(id, formData);
+          const res = await updatePurchaseOrderStatus(id, formData);
           if (res.ok) {
             toast.success("Status updated");
             router.refresh();
@@ -264,7 +248,7 @@ export function BillStatusSelect({
         });
       }}
     >
-      {BILL_STATUSES.map((s) => (
+      {PO_STATUSES.map((s) => (
         <option key={s} value={s}>
           {s}
         </option>
@@ -273,35 +257,47 @@ export function BillStatusSelect({
   );
 }
 
-export function DeleteRowButton({ id, label }: { id: string; label: string }) {
+export function DeletePOButton({
+  id,
+  status,
+  label,
+}: {
+  id: string;
+  status: string;
+  label: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const canDelete = status === "DRAFT" || status === "CANCELLED";
+
   const handleDelete = async () => {
     setPending(true);
-    const res = await deleteBill(id);
+    const res = await deletePurchaseOrder(id);
     setPending(false);
     if (res.ok) {
-      toast.success("Bill deleted");
+      toast.success("Order deleted");
       router.refresh();
     } else {
       toast.error(typeof res.error === "string" ? res.error : "Failed to delete");
     }
   };
+
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
-        disabled={pending}
+        onClick={() => canDelete && setOpen(true)}
+        disabled={pending || !canDelete}
         className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+        title={!canDelete ? "Only DRAFT or CANCELLED can be deleted" : undefined}
       >
         {pending ? "..." : "Delete"}
       </button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="Delete bill?"
-        description={`Are you sure you want to delete bill ${label}? This cannot be undone.`}
+        title="Delete purchase order?"
+        description={`Are you sure you want to delete ${label}? This cannot be undone.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"
         variant="danger"
@@ -309,5 +305,51 @@ export function DeleteRowButton({ id, label }: { id: string; label: string }) {
         pending={pending}
       />
     </>
+  );
+}
+
+export function ConvertToBillButton({
+  orderId,
+  status,
+}: {
+  orderId: string;
+  status: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [billNumber, setBillNumber] = useState("");
+  const canConvert = status === "RECEIVED" || status === "PARTIALLY_RECEIVED";
+
+  return (
+    <div className="flex items-center gap-2">
+      {canConvert && (
+        <input
+          type="text"
+          placeholder="BILL-001"
+          value={billNumber}
+          onChange={(e) => setBillNumber(e.target.value)}
+          className="rounded-lg border px-2 py-1 text-xs w-24"
+        />
+      )}
+      <button
+        type="button"
+        disabled={pending || !canConvert || (canConvert && !billNumber.trim())}
+        className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+        onClick={() => {
+          if (!billNumber.trim()) return;
+          start(async () => {
+            const res = await convertPurchaseOrderToBill(orderId, billNumber.trim());
+            if (res.ok) {
+              toast.success("Bill created from order");
+              router.refresh();
+            } else {
+              toast.error(typeof res.error === "string" ? res.error : "Failed to convert");
+            }
+          });
+        }}
+      >
+        Convert to bill
+      </button>
+    </div>
   );
 }

@@ -1,20 +1,29 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
-import { NewBillCard, DeleteRowButton } from "./components";
+import { NewBillCard, DeleteRowButton, BillStatusSelect } from "./components";
+import { PaginationLinks } from "@/components/ui/pagination-links";
 import { formatMoney } from "@/lib/utils";
+import { getPaginationParams, getTotalPages } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
-export default async function BillsPage() {
-  const orgId = await getOrgIdOrUserId();
+type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
-  const [bills, vendors, products] = await Promise.all([
+export default async function BillsPage(props: PageProps) {
+  const orgId = await getOrgIdOrUserId();
+  const searchParams = (await props.searchParams?.()) ?? {};
+  const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
+
+  const [bills, total, vendors, products] = await Promise.all([
     prisma.purchaseBill.findMany({
       where: { orgId },
       include: { vendor: true, lines: true },
       orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
     }),
+    prisma.purchaseBill.count({ where: { orgId } }),
     prisma.vendor.findMany({
       where: { orgId },
       select: { id: true, name: true },
@@ -26,6 +35,8 @@ export default async function BillsPage() {
       orderBy: { name: "asc" },
     }),
   ]);
+
+  const totalPages = getTotalPages(total, limit);
 
   return (
     <div className="space-y-6">
@@ -39,7 +50,7 @@ export default async function BillsPage() {
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
             <div className="font-medium">Bill list</div>
-            <div className="text-sm text-slate-600">Total: {bills.length}</div>
+            <div className="text-sm text-slate-600">Total: {total}</div>
           </div>
 
           <div className="overflow-x-auto">
@@ -58,10 +69,12 @@ export default async function BillsPage() {
                   <tr key={b.id} className="border-b last:border-0">
                     <td className="px-4 py-3 font-mono text-xs">{b.number}</td>
                     <td className="px-4 py-3">{b.vendor.name}</td>
-                    <td className="px-4 py-3">{b.status}</td>
+                    <td className="px-4 py-3">
+                      <BillStatusSelect id={b.id} currentStatus={b.status} />
+                    </td>
                     <td className="px-4 py-3">{formatMoney(b.lines.reduce((acc, line) => acc + line.qty * line.unitPriceCents, 0))}</td>
                     <td className="px-4 py-3">
-                      <DeleteRowButton id={b.id} />
+                      <DeleteRowButton id={b.id} label={b.number} />
                     </td>
                   </tr>
                 ))}
@@ -75,6 +88,7 @@ export default async function BillsPage() {
               </tbody>
             </table>
           </div>
+          <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
         </div>
       </div>
     </div>

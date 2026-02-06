@@ -1,7 +1,12 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
-import { NewInvoiceCard, DeleteRowButton, InvoiceStatusSelect } from "./components";
+import {
+  NewQuoteCard,
+  QuoteStatusSelect,
+  DeleteQuoteButton,
+  ConvertToInvoiceButton,
+} from "./components";
 import { PaginationLinks } from "@/components/ui/pagination-links";
 import { formatMoney } from "@/lib/utils";
 import { getPaginationParams, getTotalPages } from "@/lib/pagination";
@@ -10,20 +15,20 @@ export const dynamic = "force-dynamic";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
-export default async function InvoicesPage(props: PageProps) {
+export default async function QuotesPage(props: PageProps) {
   const orgId = await getOrgIdOrUserId();
   const searchParams = (await props.searchParams?.()) ?? {};
   const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
 
-  const [invoices, total, customers, products] = await Promise.all([
-    prisma.salesInvoice.findMany({
+  const [quotes, total, customers, products] = await Promise.all([
+    prisma.quote.findMany({
       where: { orgId },
       include: { customer: true, lines: true },
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
     }),
-    prisma.salesInvoice.count({ where: { orgId } }),
+    prisma.quote.count({ where: { orgId } }),
     prisma.customer.findMany({
       where: { orgId },
       select: { id: true, name: true },
@@ -40,16 +45,16 @@ export default async function InvoicesPage(props: PageProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Invoices" subtitle="Create and track sales invoices." />
+      <PageHeader title="Quotes" subtitle="Create quotes and convert them to invoices." />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <NewInvoiceCard customers={customers} products={products} />
+          <NewQuoteCard customers={customers} products={products} />
         </div>
 
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
-            <div className="font-medium">Invoice list</div>
+            <div className="font-medium">Quote list</div>
             <div className="text-sm text-slate-600">Total: {total}</div>
           </div>
 
@@ -61,27 +66,43 @@ export default async function InvoicesPage(props: PageProps) {
                   <th>Customer</th>
                   <th>Status</th>
                   <th>Total</th>
+                  <th>Convert</th>
                   <th className="w-[90px]">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-mono text-xs">{inv.number}</td>
-                    <td className="px-4 py-3">{inv.customer.name}</td>
+                {quotes.map((q) => (
+                  <tr key={q.id} className="border-b last:border-0">
+                    <td className="px-4 py-3 font-mono text-xs">{q.number}</td>
+                    <td className="px-4 py-3">{q.customer.name}</td>
                     <td className="px-4 py-3">
-                      <InvoiceStatusSelect id={inv.id} currentStatus={inv.status} />
+                      <QuoteStatusSelect id={q.id} currentStatus={q.status} />
                     </td>
-                    <td className="px-4 py-3">{formatMoney(inv.lines.reduce((acc, line) => acc + line.qty * line.unitPriceCents, 0))}</td>
                     <td className="px-4 py-3">
-                      <DeleteRowButton id={inv.id} label={inv.number} />
+                      {formatMoney(
+                        q.lines.reduce((acc, line) => acc + line.qty * line.unitPriceCents, 0),
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ConvertToInvoiceButton
+                        quoteId={q.id}
+                        converted={!!q.convertedToInvoiceId}
+                        status={q.status}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <DeleteQuoteButton
+                        id={q.id}
+                        canDelete={!q.convertedToInvoiceId}
+                        label={q.number}
+                      />
                     </td>
                   </tr>
                 ))}
-                {invoices.length === 0 ? (
+                {quotes.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-slate-600" colSpan={5}>
-                      No invoices yet. Create your first invoice on the left.
+                    <td className="px-4 py-8 text-slate-600" colSpan={6}>
+                      No quotes yet. Create your first quote on the left.
                     </td>
                   </tr>
                 ) : null}

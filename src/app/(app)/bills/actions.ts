@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
 
 const LineSchema = z.object({
   productId: z.string().optional().nullable(),
@@ -65,18 +66,49 @@ export async function createBill(formData: FormData) {
     unitPriceCents: l.unitPriceCents,
   }));
 
-  await prisma.purchaseBill.create({
-    data: {
-      orgId,
-      vendorId,
-      number,
-      billDate: parseDate(billDate) ?? new Date(),
-      dueDate: parseDate(dueDate),
-      notes: notes || null,
-      lines: { create: lines },
-    },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.purchaseBill.create({
+        data: {
+          orgId,
+          vendorId,
+          number,
+          billDate: parseDate(billDate) ?? new Date(),
+          dueDate: parseDate(dueDate),
+          notes: notes || null,
+          lines: { create: lines },
+        },
+      });
+    });
+  } catch (e) {
+    const conflict = handlePrismaUniqueConflict(e, "number");
+    if (conflict) return conflict;
+    throw e;
+  }
 
+  revalidatePath("/bills");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+const BillStatuses = ["DRAFT", "RECEIVED", "PAID", "VOID"] as const;
+
+export async function updateBillStatus(id: string, formData: FormData) {
+  const orgId = await getOrgIdOrUserId();
+  const status = formData.get("status");
+  const parsed = z.enum(BillStatuses).safeParse(status);
+  if (!parsed.success) return { ok: false, error: "Invalid status" };
+
+  const bill = await prisma.purchaseBill.findFirst({
+    where: { id, orgId },
+    select: { id: true },
+  });
+  if (!bill) return { ok: false, error: "Bill not found" };
+
+  await prisma.purchaseBill.update({
+    where: { id },
+    data: { status: parsed.data },
+  });
   revalidatePath("/bills");
   revalidatePath("/dashboard");
   return { ok: true };

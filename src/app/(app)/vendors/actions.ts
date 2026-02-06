@@ -42,6 +42,39 @@ export async function createVendor(formData: FormData) {
   return { ok: true };
 }
 
+export async function updateVendor(id: string, formData: FormData) {
+  const orgId = await getOrgIdOrUserId();
+
+  const parsed = VendorSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    phone: formData.get("phone"),
+    address: formData.get("address"),
+  });
+
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().fieldErrors };
+  }
+
+  const existing = await prisma.vendor.findFirst({ where: { id, orgId } });
+  if (!existing) return { ok: false, error: "Vendor not found" };
+
+  const { name, email, phone, address } = parsed.data;
+
+  await prisma.vendor.update({
+    where: { id },
+    data: {
+      name,
+      email: email || null,
+      phone: phone || null,
+      address: address || null,
+    },
+  });
+
+  revalidatePath("/vendors");
+  return { ok: true };
+}
+
 export async function deleteVendor(id: string) {
   const orgId = await getOrgIdOrUserId();
   await prisma.vendor.deleteMany({ where: { id, orgId } });

@@ -1,6 +1,7 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
+import { getStockByProduct } from "@/lib/inventory";
 import { DeleteRowButton, NewMoveCard } from "./components";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function InventoryPage() {
   const orgId = await getOrgIdOrUserId();
 
-  const [moves, products] = await Promise.all([
+  const [moves, products, stockMap] = await Promise.all([
     prisma.inventoryMove.findMany({
       where: { orgId },
       include: { product: true },
@@ -17,18 +18,11 @@ export default async function InventoryPage() {
     }),
     prisma.product.findMany({
       where: { orgId },
-      select: { id: true, sku: true, name: true, unit: true },
+      select: { id: true, sku: true, name: true, unit: true, lowStockThreshold: true },
       orderBy: { name: "asc" },
     }),
+    getStockByProduct(orgId),
   ]);
-
-  // Quick stock calculation
-  const stock = new Map<string, number>();
-  for (const m of moves.slice().reverse()) {
-    const prev = stock.get(m.productId) ?? 0;
-    const delta = m.type === "OUT" ? -m.qty : m.qty;
-    stock.set(m.productId, prev + delta);
-  }
 
   return (
     <div className="space-y-6">
@@ -54,20 +48,33 @@ export default async function InventoryPage() {
                     <th>Name</th>
                     <th>Unit</th>
                     <th>Stock</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((p) => (
-                    <tr key={p.id} className="border-b last:border-0">
-                      <td className="px-4 py-3 font-mono text-xs">{p.sku}</td>
-                      <td className="px-4 py-3">{p.name}</td>
-                      <td className="px-4 py-3">{p.unit}</td>
-                      <td className="px-4 py-3 font-medium">{stock.get(p.id) ?? 0}</td>
-                    </tr>
-                  ))}
+                  {products.map((p) => {
+                    const stock = stockMap.get(p.id) ?? 0;
+                    const isLow =
+                      p.lowStockThreshold != null && stock < p.lowStockThreshold;
+                    return (
+                      <tr key={p.id} className="border-b last:border-0">
+                        <td className="px-4 py-3 font-mono text-xs">{p.sku}</td>
+                        <td className="px-4 py-3">{p.name}</td>
+                        <td className="px-4 py-3">{p.unit}</td>
+                        <td className="px-4 py-3 font-medium">{stock}</td>
+                        <td className="px-4 py-3">
+                          {isLow && (
+                            <span className="text-amber-600 text-xs font-medium">
+                              Low stock
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {products.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-slate-600" colSpan={4}>
+                      <td className="px-4 py-8 text-slate-600" colSpan={5}>
                         No products yet.
                       </td>
                     </tr>

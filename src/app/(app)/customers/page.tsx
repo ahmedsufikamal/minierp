@@ -4,23 +4,36 @@ import { getOrgIdOrUserId } from "@/lib/auth";
 import { CustomerTable } from "./customer-table";
 import { NewCustomerDialog } from "./new-customer-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaginationLinks } from "@/components/ui/pagination-links";
 import { Users, UserPlus, TrendingUp } from "lucide-react";
+import { getPaginationParams, getTotalPages } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
+type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function CustomersPage(props: PageProps) {
   const orgId = await getOrgIdOrUserId();
+  const searchParams = (await props.searchParams?.()) ?? {};
+  const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
 
-  const customers = await prisma.customer.findMany({
-    where: { orgId },
-    orderBy: { createdAt: "desc" },
-  });
+  const [customers, total, newThisMonth] = await Promise.all([
+    prisma.customer.findMany({
+      where: { orgId },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.customer.count({ where: { orgId } }),
+    prisma.customer.count({
+      where: {
+        orgId,
+        createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+      },
+    }),
+  ]);
 
-  // Calculate stats
-  const totalCustomers = customers.length;
-  const newThisMonth = customers.filter(
-    (c) => new Date(c.createdAt) > new Date(new Date().setDate(1)),
-  ).length;
+  const totalPages = getTotalPages(total, limit);
 
   return (
     <div className="space-y-8">
@@ -36,7 +49,7 @@ export default async function CustomersPage() {
             <Users className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-indigo-700">{totalCustomers}</div>
+            <div className="text-2xl font-bold text-indigo-700">{total}</div>
             <p className="text-xs text-indigo-500/80">Active profiles</p>
           </CardContent>
         </Card>
@@ -62,7 +75,10 @@ export default async function CustomersPage() {
         </Card>
       </div>
 
-      <CustomerTable customers={customers} />
+      <div className="rounded-xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
+        <CustomerTable customers={customers} />
+        <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
+      </div>
     </div>
   );
 }

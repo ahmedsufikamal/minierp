@@ -21,6 +21,22 @@ enum BillStatus {
   VOID
 }
 
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
 enum InventoryMoveType {
   IN
   OUT
@@ -57,6 +73,7 @@ model Customer {
   updatedAt DateTime @updatedAt
 
   invoices    SalesInvoice[]
+  quotes     Quote[]
   contacts    Contact[]
   opportunities Opportunity[]
   activities  Activity[]
@@ -73,22 +90,26 @@ model Vendor {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bills     PurchaseBill[]
+  bills          PurchaseBill[]
+  purchaseOrders PurchaseOrder[]
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  orgId       String
-  sku         String
-  name        String
-  unit        String   @default("pcs")
-  priceCents  Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  orgId              String
+  sku                String
+  name               String
+  unit               String   @default("pcs")
+  priceCents         Int      @default(0)
+  lowStockThreshold  Int?     // optional: warn when stock below this
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  invoiceLines SalesInvoiceLine[]
-  billLines    PurchaseBillLine[]
-  moves        InventoryMove[]
+  invoiceLines       SalesInvoiceLine[]
+  billLines          PurchaseBillLine[]
+  quoteLines         QuoteLine[]
+  purchaseOrderLines PurchaseOrderLine[]
+  moves              InventoryMove[]
 
   @@unique([orgId, sku])
 }
@@ -106,9 +127,42 @@ model SalesInvoice {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  lines       SalesInvoiceLine[]
+  lines              SalesInvoiceLine[]
+  convertedFromQuote Quote?
+  payments           Payment[]
 
   @@unique([orgId, number])
+}
+
+model Quote {
+  id                    String      @id @default(cuid())
+  orgId                 String
+  number                String
+  status                QuoteStatus @default(DRAFT)
+  customerId            String
+  customer              Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  quoteDate             DateTime    @default(now())
+  validUntil            DateTime?
+  notes                 String?
+  convertedToInvoiceId  String?     @unique
+  convertedToInvoice    SalesInvoice? @relation(fields: [convertedToInvoiceId], references: [id], onDelete: SetNull)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  lines                 QuoteLine[]
+
+  @@unique([orgId, number])
+}
+
+model QuoteLine {
+  id             String  @id @default(cuid())
+  quoteId        String
+  quote          Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description   String
+  qty           Int
+  unitPriceCents Int
 }
 
 model SalesInvoiceLine {
@@ -119,6 +173,36 @@ model SalesInvoiceLine {
   product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
   description String
   qty         Int
+  unitPriceCents Int
+}
+
+model PurchaseOrder {
+  id        String              @id @default(cuid())
+  orgId     String
+  number    String
+  status    PurchaseOrderStatus  @default(DRAFT)
+  vendorId  String
+  vendor    Vendor               @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  orderDate DateTime            @default(now())
+  expectedDate DateTime?
+  notes     String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  lines     PurchaseOrderLine[]
+
+  @@unique([orgId, number])
+}
+
+model PurchaseOrderLine {
+  id             String         @id @default(cuid())
+  orderId        String
+  order          PurchaseOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description    String
+  qtyOrdered     Int
+  qtyReceived    Int             @default(0)
   unitPriceCents Int
 }
 
@@ -136,8 +220,66 @@ model PurchaseBill {
   updatedAt DateTime    @updatedAt
 
   lines     PurchaseBillLine[]
+  payments  Payment[]
 
   @@unique([orgId, number])
+}
+
+enum PaymentType {
+  INBOUND
+  OUTBOUND
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  CARD
+  OTHER
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  orgId        String
+  type         PaymentType
+  amountCents  Int
+  date         DateTime     @default(now())
+  reference    String?
+  method       PaymentMethod @default(CASH)
+  invoiceId    String?
+  invoice      SalesInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  billId       String?
+  bill         PurchaseBill? @relation(fields: [billId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+
+  @@index([orgId, date])
+  @@index([invoiceId])
+  @@index([billId])
+}
+
+model OrgSetting {
+  id        String   @id @default(cuid())
+  orgId     String
+  key       String
+  value     String   // store JSON for complex values
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, key])
+  @@index([orgId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  orgId      String
+  userId     String
+  action     String   // CREATED, UPDATED, DELETED
+  entityType String
+  entityId   String?
+  oldValues  String?  // JSON
+  newValues  String?  // JSON
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([orgId, entityType])
 }
 
 model PurchaseBillLine {

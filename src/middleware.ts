@@ -6,11 +6,16 @@ const protectedRoutes = [
   "/dashboard",
   "/customers",
   "/products",
+  "/quotes",
   "/invoices",
   "/bills",
   "/inventory",
   "/accounting",
   "/vendors",
+  "/purchase-orders",
+  "/payments",
+  "/reports",
+  "/settings",
 ];
 const publicRoutes = ["/sign-in", "/sign-up", "/"];
 

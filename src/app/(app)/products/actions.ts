@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
 
 const ProductSchema = z.object({
   sku: z.string().min(1, "SKU is required"),
@@ -34,15 +35,60 @@ export async function createProduct(formData: FormData) {
 
   const { sku, name, unit, price } = parsed.data;
 
-  await prisma.product.create({
-    data: {
-      orgId,
-      sku,
-      name,
-      unit,
-      priceCents: toCents(price),
-    },
+  try {
+    await prisma.product.create({
+      data: {
+        orgId,
+        sku,
+        name,
+        unit,
+        priceCents: toCents(price),
+      },
+    });
+  } catch (e) {
+    const conflict = handlePrismaUniqueConflict(e, "sku");
+    if (conflict) return conflict;
+    throw e;
+  }
+
+  revalidatePath("/products");
+  return { ok: true };
+}
+
+export async function updateProduct(id: string, formData: FormData) {
+  const orgId = await getOrgIdOrUserId();
+
+  const parsed = ProductSchema.safeParse({
+    sku: formData.get("sku"),
+    name: formData.get("name"),
+    unit: formData.get("unit"),
+    price: formData.get("price"),
   });
+
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().fieldErrors };
+  }
+
+  const existing = await prisma.product.findFirst({ where: { id, orgId } });
+  if (!existing) return { ok: false, error: "Product not found" };
+
+  const { sku, name, unit, price } = parsed.data;
+
+  try {
+    await prisma.product.update({
+      where: { id },
+      data: {
+        sku,
+        name,
+        unit,
+        priceCents: toCents(price),
+      },
+    });
+  } catch (e) {
+    const conflict = handlePrismaUniqueConflict(e, "sku");
+    if (conflict) return conflict;
+    throw e;
+  }
 
   revalidatePath("/products");
   return { ok: true };

@@ -14,13 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-import { MoreHorizontal, Search, Mail, Phone, Trash2, ExternalLink } from "lucide-react";
+import { MoreHorizontal, Search, Mail, Phone, Trash2, ExternalLink, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { format } from "date-fns";
 import { deleteCustomer } from "./actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { EditCustomerDialog } from "./edit-customer-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Placeholder for Table components since I haven't created them yet,
 // I'll assume standard HTML table structure with Tailwind classes if I don't make the shadcn Table.
@@ -31,6 +33,10 @@ import { useRouter } from "next/navigation";
 
 export function CustomerTable({ customers }: { customers: Customer[] }) {
   const [search, setSearch] = useState("");
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
   const router = useRouter();
 
   const filtered = customers.filter(
@@ -40,16 +46,20 @@ export function CustomerTable({ customers }: { customers: Customer[] }) {
   );
 
   const handleDelete = async (id: string, name: string) => {
-    // confirm logic could go here
-    try {
-      // Assuming deleteCustomerAction exists and works
-      // verification required.
-      await deleteCustomer(id);
+    setDeletePending(true);
+    const res = await deleteCustomer(id);
+    setDeletePending(false);
+    if (res.ok) {
       toast.success(`${name} deleted`);
       router.refresh();
-    } catch {
-      toast.error("Failed to delete customer");
+    } else {
+      toast.error(typeof res.error === "string" ? res.error : "Failed to delete customer");
     }
+  };
+
+  const openEdit = (c: Customer) => {
+    setEditingCustomer(c);
+    setEditDialogOpen(true);
   };
 
   return (
@@ -141,10 +151,13 @@ export function CustomerTable({ customers }: { customers: Customer[] }) {
                           <ExternalLink className="mr-2 h-4 w-4" /> View Details
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEdit(customer)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-red-600 focus:text-red-600"
-                        onClick={() => handleDelete(customer.id, customer.name)}
+                        onClick={() => setDeleteTarget({ id: customer.id, name: customer.name })}
                       >
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
@@ -163,6 +176,33 @@ export function CustomerTable({ customers }: { customers: Customer[] }) {
           </tbody>
         </table>
       </div>
+
+      <EditCustomerDialog
+        customer={editingCustomer}
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) setEditingCustomer(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete customer?"
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() =>
+          deleteTarget ? handleDelete(deleteTarget.id, deleteTarget.name) : undefined
+        }
+        pending={deletePending}
+      />
     </div>
   );
 }

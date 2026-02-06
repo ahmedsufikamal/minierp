@@ -1,17 +1,30 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
-import { AddVendorCard, DeleteRowButton } from "./components";
+import { AddVendorCard, VendorList } from "./components";
+import { PaginationLinks } from "@/components/ui/pagination-links";
+import { getPaginationParams, getTotalPages } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
-export default async function VendorsPage() {
-  const orgId = await getOrgIdOrUserId();
+type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
-  const vendors = await prisma.vendor.findMany({
-    where: { orgId },
-    orderBy: { createdAt: "desc" },
-  });
+export default async function VendorsPage(props: PageProps) {
+  const orgId = await getOrgIdOrUserId();
+  const searchParams = (await props.searchParams?.()) ?? {};
+  const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
+
+  const [vendors, total] = await Promise.all([
+    prisma.vendor.findMany({
+      where: { orgId },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.vendor.count({ where: { orgId } }),
+  ]);
+
+  const totalPages = getTotalPages(total, limit);
 
   return (
     <div className="space-y-6">
@@ -25,40 +38,11 @@ export default async function VendorsPage() {
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
             <div className="font-medium">Vendor list</div>
-            <div className="text-sm text-slate-600">Total: {vendors.length}</div>
+            <div className="text-sm text-slate-600">Total: {total}</div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-left text-slate-600">
-                <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th className="w-[90px]">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vendors.map((v) => (
-                  <tr key={v.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{v.name}</td>
-                    <td className="px-4 py-3">{v.email ?? "—"}</td>
-                    <td className="px-4 py-3">{v.phone ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <DeleteRowButton id={v.id} />
-                    </td>
-                  </tr>
-                ))}
-                {vendors.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-8 text-slate-600" colSpan={4}>
-                      No vendors yet. Create your first vendor on the left.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+          <VendorList vendors={vendors} />
+          <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
         </div>
       </div>
     </div>

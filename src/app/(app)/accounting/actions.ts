@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getOrgIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
 
 const AccountSchema = z.object({
   code: z.string().min(1),
@@ -30,9 +31,15 @@ export async function createAccount(formData: FormData) {
     return { ok: false, error: parsed.error.flatten().fieldErrors };
   }
 
-  await prisma.account.create({
-    data: { orgId, ...parsed.data },
-  });
+  try {
+    await prisma.account.create({
+      data: { orgId, ...parsed.data },
+    });
+  } catch (e) {
+    const conflict = handlePrismaUniqueConflict(e, "code");
+    if (conflict) return conflict;
+    throw e;
+  }
 
   revalidatePath("/accounting");
   revalidatePath("/dashboard");

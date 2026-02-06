@@ -2,8 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
-import { createInvoice, deleteInvoice } from "./actions";
+import { useRouter } from "next/navigation";
+import { createInvoice, deleteInvoice, updateInvoiceStatus } from "./actions";
 import { formatMoney } from "@/lib/utils";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Customer = { id: string; name: string };
 type Product = { id: string; sku: string; name: string; unit: string; priceCents: number };
@@ -40,7 +43,9 @@ export function NewInvoiceCard({
   customers: Customer[];
   products: Product[];
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [lines, setLines] = useState<LineState[]>([
     { description: "Service / Item", qty: 1, unitPrice: 0 },
   ]);
@@ -80,7 +85,17 @@ export function NewInvoiceCard({
       {open ? (
         <form
           action={async (formData: FormData) => {
-            await createInvoice(formData);
+            setFormError(null);
+            const res = await createInvoice(formData);
+            if (res.ok) {
+              toast.success("Invoice created");
+              setOpen(false);
+              router.refresh();
+            } else {
+              const err = res.error;
+              setFormError(typeof err === "string" ? err : err.lines?.[0] ?? err.linesJson?.[0] ?? "Please fix the errors below");
+              toast.error(typeof err === "string" ? err : "Invalid form data");
+            }
           }}
           className="mt-4 grid gap-3"
         >
@@ -221,6 +236,8 @@ export function NewInvoiceCard({
 
           <input type="hidden" name="linesJson" value={linesJson} />
 
+          {formError && <p className="text-sm text-red-600">{formError}</p>}
+
           <div className="flex justify-end">
             <SubmitButton label="Create invoice" />
           </div>
@@ -236,19 +253,83 @@ export function NewInvoiceCard({
   );
 }
 
-export function DeleteRowButton({ id }: { id: string }) {
-  const [pending, start] = useTransition();
+const INVOICE_STATUSES = ["DRAFT", "SENT", "PAID", "VOID"] as const;
+
+export function InvoiceStatusSelect({
+  id,
+  currentStatus,
+}: {
+  id: string;
+  currentStatus: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
   return (
-    <button
-      onClick={() =>
-        start(() => {
-          void deleteInvoice(id);
-        })
-      }
+    <select
+      value={currentStatus}
       disabled={pending}
-      className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+      className="rounded-lg border px-2 py-1 text-xs bg-white disabled:opacity-60"
+      onChange={(e) => {
+        const status = e.target.value;
+        if (!INVOICE_STATUSES.includes(status as (typeof INVOICE_STATUSES)[number])) return;
+        startTransition(async () => {
+          const formData = new FormData();
+          formData.set("status", status);
+          const res = await updateInvoiceStatus(id, formData);
+          if (res.ok) {
+            toast.success("Status updated");
+            router.refresh();
+          } else {
+            toast.error(typeof res.error === "string" ? res.error : "Failed to update");
+          }
+        });
+      }}
     >
-      {pending ? "..." : "Delete"}
-    </button>
+      {INVOICE_STATUSES.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function DeleteRowButton({ id, label }: { id: string; label: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const handleDelete = async () => {
+    setPending(true);
+    const res = await deleteInvoice(id);
+    setPending(false);
+    if (res.ok) {
+      toast.success("Invoice deleted");
+      router.refresh();
+    } else {
+      toast.error(typeof res.error === "string" ? res.error : "Failed to delete");
+    }
+  };
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        disabled={pending}
+        className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+      >
+        {pending ? "..." : "Delete"}
+      </button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete invoice?"
+        description={`Are you sure you want to delete invoice ${label}? This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDelete}
+        pending={pending}
+      />
+    </>
   );
 }

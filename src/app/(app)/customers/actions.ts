@@ -42,6 +42,40 @@ export async function createCustomer(formData: FormData) {
   return { ok: true };
 }
 
+export async function updateCustomer(id: string, formData: FormData) {
+  const orgId = await getOrgIdOrUserId();
+
+  const parsed = CustomerSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    phone: formData.get("phone"),
+    address: formData.get("address"),
+  });
+
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.flatten().fieldErrors };
+  }
+
+  const existing = await prisma.customer.findFirst({ where: { id, orgId } });
+  if (!existing) return { ok: false, error: "Customer not found" };
+
+  const { name, email, phone, address } = parsed.data;
+
+  await prisma.customer.update({
+    where: { id },
+    data: {
+      name,
+      email: email || null,
+      phone: phone || null,
+      address: address || null,
+    },
+  });
+
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${id}`);
+  return { ok: true };
+}
+
 export async function deleteCustomer(id: string) {
   const orgId = await getOrgIdOrUserId();
   await prisma.customer.deleteMany({ where: { id, orgId } });
@@ -70,7 +104,7 @@ export async function createOpportunityAction(formData: FormData) {
     description: formData.get("description"),
   });
 
-  if (!parsed.success) return { error: "Invalid data" };
+  if (!parsed.success) return { ok: false, error: parsed.error.flatten().fieldErrors };
 
   await prisma.opportunity.create({
     data: {
@@ -100,7 +134,7 @@ export async function logActivityAction(formData: FormData) {
     description: formData.get("description"),
   });
 
-  if (!parsed.success) return { error: "Invalid data" };
+  if (!parsed.success) return { ok: false, error: parsed.error.flatten().fieldErrors };
 
   await prisma.activity.create({
     data: {
@@ -130,7 +164,7 @@ export async function createTaskAction(formData: FormData) {
     priority: formData.get("priority"),
   });
 
-  if (!parsed.success) return { error: "Invalid data" };
+  if (!parsed.success) return { ok: false, error: parsed.error.flatten().fieldErrors };
 
   await prisma.task.create({
     data: {
