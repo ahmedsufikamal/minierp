@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,11 @@ import { DealsTab } from "./deals";
 import { InvoicesTab } from "./invoices";
 
 export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
   const { id } = await params;
 
   const customer = await prisma.customer.findFirst({
-    where: { id, orgId },
+    where: { id, companyId },
     include: {
       contacts: true,
       opportunities: true,

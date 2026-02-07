@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
-import { Card, CardContent } from "@/components/ui/card";
+import { getCompanyIdOrUserId } from "@/lib/auth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,8 +15,21 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { initChartOfAccountsAction } from "./actions";
+import { SalesChart } from "./sales-chart";
 
 export const dynamic = "force-dynamic";
+
+function last6Months(): { month: string; label: string }[] {
+  const out: { month: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const month = d.toISOString().slice(0, 7);
+    const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    out.push({ month, label });
+  }
+  return out;
+}
 
 function StatCard({
   title,
@@ -56,19 +69,45 @@ function StatCard({
 }
 
 export default async function DashboardPage() {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
-  const [customers, vendors, products, invoices, bills, moves, accounts, entries] =
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const [customers, vendors, products, invoices, bills, moves, accounts, entries, invoicesWithLines] =
     await Promise.all([
-      prisma.customer.count({ where: { orgId } }),
-      prisma.vendor.count({ where: { orgId } }),
-      prisma.product.count({ where: { orgId } }),
-      prisma.salesInvoice.count({ where: { orgId } }),
-      prisma.purchaseBill.count({ where: { orgId } }),
-      prisma.inventoryMove.count({ where: { orgId } }),
-      prisma.account.count({ where: { orgId } }),
-      prisma.journalEntry.count({ where: { orgId } }),
+      (async () => {
+        try {
+          const result = await prisma.customer.count({ where: { companyId } });
+          return result;
+        } catch (error) {
+          throw error;
+        }
+      })(),
+      prisma.vendor.count({ where: { companyId } }),
+      prisma.product.count({ where: { companyId } }),
+      prisma.salesInvoice.count({ where: { companyId } }),
+      prisma.purchaseBill.count({ where: { companyId } }),
+      prisma.inventoryMove.count({ where: { companyId } }),
+      prisma.account.count({ where: { companyId } }),
+      prisma.journalEntry.count({ where: { companyId } }),
+      prisma.salesInvoice.findMany({
+        where: { companyId, invoiceDate: { gte: sixMonthsAgo } },
+        include: { lines: true },
+      }),
     ]);
+
+  const monthLabels = last6Months();
+  const byMonth = new Map<string, number>();
+  for (const inv of invoicesWithLines) {
+    const monthKey = inv.invoiceDate.toISOString().slice(0, 7);
+    const total = inv.lines.reduce((s, l) => s + l.qty * l.unitPriceCents, 0);
+    byMonth.set(monthKey, (byMonth.get(monthKey) ?? 0) + total);
+  }
+  const salesChartData = monthLabels.map(({ month, label }) => ({
+    month,
+    label,
+    totalCents: byMonth.get(month) ?? 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -95,6 +134,15 @@ export default async function DashboardPage() {
         <StatCard title="Accounts" value={accounts} href="/accounting" Icon={BookOpen} />
         <StatCard title="Journal entries" value={entries} href="/accounting" Icon={BookOpen} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Sales last 6 months</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SalesChart data={salesChartData} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

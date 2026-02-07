@@ -43,6 +43,29 @@ enum InventoryMoveType {
   ADJUST
 }
 
+enum StockLedgerTxnType {
+  OPENING
+  PURCHASE_IN
+  SALE_OUT
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+  REVERSAL
+  TRANSFER
+}
+
+enum InventorySnapshotMode {
+  OPENING_ONLY
+  HISTORY_APPROX
+}
+
+enum InventorySnapshotStatus {
+  PENDING
+  VALIDATED
+  IMPORTED
+  FAILED
+}
+
 enum AccountType {
   ASSET
   LIABILITY
@@ -57,14 +80,14 @@ model User {
   passwordHash String
   name         String
   role         String   @default("USER")
-  orgId        String   @default("default-org") // Simplification: each user belongs to an org
+  companyId    String   @default("default-org") @map("orgId")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
 model Customer {
   id        String   @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   name      String
   email     String?
   phone     String?
@@ -82,7 +105,7 @@ model Customer {
 
 model Vendor {
   id        String   @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   name      String
   email     String?
   phone     String?
@@ -94,14 +117,84 @@ model Vendor {
   purchaseOrders PurchaseOrder[]
 }
 
+model Brand {
+  id        String   @id @default(cuid())
+  companyId String   @map("orgId")
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products  Product[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  companyId String   @map("orgId")
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subCategories SubCategory[]
+  products      Product[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model SubCategory {
+  id         String   @id @default(cuid())
+  companyId  String   @map("orgId")
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  products   Product[]
+
+  @@unique([companyId, categoryId, name])
+  @@index([companyId])
+}
+
+model StockLocation {
+  id        String   @id @default(cuid())
+  companyId String   @map("orgId")
+  code      String   // e.g., A6, Z1
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  balances  StockBalance[]
+  ledger    StockLedger[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
 model Product {
   id                 String   @id @default(cuid())
-  orgId              String
+  companyId          String   @map("orgId")
+  brandId            String
+  brand              Brand    @relation(fields: [brandId], references: [id], onDelete: Restrict)
   sku                String
+  normalizedSku      String
+  title              String?
   name               String
-  unit               String   @default("pcs")
+  description        String?
+  ratingType         String?  // Rating (kW)/ Type
+  coo                String?  // Country of Origin
+  categoryId         String?
+  category           Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subCategoryId      String?
+  subCategory        SubCategory? @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+  uom                String   @default("pcs")
   priceCents         Int      @default(0)
+  unitCostMinor      Int?     @default(0)
   lowStockThreshold  Int?     // optional: warn when stock below this
+  isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -110,13 +203,17 @@ model Product {
   quoteLines         QuoteLine[]
   purchaseOrderLines PurchaseOrderLine[]
   moves              InventoryMove[]
+  balances           StockBalance[]
+  ledger             StockLedger[]
 
-  @@unique([orgId, sku])
+  @@unique([companyId, brandId, normalizedSku])
+  @@index([companyId, brandId])
+  @@index([companyId, normalizedSku])
 }
 
 model SalesInvoice {
   id          String        @id @default(cuid())
-  orgId       String
+  companyId   String   @map("orgId")
   number      String
   status      InvoiceStatus @default(DRAFT)
   customerId  String
@@ -131,12 +228,12 @@ model SalesInvoice {
   convertedFromQuote Quote?
   payments           Payment[]
 
-  @@unique([orgId, number])
+  @@unique([companyId, number])
 }
 
 model Quote {
   id                    String      @id @default(cuid())
-  orgId                 String
+  companyId             String   @map("orgId")
   number                String
   status                QuoteStatus @default(DRAFT)
   customerId            String
@@ -151,7 +248,7 @@ model Quote {
 
   lines                 QuoteLine[]
 
-  @@unique([orgId, number])
+  @@unique([companyId, number])
 }
 
 model QuoteLine {
@@ -178,7 +275,7 @@ model SalesInvoiceLine {
 
 model PurchaseOrder {
   id        String              @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   number    String
   status    PurchaseOrderStatus  @default(DRAFT)
   vendorId  String
@@ -191,7 +288,7 @@ model PurchaseOrder {
 
   lines     PurchaseOrderLine[]
 
-  @@unique([orgId, number])
+  @@unique([companyId, number])
 }
 
 model PurchaseOrderLine {
@@ -208,7 +305,7 @@ model PurchaseOrderLine {
 
 model PurchaseBill {
   id        String      @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   number    String
   status    BillStatus  @default(DRAFT)
   vendorId  String
@@ -222,7 +319,7 @@ model PurchaseBill {
   lines     PurchaseBillLine[]
   payments  Payment[]
 
-  @@unique([orgId, number])
+  @@unique([companyId, number])
 }
 
 enum PaymentType {
@@ -239,7 +336,7 @@ enum PaymentMethod {
 
 model Payment {
   id           String        @id @default(cuid())
-  orgId        String
+  companyId    String   @map("orgId")
   type         PaymentType
   amountCents  Int
   date         DateTime     @default(now())
@@ -251,25 +348,25 @@ model Payment {
   bill         PurchaseBill? @relation(fields: [billId], references: [id], onDelete: SetNull)
   createdAt    DateTime     @default(now())
 
-  @@index([orgId, date])
+  @@index([companyId, date])
   @@index([invoiceId])
   @@index([billId])
 }
 
 model OrgSetting {
   id        String   @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   key       String
   value     String   // store JSON for complex values
   updatedAt DateTime @updatedAt
 
-  @@unique([orgId, key])
-  @@index([orgId])
+  @@unique([companyId, key])
+  @@index([companyId])
 }
 
 model AuditLog {
   id         String   @id @default(cuid())
-  orgId      String
+  companyId  String   @map("orgId")
   userId     String
   action     String   // CREATED, UPDATED, DELETED
   entityType String
@@ -278,8 +375,8 @@ model AuditLog {
   newValues  String?  // JSON
   createdAt  DateTime @default(now())
 
-  @@index([orgId, createdAt])
-  @@index([orgId, entityType])
+  @@index([companyId, createdAt])
+  @@index([companyId, entityType])
 }
 
 model PurchaseBillLine {
@@ -295,7 +392,7 @@ model PurchaseBillLine {
 
 model InventoryMove {
   id        String            @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   productId String
   product   Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
   type      InventoryMoveType
@@ -306,7 +403,7 @@ model InventoryMove {
 
 model Account {
   id        String      @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   code      String
   name      String
   type      AccountType
@@ -315,12 +412,12 @@ model Account {
 
   lines     JournalLine[]
 
-  @@unique([orgId, code])
+  @@unique([companyId, code])
 }
 
 model JournalEntry {
   id        String      @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   date      DateTime    @default(now())
   memo      String?
   createdAt DateTime    @default(now())
@@ -342,7 +439,7 @@ model JournalLine {
 
 model Contact {
   id        String   @id @default(cuid())
-  orgId     String
+  companyId String   @map("orgId")
   customerId String
   customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   firstName String
@@ -365,7 +462,7 @@ enum OpportunityStage {
 
 model Opportunity {
   id          String           @id @default(cuid())
-  orgId       String
+  companyId   String   @map("orgId")
   title       String
   valueCents  Int              @default(0)
   stage       OpportunityStage @default(NEW)
@@ -388,7 +485,7 @@ enum ActivityType {
 
 model Activity {
   id            String       @id @default(cuid())
-  orgId         String
+  companyId     String   @map("orgId")
   type          ActivityType
   subject       String
   description   String?
@@ -414,7 +511,7 @@ enum TaskPriority {
 
 model Task {
   id          String       @id @default(cuid())
-  orgId       String
+  companyId   String   @map("orgId")
   title       String
   description String?
   status      TaskStatus   @default(TODO)
@@ -424,4 +521,68 @@ model Task {
   customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+// Inventory Models
+
+model InventorySnapshot {
+  id            String                 @id @default(cuid())
+  companyId     String                 @map("orgId")
+  importedAt    DateTime               @default(now())
+  sourceFileName String
+  sourceFileHash String
+  mode          InventorySnapshotMode
+  status        InventorySnapshotStatus
+  warnings      Json?
+  errors        Json?
+  createdBy     String?
+  createdAt     DateTime               @default(now())
+
+  ledger        StockLedger[]
+
+  @@unique([companyId, sourceFileHash])
+  @@index([companyId, importedAt])
+  @@index([companyId, status])
+}
+
+model StockBalance {
+  companyId    String        @map("orgId")
+  itemId       String
+  item         Product       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  locationId   String?       // null = overall balance
+  location     StockLocation? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  qtyOnHand    Int           @default(0)
+  avgCostMinor Int?
+  updatedAt    DateTime      @updatedAt
+
+  @@id([companyId, itemId, locationId])
+  @@index([companyId, itemId])
+  @@index([companyId, locationId])
+}
+
+model StockLedger {
+  id            String            @id @default(cuid())
+  companyId     String            @map("orgId")
+  itemId        String
+  item          Product           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  locationId    String?           // null = overall
+  location      StockLocation?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  txnType       StockLedgerTxnType
+  qtyDelta      Int               // positive for IN, negative for OUT
+  unitCostMinor Int?
+  totalCostMinor Int?
+  refInvoice    String?
+  refChalan     String?
+  notes         String?
+  meta          Json?
+  txnDate       DateTime          @default(now()) @db.Date
+  snapshotId    String?           // link to import batch
+  snapshot      InventorySnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+  createdBy     String?           // userId if available
+  createdAt     DateTime          @default(now())
+
+  @@index([companyId, itemId, txnDate])
+  @@index([companyId, locationId])
+  @@index([companyId, snapshotId])
+  @@index([companyId, txnDate])
 }

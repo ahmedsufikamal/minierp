@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -13,7 +13,7 @@ const CustomerSchema = z.object({
 });
 
 export async function createCustomer(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = CustomerSchema.safeParse({
     name: formData.get("name"),
@@ -30,7 +30,7 @@ export async function createCustomer(formData: FormData) {
 
   await prisma.customer.create({
     data: {
-      orgId,
+      companyId,
       name,
       email: email || null,
       phone: phone || null,
@@ -43,7 +43,7 @@ export async function createCustomer(formData: FormData) {
 }
 
 export async function updateCustomer(id: string, formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = CustomerSchema.safeParse({
     name: formData.get("name"),
@@ -56,7 +56,7 @@ export async function updateCustomer(id: string, formData: FormData) {
     return { ok: false, error: parsed.error.flatten().fieldErrors };
   }
 
-  const existing = await prisma.customer.findFirst({ where: { id, orgId } });
+  const existing = await prisma.customer.findFirst({ where: { id, companyId } });
   if (!existing) return { ok: false, error: "Customer not found" };
 
   const { name, email, phone, address } = parsed.data;
@@ -77,8 +77,8 @@ export async function updateCustomer(id: string, formData: FormData) {
 }
 
 export async function deleteCustomer(id: string) {
-  const orgId = await getOrgIdOrUserId();
-  await prisma.customer.deleteMany({ where: { id, orgId } });
+  const companyId = await getCompanyIdOrUserId();
+  await prisma.customer.deleteMany({ where: { id, companyId } });
   revalidatePath("/customers");
   return { ok: true };
 }
@@ -94,7 +94,7 @@ const OpportunitySchema = z.object({
 });
 
 export async function createOpportunityAction(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = OpportunitySchema.safeParse({
     customerId: formData.get("customerId"),
@@ -108,7 +108,7 @@ export async function createOpportunityAction(formData: FormData) {
 
   await prisma.opportunity.create({
     data: {
-      orgId,
+      companyId,
       ...parsed.data,
     },
   });
@@ -125,7 +125,7 @@ const ActivitySchema = z.object({
 });
 
 export async function logActivityAction(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = ActivitySchema.safeParse({
     customerId: formData.get("customerId"),
@@ -138,7 +138,7 @@ export async function logActivityAction(formData: FormData) {
 
   await prisma.activity.create({
     data: {
-      orgId,
+      companyId,
       ...parsed.data,
     },
   });
@@ -155,7 +155,7 @@ const TaskSchema = z.object({
 });
 
 export async function createTaskAction(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = TaskSchema.safeParse({
     customerId: formData.get("customerId"),
@@ -168,7 +168,7 @@ export async function createTaskAction(formData: FormData) {
 
   await prisma.task.create({
     data: {
-      orgId,
+      companyId,
       customerId: parsed.data.customerId,
       title: parsed.data.title,
       priority: parsed.data.priority,

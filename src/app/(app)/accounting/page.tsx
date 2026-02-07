@@ -1,6 +1,6 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import {
   NewAccountCard,
   NewJournalEntryCard,
@@ -12,15 +12,15 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AccountingPage() {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const [accounts, entries] = await Promise.all([
     prisma.account.findMany({
-      where: { orgId },
+      where: { companyId },
       orderBy: [{ code: "asc" }],
     }),
     prisma.journalEntry.findMany({
-      where: { orgId },
+      where: { companyId },
       include: { lines: { include: { account: true } } },
       orderBy: { date: "desc" },
       take: 50,

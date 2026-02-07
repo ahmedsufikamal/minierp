@@ -1,14 +1,14 @@
 import Link from "next/link";
 import PageHeader from "@/components/page-header";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { getOrgSettings } from "@/lib/settings";
 import { SettingsForm } from "./settings-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const orgId = await getOrgIdOrUserId();
-  const settings = await getOrgSettings(orgId);
+  const companyId = await getCompanyIdOrUserId();
+  const settings = await getOrgSettings(companyId);
 
   return (
     <div className="space-y-6">

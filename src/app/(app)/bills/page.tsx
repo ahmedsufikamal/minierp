@@ -1,37 +1,45 @@
+import Link from "next/link";
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
-import { NewBillCard, DeleteRowButton, BillStatusSelect } from "./components";
+import { getCompanyIdOrUserId } from "@/lib/auth";
+import { NewBillCard, DeleteRowButton, BillStatusSelect, BillTableHead } from "./components";
 import { PaginationLinks } from "@/components/ui/pagination-links";
+import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
-import { getPaginationParams, getTotalPages } from "@/lib/pagination";
+import { Receipt } from "lucide-react";
+import { getPaginationParams, getSortParams, getTotalPages } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function BillsPage(props: PageProps) {
-  const orgId = await getOrgIdOrUserId();
-  const searchParams = (await props.searchParams?.()) ?? {};
+  const companyId = await getCompanyIdOrUserId();
+  const searchParams = (await props.searchParams) ?? {};
   const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
+  const { sort, order } = getSortParams(searchParams as { sort?: string; order?: string });
+  const sortKey =
+    sort === "number" || sort === "billDate" || sort === "createdAt" ? sort : "createdAt";
+  const orderBy = { [sortKey]: order };
 
   const [bills, total, vendors, products] = await Promise.all([
     prisma.purchaseBill.findMany({
-      where: { orgId },
+      where: { companyId },
       include: { vendor: true, lines: true },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip,
       take: limit,
     }),
-    prisma.purchaseBill.count({ where: { orgId } }),
+    prisma.purchaseBill.count({ where: { companyId } }),
     prisma.vendor.findMany({
-      where: { orgId },
+      where: { companyId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
-      where: { orgId },
-      select: { id: true, sku: true, name: true, unit: true, priceCents: true },
+      where: { companyId },
+      select: { id: true, sku: true, name: true, uom: true, priceCents: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -53,16 +61,22 @@ export default async function BillsPage(props: PageProps) {
             <div className="text-sm text-slate-600">Total: {total}</div>
           </div>
 
+          {bills.length === 0 ? (
+            <EmptyState
+              icon={Receipt}
+              title="No bills yet"
+              description="Record vendor bills to track payables."
+              action={
+                <Button asChild>
+                  <Link href="#add-bill">Create first bill</Link>
+                </Button>
+              }
+            />
+          ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="data-table min-w-full text-sm">
               <thead className="text-left text-slate-600">
-                <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
-                  <th>Number</th>
-                  <th>Vendor</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                  <th className="w-[90px]">Action</th>
-                </tr>
+                <BillTableHead sort={sortKey} order={order} />
               </thead>
               <tbody>
                 {bills.map((b) => (
@@ -88,7 +102,10 @@ export default async function BillsPage(props: PageProps) {
               </tbody>
             </table>
           </div>
-          <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
+          )}
+          {bills.length > 0 && (
+            <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
+          )}
         </div>
       </div>
     </div>

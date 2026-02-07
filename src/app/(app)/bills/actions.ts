@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
@@ -30,7 +30,7 @@ function parseDate(s?: string | null) {
 }
 
 export async function createBill(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = BillSchema.safeParse({
     number: formData.get("number"),
@@ -70,7 +70,7 @@ export async function createBill(formData: FormData) {
     await prisma.$transaction(async (tx) => {
       await tx.purchaseBill.create({
         data: {
-          orgId,
+          companyId,
           vendorId,
           number,
           billDate: parseDate(billDate) ?? new Date(),
@@ -94,13 +94,13 @@ export async function createBill(formData: FormData) {
 const BillStatuses = ["DRAFT", "RECEIVED", "PAID", "VOID"] as const;
 
 export async function updateBillStatus(id: string, formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
   const status = formData.get("status");
   const parsed = z.enum(BillStatuses).safeParse(status);
   if (!parsed.success) return { ok: false, error: "Invalid status" };
 
   const bill = await prisma.purchaseBill.findFirst({
-    where: { id, orgId },
+    where: { id, companyId },
     select: { id: true },
   });
   if (!bill) return { ok: false, error: "Bill not found" };
@@ -115,8 +115,8 @@ export async function updateBillStatus(id: string, formData: FormData) {
 }
 
 export async function deleteBill(id: string) {
-  const orgId = await getOrgIdOrUserId();
-  await prisma.purchaseBill.deleteMany({ where: { id, orgId } });
+  const companyId = await getCompanyIdOrUserId();
+  await prisma.purchaseBill.deleteMany({ where: { id, companyId } });
   revalidatePath("/bills");
   revalidatePath("/dashboard");
   return { ok: true };

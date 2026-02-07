@@ -34,11 +34,11 @@ export async function signup(prevState: unknown, formData: FormData) {
       name,
       email,
       passwordHash,
-      orgId: "default-org-" + Date.now(), // Generate a unique org ID for the user
+      companyId: "default-org-" + Date.now(), // Generate a unique company ID for the user
     },
   });
 
-  await createSession(user.id, user.orgId, user.email, user.name);
+  await createSession(user.id, user.companyId, user.email, user.name);
   redirect("/dashboard");
 }
 
@@ -66,7 +66,7 @@ export async function signin(prevState: unknown, formData: FormData) {
     return { error: "Invalid email or password." };
   }
 
-  await createSession(user.id, user.orgId, user.email, user.name);
+  await createSession(user.id, user.companyId, user.email, user.name);
   redirect("/dashboard");
 }
 

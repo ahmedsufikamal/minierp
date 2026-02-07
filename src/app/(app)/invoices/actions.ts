@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
@@ -32,7 +32,7 @@ function toDateOrUndefined(v?: string) {
 }
 
 export async function createInvoice(formData: FormData): Promise<ActionResult> {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = CreateInvoiceSchema.safeParse({
     customerId: formData.get("customerId"),
@@ -74,7 +74,7 @@ export async function createInvoice(formData: FormData): Promise<ActionResult> {
     await prisma.$transaction(async (tx) => {
       await tx.salesInvoice.create({
         data: {
-          orgId,
+          companyId,
           customerId,
           number,
           invoiceDate: invoiceDateValue,
@@ -107,13 +107,13 @@ export async function updateInvoiceStatus(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
   const status = formData.get("status");
   const parsed = z.enum(InvoiceStatuses).safeParse(status);
   if (!parsed.success) return failure("Invalid status");
 
   const inv = await prisma.salesInvoice.findFirst({
-    where: { id, orgId },
+    where: { id, companyId },
     select: { id: true, status: true },
   });
   if (!inv) return failure("Invoice not found");
@@ -127,10 +127,10 @@ export async function updateInvoiceStatus(
 }
 
 export async function deleteInvoice(id: string): Promise<ActionResult> {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const inv = await prisma.salesInvoice.findFirst({
-    where: { id, orgId },
+    where: { id, companyId },
     select: { id: true },
   });
 

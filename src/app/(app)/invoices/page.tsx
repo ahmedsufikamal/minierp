@@ -1,37 +1,50 @@
+import Link from "next/link";
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
-import { NewInvoiceCard, DeleteRowButton, InvoiceStatusSelect } from "./components";
+import { getCompanyIdOrUserId } from "@/lib/auth";
+import { NewInvoiceCard, DeleteRowButton, InvoiceStatusSelect, InvoiceTableHead } from "./components";
 import { PaginationLinks } from "@/components/ui/pagination-links";
+import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
-import { getPaginationParams, getTotalPages } from "@/lib/pagination";
+import { FileText } from "lucide-react";
+import { getPaginationParams, getSearchQuery, getSortParams, getTotalPages } from "@/lib/pagination";
+import { SearchInput } from "@/components/search-input";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function InvoicesPage(props: PageProps) {
-  const orgId = await getOrgIdOrUserId();
-  const searchParams = (await props.searchParams?.()) ?? {};
+  const companyId = await getCompanyIdOrUserId();
+  const searchParams = (await props.searchParams) ?? {};
   const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
+  const { sort, order } = getSortParams(searchParams as { sort?: string; order?: string });
+  const q = getSearchQuery(searchParams as { q?: string });
+  const sortKey =
+    sort === "number" || sort === "invoiceDate" || sort === "createdAt" ? sort : "createdAt";
+  const orderBy = { [sortKey]: order };
+  const where = q
+    ? { companyId, number: { contains: q, mode: "insensitive" as const } }
+    : { companyId };
 
   const [invoices, total, customers, products] = await Promise.all([
     prisma.salesInvoice.findMany({
-      where: { orgId },
+      where,
       include: { customer: true, lines: true },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip,
       take: limit,
     }),
-    prisma.salesInvoice.count({ where: { orgId } }),
+    prisma.salesInvoice.count({ where }),
     prisma.customer.findMany({
-      where: { orgId },
+      where: { companyId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
-      where: { orgId },
-      select: { id: true, sku: true, name: true, unit: true, priceCents: true },
+      where: { companyId },
+      select: { id: true, sku: true, name: true, uom: true, priceCents: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -48,21 +61,30 @@ export default async function InvoicesPage(props: PageProps) {
         </div>
 
         <div className="lg:col-span-2 rounded-2xl border">
-          <div className="p-4 border-b">
-            <div className="font-medium">Invoice list</div>
-            <div className="text-sm text-slate-600">Total: {total}</div>
+          <div className="p-4 border-b flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="font-medium">Invoice list</div>
+              <div className="text-sm text-slate-600">Total: {total}</div>
+            </div>
+            <SearchInput name="q" placeholder="Search by number…" defaultValue={q ?? ""} className="max-w-sm" />
           </div>
 
+          {invoices.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="No invoices yet"
+              description="Create your first invoice to track sales."
+              action={
+                <Button asChild>
+                  <Link href="#add-invoice">Create first invoice</Link>
+                </Button>
+              }
+            />
+          ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="data-table min-w-full text-sm">
               <thead className="text-left text-slate-600">
-                <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
-                  <th>Number</th>
-                  <th>Customer</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                  <th className="w-[90px]">Action</th>
-                </tr>
+                <InvoiceTableHead sort={sortKey} order={order} />
               </thead>
               <tbody>
                 {invoices.map((inv) => (
@@ -88,7 +110,10 @@ export default async function InvoicesPage(props: PageProps) {
               </tbody>
             </table>
           </div>
-          <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
+          )}
+          {invoices.length > 0 && (
+            <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
+          )}
         </div>
       </div>
     </div>

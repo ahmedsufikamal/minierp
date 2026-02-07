@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -13,7 +13,7 @@ const MoveSchema = z.object({
 });
 
 export async function createMove(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = MoveSchema.safeParse({
     productId: formData.get("productId"),
@@ -33,7 +33,7 @@ export async function createMove(formData: FormData) {
 
   await prisma.inventoryMove.create({
     data: {
-      orgId,
+      companyId,
       productId: parsed.data.productId,
       type: parsed.data.type,
       qty: Math.round(qty),
@@ -47,8 +47,8 @@ export async function createMove(formData: FormData) {
 }
 
 export async function deleteMove(id: string) {
-  const orgId = await getOrgIdOrUserId();
-  await prisma.inventoryMove.deleteMany({ where: { id, orgId } });
+  const companyId = await getCompanyIdOrUserId();
+  await prisma.inventoryMove.deleteMany({ where: { id, companyId } });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
   return { ok: true };

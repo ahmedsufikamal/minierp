@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -13,7 +13,7 @@ const VendorSchema = z.object({
 });
 
 export async function createVendor(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = VendorSchema.safeParse({
     name: formData.get("name"),
@@ -30,7 +30,7 @@ export async function createVendor(formData: FormData) {
 
   await prisma.vendor.create({
     data: {
-      orgId,
+      companyId,
       name,
       email: email || null,
       phone: phone || null,
@@ -43,7 +43,7 @@ export async function createVendor(formData: FormData) {
 }
 
 export async function updateVendor(id: string, formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = VendorSchema.safeParse({
     name: formData.get("name"),
@@ -56,7 +56,7 @@ export async function updateVendor(id: string, formData: FormData) {
     return { ok: false, error: parsed.error.flatten().fieldErrors };
   }
 
-  const existing = await prisma.vendor.findFirst({ where: { id, orgId } });
+  const existing = await prisma.vendor.findFirst({ where: { id, companyId } });
   if (!existing) return { ok: false, error: "Vendor not found" };
 
   const { name, email, phone, address } = parsed.data;
@@ -76,8 +76,8 @@ export async function updateVendor(id: string, formData: FormData) {
 }
 
 export async function deleteVendor(id: string) {
-  const orgId = await getOrgIdOrUserId();
-  await prisma.vendor.deleteMany({ where: { id, orgId } });
+  const companyId = await getCompanyIdOrUserId();
+  await prisma.vendor.deleteMany({ where: { id, companyId } });
   revalidatePath("/vendors");
   return { ok: true };
 }

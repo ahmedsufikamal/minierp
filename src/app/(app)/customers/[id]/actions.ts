@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -15,7 +15,7 @@ const ContactSchema = z.object({
 });
 
 export async function createContactAction(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = ContactSchema.safeParse({
     customerId: formData.get("customerId"),
@@ -30,7 +30,7 @@ export async function createContactAction(formData: FormData) {
 
   await prisma.contact.create({
     data: {
-      orgId,
+      companyId,
       ...parsed.data,
     },
   });

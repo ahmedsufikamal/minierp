@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createProduct, deleteProduct } from "./actions";
 import { EditProductDialog } from "./edit-product-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { formatMoney } from "@/lib/utils";
 import type { Product } from "@prisma/client";
 
@@ -23,7 +24,7 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-export function AddProductCard() {
+export function AddProductCard({ brands }: { brands: Array<{ id: string; name: string }> }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -32,9 +33,10 @@ export function AddProductCard() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Add product</div>
-          <div className="text-sm text-slate-600">SKU, unit, and default selling price.</div>
+          <div className="text-sm text-slate-600">SKU, UOM, and default selling price.</div>
         </div>
         <button
+          id="add-product"
           onClick={() => setOpen((v) => !v)}
           className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
@@ -53,6 +55,17 @@ export function AddProductCard() {
           }}
           className="mt-4 grid gap-3"
         >
+          <select
+            name="brandId"
+            className="w-full rounded-xl border px-3 py-2 text-sm"
+          >
+            <option value="">Select Brand (defaults to SIEMENS)</option>
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
           <input
             name="sku"
             placeholder="SKU (e.g., P-001)"
@@ -67,8 +80,8 @@ export function AddProductCard() {
           />
           <div className="grid grid-cols-2 gap-3">
             <input
-              name="unit"
-              placeholder="Unit (pcs, kg)"
+              name="uom"
+              placeholder="UOM (pcs, kg)"
               className="w-full rounded-xl border px-3 py-2 text-sm"
               required
             />
@@ -129,9 +142,15 @@ export function DeleteRowButton({ id, label }: { id: string; label: string }) {
 export function ProductList({
   products,
   stockByProductId = {},
+  sort,
+  order,
+  brands,
 }: {
   products: Product[];
   stockByProductId?: Record<string, number>;
+  sort?: string;
+  order?: "asc" | "desc";
+  brands: Array<{ id: string; name: string }>;
 }) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -139,15 +158,15 @@ export function ProductList({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+        <table className="data-table min-w-full text-sm">
           <thead className="text-left text-slate-600">
               <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
-                  <th>SKU</th>
-                  <th>Name</th>
-                  <th>Unit</th>
-                  <th>Price</th>
-                  <th>Stock</th>
-                  <th className="w-[120px]">Action</th>
+                  <SortableTh sortKey="sku" label="SKU" currentSort={sort} currentOrder={order} />
+                  <SortableTh sortKey="name" label="Name" currentSort={sort} currentOrder={order} />
+                  <th scope="col" className="px-4 py-3">UOM</th>
+                  <SortableTh sortKey="priceCents" label="Price" currentSort={sort} currentOrder={order} />
+                  <th scope="col" className="px-4 py-3">Stock</th>
+                  <th scope="col" className="w-[120px] px-4 py-3">Action</th>
                 </tr>
           </thead>
           <tbody>
@@ -158,8 +177,13 @@ export function ProductList({
                   return (
                   <tr key={p.id} className="border-b last:border-0">
                     <td className="px-4 py-3 font-mono text-xs">{p.sku}</td>
-                    <td className="px-4 py-3 font-medium">{p.name}</td>
-                    <td className="px-4 py-3">{p.unit}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{p.name}</div>
+                      {"brand" in p && p.brand && (
+                        <div className="text-xs text-slate-500">{p.brand.name}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">{p.uom}</td>
                     <td className="px-4 py-3">{formatMoney(p.priceCents, "BDT")}</td>
                     <td className="px-4 py-3">
                       <span className={isLow ? "text-amber-600 font-medium" : ""}>
@@ -195,6 +219,7 @@ export function ProductList({
       </div>
       <EditProductDialog
         product={editingProduct}
+        brands={brands}
         open={editOpen}
         onOpenChange={(open) => {
           setEditOpen(open);

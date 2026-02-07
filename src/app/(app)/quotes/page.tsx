@@ -1,42 +1,51 @@
+import Link from "next/link";
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import {
   NewQuoteCard,
   QuoteStatusSelect,
   DeleteQuoteButton,
   ConvertToInvoiceButton,
+  QuoteTableHead,
 } from "./components";
 import { PaginationLinks } from "@/components/ui/pagination-links";
+import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
-import { getPaginationParams, getTotalPages } from "@/lib/pagination";
+import { FileSignature } from "lucide-react";
+import { getPaginationParams, getSortParams, getTotalPages } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function QuotesPage(props: PageProps) {
-  const orgId = await getOrgIdOrUserId();
-  const searchParams = (await props.searchParams?.()) ?? {};
+  const companyId = await getCompanyIdOrUserId();
+  const searchParams = (await props.searchParams) ?? {};
   const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
+  const { sort, order } = getSortParams(searchParams as { sort?: string; order?: string });
+  const sortKey =
+    sort === "number" || sort === "quoteDate" || sort === "createdAt" ? sort : "createdAt";
+  const orderBy = { [sortKey]: order };
 
   const [quotes, total, customers, products] = await Promise.all([
     prisma.quote.findMany({
-      where: { orgId },
+      where: { companyId },
       include: { customer: true, lines: true },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip,
       take: limit,
     }),
-    prisma.quote.count({ where: { orgId } }),
+    prisma.quote.count({ where: { companyId } }),
     prisma.customer.findMany({
-      where: { orgId },
+      where: { companyId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
-      where: { orgId },
-      select: { id: true, sku: true, name: true, unit: true, priceCents: true },
+      where: { companyId },
+      select: { id: true, sku: true, name: true, uom: true, priceCents: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -58,17 +67,22 @@ export default async function QuotesPage(props: PageProps) {
             <div className="text-sm text-slate-600">Total: {total}</div>
           </div>
 
+          {quotes.length === 0 ? (
+            <EmptyState
+              icon={FileSignature}
+              title="No quotes yet"
+              description="Create quotes and convert them to invoices."
+              action={
+                <Button asChild>
+                  <Link href="#add-quote">Create first quote</Link>
+                </Button>
+              }
+            />
+          ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="data-table min-w-full text-sm">
               <thead className="text-left text-slate-600">
-                <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
-                  <th>Number</th>
-                  <th>Customer</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                  <th>Convert</th>
-                  <th className="w-[90px]">Action</th>
-                </tr>
+                <QuoteTableHead sort={sortKey} order={order} />
               </thead>
               <tbody>
                 {quotes.map((q) => (
@@ -109,7 +123,10 @@ export default async function QuotesPage(props: PageProps) {
               </tbody>
             </table>
           </div>
-          <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
+          )}
+          {quotes.length > 0 && (
+            <PaginationLinks page={page} totalPages={totalPages} total={total} limit={limit} />
+          )}
         </div>
       </div>
     </div>

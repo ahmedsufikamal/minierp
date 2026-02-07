@@ -7,9 +7,10 @@ import { createInvoice, deleteInvoice, updateInvoiceStatus } from "./actions";
 import { formatMoney } from "@/lib/utils";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SortableTh } from "@/components/ui/sortable-th";
 
 type Customer = { id: string; name: string };
-type Product = { id: string; sku: string; name: string; unit: string; priceCents: number };
+type Product = { id: string; sku: string; name: string; uom: string; priceCents: number };
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -75,6 +76,7 @@ export function NewInvoiceCard({
           <div className="text-sm text-slate-600">Add customer + line items.</div>
         </div>
         <button
+          id="add-invoice"
           onClick={() => setOpen((v) => !v)}
           className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
@@ -292,6 +294,24 @@ export function InvoiceStatusSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+export function InvoiceTableHead({
+  sort,
+  order,
+}: {
+  sort?: string;
+  order?: "asc" | "desc";
+}) {
+  return (
+    <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
+      <SortableTh sortKey="number" label="Number" currentSort={sort} currentOrder={order} />
+      <th scope="col" className="px-4 py-3">Customer</th>
+      <th scope="col" className="px-4 py-3">Status</th>
+      <th scope="col" className="px-4 py-3">Total</th>
+      <th scope="col" className="w-[90px] px-4 py-3">Action</th>
+    </tr>
   );
 }
 

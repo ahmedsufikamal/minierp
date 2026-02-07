@@ -3,13 +3,19 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const key = new TextEncoder().encode(
-  process.env.JWT_SECRET || "default_secret_please_change_me_in_prod",
-);
+function getJwtKey() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      "JWT_SECRET environment variable is required and must be at least 32 characters. Set it in .env for development and in your deployment config for production.",
+    );
+  }
+  return new TextEncoder().encode(secret);
+}
 
 export type SessionPayload = {
   userId: string;
-  orgId: string;
+  companyId: string;
   email: string;
   name: string;
   expiresAt: Date;
@@ -20,12 +26,12 @@ export async function encrypt(payload: SessionPayload) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(key);
+    .sign(getJwtKey());
 }
 
 export async function decrypt(session: string | undefined = "") {
   try {
-    const { payload } = await jwtVerify(session, key, {
+    const { payload } = await jwtVerify(session, getJwtKey(), {
       algorithms: ["HS256"],
     });
     return payload as SessionPayload;
@@ -34,9 +40,9 @@ export async function decrypt(session: string | undefined = "") {
   }
 }
 
-export async function createSession(userId: string, orgId: string, email: string, name: string) {
+export async function createSession(userId: string, companyId: string, email: string, name: string) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const session = await encrypt({ userId, orgId, email, name, expiresAt });
+  const session = await encrypt({ userId, companyId, email, name, expiresAt });
 
   const cookieStore = await cookies();
   cookieStore.set("session", session, {
@@ -60,7 +66,7 @@ export async function verifySession() {
   return {
     isAuth: true,
     userId: payload.userId,
-    orgId: payload.orgId,
+    companyId: payload.companyId,
     email: payload.email,
     name: payload.name,
   };

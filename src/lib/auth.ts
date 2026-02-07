@@ -2,13 +2,16 @@ import { verifySession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-export async function getOrgIdOrUserId() {
+export async function getCompanyIdOrUserId() {
   const session = await verifySession();
   if (!session) {
     redirect("/sign-in");
   }
-  return session.orgId || session.userId;
+  return session.companyId || session.userId;
 }
+
+// Backwards compatibility for existing modules; prefer getCompanyIdOrUserId
+export const getOrgIdOrUserId = getCompanyIdOrUserId;
 
 export async function getUser() {
   const session = await verifySession();
@@ -20,7 +23,7 @@ export async function getCurrentUser() {
   if (!session?.userId) return null;
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, email: true, name: true, role: true, orgId: true },
+    select: { id: true, email: true, name: true, role: true, companyId: true },
   });
   return user;
 }

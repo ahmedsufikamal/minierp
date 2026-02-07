@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
@@ -19,7 +19,7 @@ function toCents(input: string | undefined | null) {
 }
 
 export async function createAccount(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = AccountSchema.safeParse({
     code: formData.get("code"),
@@ -33,7 +33,7 @@ export async function createAccount(formData: FormData) {
 
   try {
     await prisma.account.create({
-      data: { orgId, ...parsed.data },
+      data: { companyId, ...parsed.data },
     });
   } catch (e) {
     const conflict = handlePrismaUniqueConflict(e, "code");
@@ -55,7 +55,7 @@ const EntrySchema = z.object({
 });
 
 export async function createJournalEntry(formData: FormData) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const parsed = EntrySchema.safeParse({
     date: formData.get("date"),
@@ -76,7 +76,7 @@ export async function createJournalEntry(formData: FormData) {
 
   await prisma.journalEntry.create({
     data: {
-      orgId,
+      companyId,
       date,
       memo: parsed.data.memo || null,
       lines: {
@@ -102,15 +102,15 @@ export async function createJournalEntry(formData: FormData) {
 }
 
 export async function deleteAccount(id: string) {
-  const orgId = await getOrgIdOrUserId();
-  await prisma.account.deleteMany({ where: { id, orgId } });
+  const companyId = await getCompanyIdOrUserId();
+  await prisma.account.deleteMany({ where: { id, companyId } });
   revalidatePath("/accounting");
   return { ok: true };
 }
 
 export async function deleteJournalEntry(id: string) {
-  const orgId = await getOrgIdOrUserId();
-  await prisma.journalEntry.deleteMany({ where: { id, orgId } });
+  const companyId = await getCompanyIdOrUserId();
+  await prisma.journalEntry.deleteMany({ where: { id, companyId } });
   revalidatePath("/accounting");
   return { ok: true };
 }

@@ -10,11 +10,12 @@ import {
   convertPurchaseOrderToBill,
 } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { formatMoney } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Vendor = { id: string; name: string };
-type Product = { id: string; sku: string; name: string; unit: string; priceCents: number };
+type Product = { id: string; sku: string; name: string; uom: string; priceCents: number };
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -72,6 +73,7 @@ export function NewPOCard({ vendors, products }: { vendors: Vendor[]; products: 
           <div className="text-sm text-slate-600">Vendor and line items.</div>
         </div>
         <button
+          id="add-po"
           onClick={() => setOpen((v) => !v)}
           className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
@@ -254,6 +256,25 @@ export function POStatusSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+export function POTableHead({
+  sort,
+  order,
+}: {
+  sort?: string;
+  order?: "asc" | "desc";
+}) {
+  return (
+    <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
+      <SortableTh sortKey="number" label="Number" currentSort={sort} currentOrder={order} />
+      <th scope="col" className="px-4 py-3">Vendor</th>
+      <th scope="col" className="px-4 py-3">Status</th>
+      <th scope="col" className="px-4 py-3">Total</th>
+      <th scope="col" className="px-4 py-3">Convert</th>
+      <th scope="col" className="w-[120px] px-4 py-3">Action</th>
+    </tr>
   );
 }
 

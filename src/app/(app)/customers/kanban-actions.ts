@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { OpportunityStage } from "@prisma/client";
 
@@ -10,10 +10,10 @@ export async function updateOpportunityStage(
   newStage: OpportunityStage,
   customerId: string,
 ) {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   await prisma.opportunity.update({
-    where: { id: opportunityId, orgId },
+    where: { id: opportunityId, companyId },
     data: { stage: newStage },
   });
 

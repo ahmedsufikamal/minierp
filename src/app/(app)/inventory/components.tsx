@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { createMove, deleteMove } from "./actions";
 
-type Product = { id: string; sku: string; name: string; unit: string };
+type Product = { id: string; sku: string; name: string; uom: string };
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();

@@ -1,32 +1,57 @@
+import Link from "next/link";
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
-import { getOrgIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId } from "@/lib/auth";
 import { getStockByProduct } from "@/lib/inventory";
 import { DeleteRowButton, NewMoveCard } from "./components";
+import { Button } from "@/components/ui/button";
+import { Upload, Package, MapPin } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const orgId = await getOrgIdOrUserId();
+  const companyId = await getCompanyIdOrUserId();
 
   const [moves, products, stockMap] = await Promise.all([
     prisma.inventoryMove.findMany({
-      where: { orgId },
+      where: { companyId },
       include: { product: true },
       orderBy: { createdAt: "desc" },
       take: 200,
     }),
     prisma.product.findMany({
-      where: { orgId },
-      select: { id: true, sku: true, name: true, unit: true, lowStockThreshold: true },
+      where: { companyId },
+      select: { id: true, sku: true, name: true, uom: true, lowStockThreshold: true },
       orderBy: { name: "asc" },
     }),
-    getStockByProduct(orgId),
+    getStockByProduct(companyId),
   ]);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Inventory" subtitle="Track stock movement history." />
+      <div className="flex items-center justify-between">
+        <PageHeader title="Inventory" subtitle="Track stock movement history." />
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory/import">
+              <Upload className="h-4 w-4 mr-2" />
+              Import Excel
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory/items">
+              <Package className="h-4 w-4 mr-2" />
+              Items
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory/locations">
+              <MapPin className="h-4 w-4 mr-2" />
+              Locations
+            </Link>
+          </Button>
+        </div>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1">
@@ -46,7 +71,7 @@ export default async function InventoryPage() {
                   <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                     <th>SKU</th>
                     <th>Name</th>
-                    <th>Unit</th>
+                    <th>UOM</th>
                     <th>Stock</th>
                     <th></th>
                   </tr>
@@ -60,7 +85,7 @@ export default async function InventoryPage() {
                       <tr key={p.id} className="border-b last:border-0">
                         <td className="px-4 py-3 font-mono text-xs">{p.sku}</td>
                         <td className="px-4 py-3">{p.name}</td>
-                        <td className="px-4 py-3">{p.unit}</td>
+                        <td className="px-4 py-3">{p.uom}</td>
                         <td className="px-4 py-3 font-medium">{stock}</td>
                         <td className="px-4 py-3">
                           {isLow && (

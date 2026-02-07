@@ -11,6 +11,8 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
+    "test": "vitest",
+    "test:run": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -31,6 +33,7 @@
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "17.2.3",
     "jose": "^6.1.3",
@@ -40,9 +43,11 @@
     "pg": "8.17.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "recharts": "^3.7.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "xlsx": "^0.18.5",
     "zod": "4.3.6"
   },
   "devDependencies": {
@@ -62,6 +67,7 @@
     "prisma": "^6.19.2",
     "tailwindcss": "4.1.18",
     "typescript": "5.9.3",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.54.0",
+    "vitest": "^2.1.9"
   }
 }
