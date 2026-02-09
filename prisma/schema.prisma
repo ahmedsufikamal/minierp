@@ -546,6 +546,7 @@ model InventorySnapshot {
 }
 
 model StockBalance {
+  id           String        @id @default(cuid())
   companyId    String        @map("orgId")
   itemId       String
   item         Product       @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -555,7 +556,7 @@ model StockBalance {
   avgCostMinor Int?
   updatedAt    DateTime      @updatedAt
 
-  @@id([companyId, itemId, locationId])
+  @@unique([companyId, itemId, locationId])
   @@index([companyId, itemId])
   @@index([companyId, locationId])
 }

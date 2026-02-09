@@ -19,19 +19,86 @@ export default async function InventoryPage() {
     // #region agent log
     (async () => {
       fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'run1',hypothesisId:'B',location:'src/app/(app)/inventory/page.tsx:beforeMovesQuery',message:'inventoryMove.findMany about to execute',data:{where:{companyId}},timestamp:Date.now()})}).catch(()=>{});
-      return prisma.inventoryMove.findMany({
-        where: { companyId },
-        include: { product: true },
-        orderBy: { createdAt: "desc" },
-        take: 200,
-      });
+      try {
+        return await prisma.inventoryMove.findMany({
+          where: { companyId },
+          include: { product: true },
+          orderBy: { createdAt: "desc" },
+          take: 200,
+        });
+      } catch (error: any) {
+        if (error?.message?.includes("Unknown argument `companyId`")) {
+          return await prisma.inventoryMove.findMany({
+            where: { orgId: companyId },
+            include: { product: true },
+            orderBy: { createdAt: "desc" },
+            take: 200,
+          });
+        }
+        throw error;
+      }
     })(),
     // #endregion
-    prisma.product.findMany({
-      where: { companyId },
-      select: { id: true, sku: true, name: true, uom: true, lowStockThreshold: true },
-      orderBy: { name: "asc" },
-    }),
+    (async () => {
+      try {
+        const result = await prisma.product.findMany({
+          where: { companyId },
+          select: { id: true, sku: true, name: true, uom: true, lowStockThreshold: true },
+          orderBy: { name: "asc" },
+        });
+        return result;
+      } catch (error: any) {
+        // Handle stale Prisma client (companyId not recognized)
+        if (error?.message?.includes("Unknown argument `companyId`")) {
+          try {
+            const result = await prisma.product.findMany({
+              where: { orgId: companyId },
+              select: { id: true, sku: true, name: true, uom: true, lowStockThreshold: true },
+              orderBy: { name: "asc" },
+            });
+            return result;
+          } catch (fallbackError: any) {
+            // If uom column doesn't exist, fallback to unit and map it
+            if (fallbackError?.code === "P2022" || fallbackError?.message?.includes("does not exist")) {
+              const result = await prisma.product.findMany({
+                where: { orgId: companyId },
+                select: { id: true, sku: true, name: true, unit: true, lowStockThreshold: true },
+                orderBy: { name: "asc" },
+              });
+              // Map unit to uom for consistency
+              return result.map((p: any) => ({ ...p, uom: p.unit || "pcs" }));
+            }
+            throw fallbackError;
+          }
+        }
+        // Handle missing column (migration not applied)
+        if (error?.code === "P2022" || error?.message?.includes("does not exist")) {
+          // Try with unit instead of uom
+          try {
+            const result = await prisma.product.findMany({
+              where: { companyId },
+              select: { id: true, sku: true, name: true, unit: true, lowStockThreshold: true },
+              orderBy: { name: "asc" },
+            });
+            // Map unit to uom for consistency
+            return result.map((p: any) => ({ ...p, uom: p.unit || "pcs" }));
+          } catch (unitError: any) {
+            // If companyId also fails, try orgId with unit
+            if (unitError?.message?.includes("Unknown argument `companyId`")) {
+              const result = await prisma.product.findMany({
+                where: { orgId: companyId },
+                select: { id: true, sku: true, name: true, unit: true, lowStockThreshold: true },
+                orderBy: { name: "asc" },
+              });
+              // Map unit to uom for consistency
+              return result.map((p: any) => ({ ...p, uom: p.unit || "pcs" }));
+            }
+            throw unitError;
+          }
+        }
+        throw error;
+      }
+    })(),
     getStockByProduct(companyId),
   ]);
   // #region agent log

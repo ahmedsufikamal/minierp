@@ -53,9 +53,33 @@ fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{metho
 // Check if cached client has new models, if not clear it
 if (globalForPrisma.prisma && (!globalForPrisma.prisma.brand || !globalForPrisma.prisma.category)) {
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prisma.ts:clearCache',message:'Clearing stale Prisma client cache',data:{},timestamp:Date.now(),runId:'run3',hypothesisId:'C'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prisma.ts:clearCache',message:'Clearing stale Prisma client cache (missing models)',data:{},timestamp:Date.now(),runId:'run3',hypothesisId:'C'})}).catch(()=>{});
   // #endregion
   globalForPrisma.prisma = undefined;
+}
+
+// Check if cached client recognizes companyId by inspecting Customer model's where input type
+// This is a runtime check to detect if Prisma client was generated with companyId support
+if (globalForPrisma.prisma && globalForPrisma.prisma.customer) {
+  try {
+    // Try to access the where input type - if it doesn't have companyId, it will fail validation
+    // We'll catch this in the actual queries, but we can also try a test here
+    // Actually, we can't easily test this without making a query, so we'll rely on the fallback logic
+    // But we can add a timestamp-based cache invalidation
+    const cacheKey = '__prisma_client_version__';
+    const expectedVersion = '20260209_companyId'; // Update this when schema changes
+    const cachedVersion = (globalThis as any)[cacheKey];
+    if (cachedVersion !== expectedVersion) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prisma.ts:clearCacheVersion',message:'Clearing Prisma client cache (version mismatch)',data:{cachedVersion,expectedVersion},timestamp:Date.now(),runId:'run4',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
+      globalForPrisma.prisma = undefined;
+      (globalThis as any)[cacheKey] = expectedVersion;
+    }
+  } catch (e) {
+    // If check fails, clear cache to be safe
+    globalForPrisma.prisma = undefined;
+  }
 }
 
 export const prisma =

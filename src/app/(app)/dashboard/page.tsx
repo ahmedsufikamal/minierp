@@ -76,24 +76,117 @@ export default async function DashboardPage() {
   const [customers, vendors, products, invoices, bills, moves, accounts, entries, invoicesWithLines] =
     await Promise.all([
       (async () => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:customerCount:before',message:'About to query customer.count',data:{companyId,hasCustomer:!!prisma.customer},timestamp:Date.now(),runId:'run4',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         try {
           const result = await prisma.customer.count({ where: { companyId } });
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:customerCount:success',message:'customer.count succeeded with companyId',data:{result},timestamp:Date.now(),runId:'run4',hypothesisId:'E'})}).catch(()=>{});
+          // #endregion
           return result;
-        } catch (error) {
+        } catch (error: any) {
+          // #region agent log
+          const errorMsg = error?.message || String(error);
+          const errorName = error?.name || 'Unknown';
+          const hasCompanyIdInMsg = errorMsg.includes("companyId");
+          fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:customerCount:error',message:'customer.count failed, checking fallback',data:{errorName,errorMsg:errorMsg.substring(0,200),hasCompanyIdInMsg,willFallback:errorMsg.includes("Unknown argument `companyId`")},timestamp:Date.now(),runId:'run4',hypothesisId:'E'})}).catch(()=>{});
+          // #endregion
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:customerCount:fallback',message:'Using orgId fallback',data:{companyId},timestamp:Date.now(),runId:'run4',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
+            return await prisma.customer.count({ where: { orgId: companyId } });
+          }
           throw error;
         }
       })(),
-      prisma.vendor.count({ where: { companyId } }),
-      prisma.product.count({ where: { companyId } }),
-      prisma.salesInvoice.count({ where: { companyId } }),
-      prisma.purchaseBill.count({ where: { companyId } }),
-      prisma.inventoryMove.count({ where: { companyId } }),
-      prisma.account.count({ where: { companyId } }),
-      prisma.journalEntry.count({ where: { companyId } }),
-      prisma.salesInvoice.findMany({
-        where: { companyId, invoiceDate: { gte: sixMonthsAgo } },
-        include: { lines: true },
-      }),
+      (async () => {
+        try {
+          return await prisma.vendor.count({ where: { companyId } });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.vendor.count({ where: { orgId: companyId } });
+          }
+          throw error;
+        }
+      })(),
+      (async () => {
+        try {
+          return await prisma.product.count({ where: { companyId } });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.product.count({ where: { orgId: companyId } });
+          }
+          throw error;
+        }
+      })(),
+      (async () => {
+        try {
+          return await prisma.salesInvoice.count({ where: { companyId } });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.salesInvoice.count({ where: { orgId: companyId } });
+          }
+          throw error;
+        }
+      })(),
+      (async () => {
+        try {
+          return await prisma.purchaseBill.count({ where: { companyId } });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.purchaseBill.count({ where: { orgId: companyId } });
+          }
+          throw error;
+        }
+      })(),
+      (async () => {
+        try {
+          return await prisma.inventoryMove.count({ where: { companyId } });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.inventoryMove.count({ where: { orgId: companyId } });
+          }
+          throw error;
+        }
+      })(),
+      (async () => {
+        try {
+          return await prisma.account.count({ where: { companyId } });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.account.count({ where: { orgId: companyId } });
+          }
+          throw error;
+        }
+      })(),
+      (async () => {
+        try {
+          return await prisma.journalEntry.count({ where: { companyId } });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.journalEntry.count({ where: { orgId: companyId } });
+          }
+          throw error;
+        }
+      })(),
+      (async () => {
+        try {
+          return await prisma.salesInvoice.findMany({
+            where: { companyId, invoiceDate: { gte: sixMonthsAgo } },
+            include: { lines: true },
+          });
+        } catch (error: any) {
+          if (error?.message?.includes("Unknown argument `companyId`")) {
+            return await prisma.salesInvoice.findMany({
+              where: { orgId: companyId, invoiceDate: { gte: sixMonthsAgo } },
+              include: { lines: true },
+            });
+          }
+          throw error;
+        }
+      })(),
     ]);
 
   const monthLabels = last6Months();

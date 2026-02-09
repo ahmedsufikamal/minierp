@@ -50,8 +50,28 @@ CREATE INDEX IF NOT EXISTS "InventorySnapshot_orgId_status_idx" ON "InventorySna
 
 -- StockBalance updates
 ALTER TABLE "StockBalance" RENAME COLUMN "avgCost" TO "avgCostMinor";
+-- Add id column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'StockBalance' AND column_name = 'id') THEN
+    ALTER TABLE "StockBalance" ADD COLUMN "id" TEXT;
+    -- Generate IDs for existing rows
+    UPDATE "StockBalance" SET "id" = gen_random_uuid()::text WHERE "id" IS NULL;
+    ALTER TABLE "StockBalance" ALTER COLUMN "id" SET NOT NULL;
+  END IF;
+END $$;
+-- Drop old composite primary key if it exists
 ALTER TABLE "StockBalance" DROP CONSTRAINT IF EXISTS "StockBalance_pkey";
-ALTER TABLE "StockBalance" ADD CONSTRAINT "StockBalance_pkey" PRIMARY KEY ("orgId", "itemId", "locationId");
+-- Set id as primary key
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'StockBalance_pkey') THEN
+    ALTER TABLE "StockBalance" ADD CONSTRAINT "StockBalance_pkey" PRIMARY KEY ("id");
+  END IF;
+END $$;
+-- Create unique constraint instead of composite PK
+DROP INDEX IF EXISTS "StockBalance_orgId_itemId_locationId_key";
+CREATE UNIQUE INDEX IF NOT EXISTS "StockBalance_orgId_itemId_locationId_key" ON "StockBalance"("orgId", "itemId", "locationId");
 
 -- StockLedger updates
 ALTER TABLE "StockLedger" RENAME COLUMN "unitCost" TO "unitCostMinor";
