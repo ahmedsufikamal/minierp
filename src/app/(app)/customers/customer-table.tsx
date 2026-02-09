@@ -11,10 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-import { MoreHorizontal, Search, Mail, Phone, Trash2, ExternalLink, Pencil } from "lucide-react";
+import { MoreHorizontal, Mail, Phone, Trash2, ExternalLink, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -23,6 +22,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { EditCustomerDialog } from "./edit-customer-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SortableTh } from "@/components/ui/sortable-th";
 
 // Placeholder for Table components since I haven't created them yet,
 // I'll assume standard HTML table structure with Tailwind classes if I don't make the shadcn Table.
@@ -31,19 +31,20 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 // or I can quickly create table.tsx.
 // Let's stick to standard div/table structure for speed but high quality key.
 
-export function CustomerTable({ customers }: { customers: Customer[] }) {
-  const [search, setSearch] = useState("");
+export function CustomerTable({
+  customers,
+  sort,
+  order,
+}: {
+  customers: Customer[];
+  sort?: string;
+  order?: "asc" | "desc";
+}) {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const router = useRouter();
-
-  const filtered = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email?.toLowerCase().includes(search.toLowerCase()),
-  );
 
   const handleDelete = async (id: string, name: string) => {
     setDeletePending(true);
@@ -63,31 +64,18 @@ export function CustomerTable({ customers }: { customers: Customer[] }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-          <Input
-            placeholder="Search customers..."
-            className="pl-9 bg-white"
-            value={search}
-            onChange={({ target }) => setSearch(target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
-        <table className="w-full text-sm text-left">
+    <div>
+        <table className="data-table w-full text-sm text-left">
           <thead className="bg-slate-50/50 border-b border-slate-200/60 text-slate-500 font-medium">
             <tr>
-              <th className="px-4 py-3 pl-6">Customer</th>
-              <th className="px-4 py-3">Contact</th>
-              <th className="px-4 py-3 hidden md:table-cell">Details</th>
-              <th className="px-4 py-3 text-right pr-6"></th>
+              <SortableTh sortKey="name" label="Customer" currentSort={sort} currentOrder={order} className="px-4 py-3 pl-6 text-left" />
+              <th scope="col" className="px-4 py-3">Contact</th>
+              <th scope="col" className="px-4 py-3 hidden md:table-cell">Details</th>
+              <th scope="col" className="px-4 py-3 text-right pr-6 w-[80px]"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((customer) => (
+            {customers.map((customer) => (
               <tr key={customer.id} className="group hover:bg-slate-50/50 transition-colors">
                 <td className="px-4 py-3 pl-6">
                   <div className="flex items-center gap-3">
@@ -166,7 +154,7 @@ export function CustomerTable({ customers }: { customers: Customer[] }) {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {customers.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                   No customers found.
@@ -175,8 +163,6 @@ export function CustomerTable({ customers }: { customers: Customer[] }) {
             )}
           </tbody>
         </table>
-      </div>
-
       <EditCustomerDialog
         customer={editingCustomer}
         open={editDialogOpen}

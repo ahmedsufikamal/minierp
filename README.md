@@ -20,6 +20,19 @@ This is a clean, modern mini-ERP starter built with:
 
 ---
 
+## Inventory import
+
+The inventory module supports Excel imports based on the SIEMENS stock format, including the cleaned template with a `Brand` column.
+
+- **Import modes:** `OPENING_ONLY` (default) and `HISTORY_APPROX`
+- **Idempotency:** a SHA-256 file hash + `companyId` is stored in `InventorySnapshot`. Re-importing the same file is blocked unless `force re-import` is selected.
+- **Force re-import:** creates reversal ledger entries and re-applies the new opening balances in the same snapshot.
+- **Locations:** the optional `Stock Item Location & Qty` sheet is parsed to create per-location balances; reconciliation warnings are stored when totals don’t match.
+
+Rollback uses reversal entries (`StockLedgerTxnType.REVERSAL`) to keep ledger history intact.
+
+---
+
 ## 1) Prerequisites (Ubuntu 24.04.3 LTS)
 
 ### Install Node.js (recommended Node 22 LTS)

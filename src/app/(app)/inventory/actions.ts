@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCompanyIdOrUserId } from "@/lib/auth";
+import { getCompanyIdOrUserId, getCurrentUser, can } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -14,6 +14,10 @@ const MoveSchema = z.object({
 
 export async function createMove(formData: FormData) {
   const companyId = await getCompanyIdOrUserId();
+  const user = await getCurrentUser();
+  if (!user || !can(user.role, "inventory:write")) {
+    return { ok: false, error: "Not authorized to create inventory moves." };
+  }
 
   const parsed = MoveSchema.safeParse({
     productId: formData.get("productId"),
@@ -48,6 +52,10 @@ export async function createMove(formData: FormData) {
 
 export async function deleteMove(id: string) {
   const companyId = await getCompanyIdOrUserId();
+  const user = await getCurrentUser();
+  if (!user || !can(user.role, "inventory:write")) {
+    return { ok: false, error: "Not authorized to delete inventory moves." };
+  }
   await prisma.inventoryMove.deleteMany({ where: { id, companyId } });
   revalidatePath("/inventory");
   revalidatePath("/dashboard");

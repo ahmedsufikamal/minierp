@@ -5,20 +5,28 @@ import { getCompanyIdOrUserId } from "@/lib/auth";
 import { getStockByProduct } from "@/lib/inventory";
 import { DeleteRowButton, NewMoveCard } from "./components";
 import { Button } from "@/components/ui/button";
-import { Upload, Package, MapPin } from "lucide-react";
+import { Upload, Package, MapPin, Tag, Layers, History } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
   const companyId = await getCompanyIdOrUserId();
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'run1',hypothesisId:'A',location:'src/app/(app)/inventory/page.tsx:entry',message:'InventoryPage entry',data:{companyId,hasInventoryMove:!!prisma.inventoryMove},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
   const [moves, products, stockMap] = await Promise.all([
-    prisma.inventoryMove.findMany({
-      where: { companyId },
-      include: { product: true },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
+    // #region agent log
+    (async () => {
+      fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'run1',hypothesisId:'B',location:'src/app/(app)/inventory/page.tsx:beforeMovesQuery',message:'inventoryMove.findMany about to execute',data:{where:{companyId}},timestamp:Date.now()})}).catch(()=>{});
+      return prisma.inventoryMove.findMany({
+        where: { companyId },
+        include: { product: true },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      });
+    })(),
+    // #endregion
     prisma.product.findMany({
       where: { companyId },
       select: { id: true, sku: true, name: true, uom: true, lowStockThreshold: true },
@@ -26,6 +34,9 @@ export default async function InventoryPage() {
     }),
     getStockByProduct(companyId),
   ]);
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'run1',hypothesisId:'C',location:'src/app/(app)/inventory/page.tsx:afterQueries',message:'InventoryPage queries resolved',data:{movesCount:moves.length,productsCount:products.length},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
   return (
     <div className="space-y-6">
@@ -48,6 +59,24 @@ export default async function InventoryPage() {
             <Link href="/inventory/locations">
               <MapPin className="h-4 w-4 mr-2" />
               Locations
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory/brands">
+              <Tag className="h-4 w-4 mr-2" />
+              Brands
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory/categories">
+              <Layers className="h-4 w-4 mr-2" />
+              Categories
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory/snapshots">
+              <History className="h-4 w-4 mr-2" />
+              Snapshots
             </Link>
           </Button>
         </div>

@@ -47,7 +47,7 @@ export function NewCustomerDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2" variant="default">
+        <Button id="add-customer" className="gap-2" variant="default">
           <Plus className="h-4 w-4" />
           Add Customer
         </Button>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createVendor, deleteVendor } from "./actions";
 import { EditVendorDialog } from "./edit-vendor-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SortableTh } from "@/components/ui/sortable-th";
 import type { Vendor } from "@prisma/client";
 
 function SubmitButton({ label }: { label: string }) {
@@ -34,6 +35,7 @@ export function AddVendorCard() {
           <div className="text-sm text-slate-600">Create a new vendor record.</div>
         </div>
         <button
+          id="add-vendor"
           onClick={() => setOpen((v) => !v)}
           className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
@@ -121,20 +123,28 @@ export function DeleteRowButton({ id, label }: { id: string; label: string }) {
   );
 }
 
-export function VendorList({ vendors }: { vendors: Vendor[] }) {
+export function VendorList({
+  vendors,
+  sort,
+  order,
+}: {
+  vendors: Vendor[];
+  sort?: string;
+  order?: "asc" | "desc";
+}) {
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+        <table className="data-table min-w-full text-sm">
           <thead className="text-left text-slate-600">
             <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th className="w-[120px]">Action</th>
+              <SortableTh sortKey="name" label="Name" currentSort={sort} currentOrder={order} />
+              <th scope="col" className="px-4 py-3">Email</th>
+              <th scope="col" className="px-4 py-3">Phone</th>
+              <th scope="col" className="w-[120px] px-4 py-3">Action</th>
             </tr>
           </thead>
           <tbody>
