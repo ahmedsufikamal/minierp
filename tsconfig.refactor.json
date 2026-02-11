@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/app/(app)/layout.tsx",
+    "src/app/(app)/dashboard/page.tsx",
+    "src/app/(app)/reports/page.tsx",
+    "src/app/(app)/reports/reports-client.tsx",
+    "src/components/shell/**/*.tsx",
+    "src/components/shell/nav.ts",
+    "src/components/ui/PageHeader.tsx",
+    "src/components/ui/SubNavTabs.tsx",
+    "src/components/ui/Banner.tsx",
+    "src/components/datagrid/**/*.tsx",
+    "src/components/filters/**/*.tsx"
+  ]
+}

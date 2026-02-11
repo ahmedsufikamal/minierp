@@ -32,7 +32,7 @@ function getPool() {
       max: 20,
     });
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prisma.ts:getPool:created',message:'Pool created',data:{poolId:globalForPrisma.pgPool?.id},timestamp:Date.now(),runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/b061d0f1-2df2-4f6d-ae4e-558f93eee80c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'prisma.ts:getPool:created',message:'Pool created',data:{hasPool:!!globalForPrisma.pgPool},timestamp:Date.now(),runId:'run2',hypothesisId:'C'})}).catch(()=>{});
     // #endregion
   }
   // #region agent log
