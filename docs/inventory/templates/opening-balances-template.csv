@@ -1,0 +1,3 @@
+sku,warehouse,qty,unit_cost_minor
+ITEM-001,MAIN,20,2500
+ITEM-002,RET,15,5500

@@ -1,0 +1,68 @@
+import PageHeader from "@/components/page-header";
+import { prisma } from "@/lib/prisma";
+import { getCompanyIdOrUserId } from "@/lib/auth";
+import { WarehousesClient } from "./warehouses-client";
+
+export const dynamic = "force-dynamic";
+
+function isMissingSchemaError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string };
+  return e?.code === "P2021" || e?.code === "P2022" || Boolean(e?.message?.includes("does not exist"));
+}
+
+export default async function WarehousesPage() {
+  const companyId = await getCompanyIdOrUserId();
+  let needsMigration = false;
+
+  const rows = await prisma.inventoryWarehouse
+    .findMany({
+      where: { companyId },
+      include: {
+        locations: {
+          orderBy: [{ path: "asc" }, { code: "asc" }],
+        },
+      },
+      orderBy: { name: "asc" },
+    })
+    .catch((error: unknown) => {
+      if (isMissingSchemaError(error)) {
+        needsMigration = true;
+        return [];
+      }
+      throw error;
+    });
+
+  return (
+    <div className="space-y-4">
+      <PageHeader title="Warehouses" subtitle="Manage warehouses and nested locations." />
+
+      {needsMigration && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="font-medium text-amber-900">Database Migration Required</div>
+          <p className="mt-1 text-sm text-amber-700">
+            Inventory warehouse tables are missing in the current database. Run migrations before managing warehouses:
+          </p>
+          <code className="mt-2 block rounded bg-amber-100 p-2 text-xs text-amber-900">
+            npm run prisma:migrate:dev{"\n"}npm run prisma:generate
+          </code>
+        </div>
+      )}
+
+      <WarehousesClient
+        rows={rows.map((warehouse) => ({
+          id: warehouse.id,
+          code: warehouse.code,
+          name: warehouse.name,
+          description: warehouse.description,
+          isActive: warehouse.isActive,
+          locations: warehouse.locations.map((location) => ({
+            id: location.id,
+            code: location.code,
+            name: location.name,
+            isActive: location.isActive,
+          })),
+        }))}
+      />
+    </div>
+  );
+}

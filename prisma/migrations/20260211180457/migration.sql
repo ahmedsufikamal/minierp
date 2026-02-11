@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "InventoryCustomFieldValue_orgId_entityType_entityId_fieldDefini" RENAME TO "InventoryCustomFieldValue_orgId_entityType_entityId_fieldDe_key";

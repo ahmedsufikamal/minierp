@@ -1,0 +1,3 @@
+sku,warehouse,min_qty,max_qty,reorder_point,reorder_qty,lead_time_days,is_active
+ITEM-001,MAIN,2,20,5,10,7,true
+ITEM-002,RET,1,15,4,8,5,true
