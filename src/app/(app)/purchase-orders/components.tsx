@@ -11,6 +11,7 @@ import {
 } from "./actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableTh } from "@/components/ui/sortable-th";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -20,13 +21,9 @@ type Product = { id: string; sku: string; name: string; uom: string; priceCents:
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex items-center rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
-    >
+    <Button type="submit" disabled={pending}>
       {pending ? "Saving..." : label}
-    </button>
+    </Button>
   );
 }
 
@@ -72,13 +69,15 @@ export function NewPOCard({ vendors, products }: { vendors: Vendor[]; products: 
           <div className="font-medium">Create purchase order</div>
           <div className="text-sm text-slate-600">Vendor and line items.</div>
         </div>
-        <button
+        <Button
           id="add-po"
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setOpen((v) => !v)}
-          className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
           {open ? "Close" : "New"}
-        </button>
+        </Button>
       </div>
 
       {open ? (
@@ -194,13 +193,14 @@ export function NewPOCard({ vendors, products }: { vendors: Vendor[]; products: 
                   />
                 </div>
               ))}
-              <button
+              <Button
                 type="button"
-                className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50"
+                variant="utility"
+                size="xs"
                 onClick={() => setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])}
               >
                 Add line
-              </button>
+              </Button>
             </div>
           </div>
           <textarea
@@ -306,14 +306,15 @@ export function DeletePOButton({
 
   return (
     <>
-      <button
+      <Button
         onClick={() => canDelete && setOpen(true)}
         disabled={pending || !canDelete}
-        className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+        variant="utility"
+        size="xs"
         title={!canDelete ? "Only DRAFT or CANCELLED can be deleted" : undefined}
       >
         {pending ? "..." : "Delete"}
-      </button>
+      </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
@@ -352,10 +353,11 @@ export function ConvertToBillButton({
           className="rounded-lg border px-2 py-1 text-xs w-24"
         />
       )}
-      <button
+      <Button
         type="button"
         disabled={pending || !canConvert || (canConvert && !billNumber.trim())}
-        className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+        variant="utility"
+        size="xs"
         onClick={() => {
           if (!billNumber.trim()) return;
           start(async () => {
@@ -370,7 +372,7 @@ export function ConvertToBillButton({
         }}
       >
         Convert to bill
-      </button>
+      </Button>
     </div>
   );
 }

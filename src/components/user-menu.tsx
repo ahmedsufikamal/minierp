@@ -163,10 +163,15 @@ export function UserMenu({ user }: UserMenuProps) {
         <DropdownMenuSeparator className="mx-3 my-2" />
 
         <form action={logout} className="px-1 pb-1">
-          <button type="submit" className={rowClass}>
+          <Button
+            type="submit"
+            variant="ghost"
+            size="sm"
+            className={cn(rowClass, "h-auto w-full justify-start px-3 py-2.5 text-[17px] font-medium")}
+          >
             <LogOut className={iconClass} />
             <span>Log out</span>
-          </button>
+          </Button>
         </form>
       </DropdownMenuContent>
     </DropdownMenu>

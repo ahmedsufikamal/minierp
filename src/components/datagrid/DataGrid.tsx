@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { buttonVariants } from "@/components/ui/button";
 
 export type DataGridColumn<T> = {
   key: string;
@@ -48,7 +49,14 @@ export function DataGrid<T>({ title, description, columns, rows, rowKey, emptyTi
                 return (
                   <th key={col.key} className={cn("px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground", col.className)}>
                     {col.sortable && onSort ? (
-                      <button type="button" onClick={() => onSort(col.key)} className="focus-ring inline-flex items-center gap-1 rounded px-1 py-0.5 hover:text-foreground">
+                      <button
+                        type="button"
+                        onClick={() => onSort(col.key)}
+                        className={cn(
+                          buttonVariants({ variant: "ghost", size: "xs" }),
+                          "h-6 px-1.5 text-muted-foreground shadow-none hover:text-foreground",
+                        )}
+                      >
                         {col.header}
                         {isActive ? (sortOrder === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />) : <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />}
                       </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, Plus, Search, Sparkles, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useCommandPalette } from "@/components/command-palette";
 import { UserMenu } from "@/components/user-menu";
 import {
@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface TopbarProps {
   onOpenMobile: () => void;
@@ -31,7 +32,10 @@ export function Topbar({ onOpenMobile, user }: TopbarProps) {
       <button
         type="button"
         onClick={() => setCommandOpen(true)}
-        className="focus-ring flex h-9 w-full max-w-xl items-center gap-2 rounded-md border border-border bg-[hsl(var(--surface-2))] px-3 text-left text-sm text-muted-foreground"
+        className={cn(
+          buttonVariants({ variant: "utility", size: "sm" }),
+          "h-9 w-full max-w-xl justify-start gap-2 bg-[hsl(var(--surface-2))] px-3 text-left font-normal text-muted-foreground",
+        )}
         aria-label="Open command palette"
       >
         <Search className="h-4 w-4" />

@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/utils";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableTh } from "@/components/ui/sortable-th";
+import { Button } from "@/components/ui/button";
 
 type Customer = { id: string; name: string };
 type Product = { id: string; sku: string; name: string; uom: string; priceCents: number };
@@ -15,13 +16,9 @@ type Product = { id: string; sku: string; name: string; uom: string; priceCents:
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
-    >
+    <Button type="submit" disabled={pending}>
       {pending ? "Saving..." : label}
-    </button>
+    </Button>
   );
 }
 
@@ -75,13 +72,15 @@ export function NewInvoiceCard({
           <div className="font-medium">Create invoice</div>
           <div className="text-sm text-slate-600">Add customer + line items.</div>
         </div>
-        <button
+        <Button
           id="add-invoice"
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setOpen((v) => !v)}
-          className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
           {open ? "Close" : "New"}
-        </button>
+        </Button>
       </div>
 
       {open ? (
@@ -213,15 +212,16 @@ export function NewInvoiceCard({
               ))}
 
               <div className="flex items-center justify-between">
-                <button
+                <Button
                   type="button"
-                  className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50"
+                  variant="utility"
+                  size="xs"
                   onClick={() =>
                     setLines((prev) => [...prev, { description: "", qty: 1, unitPrice: 0 }])
                   }
                 >
                   Add line
-                </button>
+                </Button>
 
                 <div className="text-sm font-medium">
                   Subtotal: {formatMoney(subtotalCents, "BDT")}
@@ -332,13 +332,14 @@ export function DeleteRowButton({ id, label }: { id: string; label: string }) {
   };
   return (
     <>
-      <button
+      <Button
         onClick={() => setOpen(true)}
         disabled={pending}
-        className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+        variant="utility"
+        size="xs"
       >
         {pending ? "..." : "Delete"}
-      </button>
+      </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}

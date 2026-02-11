@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { logout } from "@/app/auth-actions";
+import { Button } from "@/components/ui/button";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -62,13 +63,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="mt-auto pt-4 border-t">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => logout()}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+              className="w-full justify-start gap-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
             >
               <LogOut size={18} />
               Sign Out
-            </button>
+            </Button>
           </div>
         </aside>
 

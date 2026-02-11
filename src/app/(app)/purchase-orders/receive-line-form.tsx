@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { receivePurchaseOrderLine } from "./actions";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 export function ReceiveLineForm({
   lineId,
@@ -45,13 +46,14 @@ export function ReceiveLineForm({
         onChange={(e) => setQty(Number(e.target.value) || 0)}
         className="w-16 rounded-lg border px-2 py-1 text-xs"
       />
-      <button
+      <Button
         type="submit"
         disabled={pending}
-        className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+        variant="utility"
+        size="xs"
       >
         {pending ? "..." : "Receive"}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
 import { createCategory, deleteCategory } from "./actions";
 import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { Layers } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +30,7 @@ export default async function InventoryCategoriesPage() {
               className="w-full rounded-xl border px-3 py-2 text-sm"
               required
             />
-            <button className="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-medium">
-              Create
-            </button>
+            <Button type="submit">Create</Button>
           </form>
         </div>
 
@@ -67,9 +66,7 @@ export default async function InventoryCategoriesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <form action={async () => deleteCategory(category.id)}>
-                          <button className="text-xs rounded-lg border px-2 py-1 hover:bg-slate-50">
-                            Delete
-                          </button>
+                          <Button type="submit" variant="utility" size="xs">Delete</Button>
                         </form>
                       </td>
                     </tr>

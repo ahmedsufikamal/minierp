@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { buttonVariants } from "@/components/ui/button";
 
 type Tab = { id: string; label: string };
 
@@ -20,8 +21,11 @@ export function SubNavTabs({ tabs, value, onChange }: SubNavTabsProps) {
           role="tab"
           aria-selected={value === tab.id}
           className={cn(
-            "focus-ring rounded-sm px-3 py-1.5 text-sm whitespace-nowrap",
-            value === tab.id ? "bg-[hsl(var(--surface-3))] text-foreground" : "text-muted-foreground hover:text-foreground",
+            buttonVariants({ variant: "utility", size: "sm" }),
+            "h-8 whitespace-nowrap rounded-sm border-transparent px-3 shadow-none",
+            value === tab.id
+              ? "bg-[hsl(var(--surface-3))] text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
           onClick={() => onChange(tab.id)}
         >

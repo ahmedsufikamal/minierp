@@ -106,18 +106,20 @@ export function DocumentAttachmentPanel({ docId, initial }: { docId: string; ini
 
       <div className="space-y-2">
         {attachments.map((attachment) => (
-          <button
+          <Button
             key={attachment.id}
             type="button"
             onClick={() => onDownload(attachment.id)}
-            className="focus-ring flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left hover:bg-[hsl(var(--surface-2))]"
+            variant="utility"
+            size="sm"
+            className="h-auto w-full justify-between px-3 py-2 text-left"
           >
             <span className="flex items-center gap-2 text-sm">
               <Paperclip className="h-4 w-4 text-muted-foreground" />
               {attachment.fileName}
             </span>
             <span className="text-xs text-muted-foreground">{(attachment.sizeBytes / 1024).toFixed(1)} KB</span>
-          </button>
+          </Button>
         ))}
         {attachments.length === 0 && <p className="text-sm text-muted-foreground">No attachments yet.</p>}
       </div>

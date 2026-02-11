@@ -8,18 +8,15 @@ import { createVendor, deleteVendor } from "./actions";
 import { EditVendorDialog } from "./edit-vendor-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableTh } from "@/components/ui/sortable-th";
+import { Button } from "@/components/ui/button";
 import type { Vendor } from "@prisma/client";
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
-    >
+    <Button type="submit" disabled={pending}>
       {pending ? "Saving..." : label}
-    </button>
+    </Button>
   );
 }
 
@@ -34,13 +31,15 @@ export function AddVendorCard() {
           <div className="font-medium">Add vendor</div>
           <div className="text-sm text-slate-600">Create a new vendor record.</div>
         </div>
-        <button
+        <Button
           id="add-vendor"
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setOpen((v) => !v)}
-          className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
           {open ? "Close" : "New"}
-        </button>
+        </Button>
       </div>
 
       {open ? (
@@ -101,13 +100,14 @@ export function DeleteRowButton({ id, label }: { id: string; label: string }) {
   };
   return (
     <>
-      <button
+      <Button
         onClick={() => setOpen(true)}
         disabled={pending}
-        className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+        variant="utility"
+        size="xs"
       >
         {pending ? "..." : "Delete"}
-      </button>
+      </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
@@ -154,16 +154,17 @@ export function VendorList({
                 <td className="px-4 py-3">{v.email ?? "—"}</td>
                 <td className="px-4 py-3">{v.phone ?? "—"}</td>
                 <td className="px-4 py-3 flex gap-1">
-                  <button
+                  <Button
                     type="button"
+                    variant="utility"
+                    size="xs"
                     onClick={() => {
                       setEditingVendor(v);
                       setEditOpen(true);
                     }}
-                    className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50"
                   >
                     Edit
-                  </button>
+                  </Button>
                   <DeleteRowButton id={v.id} label={v.name} />
                 </td>
               </tr>

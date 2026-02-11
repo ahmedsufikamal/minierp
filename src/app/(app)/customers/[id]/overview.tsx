@@ -114,9 +114,14 @@ export function OverviewTab({ customer }: { customer: CustomerWithRelations }) {
 
             {customer.tasks.map((task) => (
               <div key={task.id} className="flex items-start gap-3 group">
-                <button className="mt-0.5 text-slate-400 hover:text-green-600 transition-colors">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="mt-0.5 h-6 w-6 text-slate-400 hover:text-green-600"
+                >
                   <Circle className="h-4 w-4" />
-                </button>
+                </Button>
                 <div className="text-sm">
                   <div
                     className={`text-slate-900 ${task.status === "DONE" ? "line-through text-slate-400" : ""}`}

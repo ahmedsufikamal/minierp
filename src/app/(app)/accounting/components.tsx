@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { createAccount, createJournalEntry, deleteAccount, deleteJournalEntry } from "./actions";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
 
 type Account = { id: string; code: string; name: string; type: string };
@@ -10,13 +11,9 @@ type Account = { id: string; code: string; name: string; type: string };
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
-    >
+    <Button type="submit" disabled={pending}>
       {pending ? "Saving..." : label}
-    </button>
+    </Button>
   );
 }
 
@@ -29,12 +26,14 @@ export function NewAccountCard() {
           <div className="font-medium">Add account</div>
           <div className="text-sm text-slate-600">Extend chart of accounts.</div>
         </div>
-        <button
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setOpen((v) => !v)}
-          className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
           {open ? "Close" : "New"}
-        </button>
+        </Button>
       </div>
 
       {open ? (
@@ -96,12 +95,14 @@ export function NewJournalEntryCard({ accounts }: { accounts: Account[] }) {
           <div className="font-medium">New journal entry</div>
           <div className="text-sm text-slate-600">Simple debit/credit entry.</div>
         </div>
-        <button
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setOpen((v) => !v)}
-          className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-slate-50"
         >
           {open ? "Close" : "New"}
-        </button>
+        </Button>
       </div>
 
       {open ? (
@@ -172,34 +173,36 @@ export function NewJournalEntryCard({ accounts }: { accounts: Account[] }) {
 export function DeleteAccountButton({ id }: { id: string }) {
   const [pending, start] = useTransition();
   return (
-    <button
+    <Button
       onClick={() =>
         start(() => {
           void deleteAccount(id);
         })
       }
       disabled={pending}
-      className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+      variant="utility"
+      size="xs"
     >
       {pending ? "..." : "Delete"}
-    </button>
+    </Button>
   );
 }
 
 export function DeleteEntryButton({ id }: { id: string }) {
   const [pending, start] = useTransition();
   return (
-    <button
+    <Button
       onClick={() =>
         start(() => {
           void deleteJournalEntry(id);
         })
       }
       disabled={pending}
-      className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+      variant="utility"
+      size="xs"
     >
       {pending ? "..." : "Delete"}
-    </button>
+    </Button>
   );
 }
 
