@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Sidebar } from "./Sidebar";
-import { Topbar } from "./Topbar";
+import { Sidebar } from "./sidebar";
+import { Topbar } from "./topbar";
 
 interface AppShellProps {
   children: React.ReactNode;
