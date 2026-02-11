@@ -17,7 +17,7 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+  <thead ref={ref} className={cn("[&_tr]:border-b-2 [&_tr]:border-border bg-muted/30", className)} {...props} />
 ));
 TableHeader.displayName = "TableHeader";
 
@@ -49,7 +49,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
     <tr
       ref={ref}
       className={cn(
-        "border-b transition-colors hover:bg-slate-100/50 data-[state=selected]:bg-slate-100 dark:hover:bg-slate-800/50 dark:data-[state=selected]:bg-slate-800",
+        "border-b transition-all duration-200 hover:bg-accent/50 hover:shadow-sm data-[state=selected]:bg-accent",
         className,
       )}
       {...props}
@@ -65,7 +65,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-slate-500 [&:has([role=checkbox])]:pr-0 dark:text-slate-400",
+      "h-14 px-5 text-left align-middle font-semibold text-muted-foreground uppercase text-xs tracking-wider [&:has([role=checkbox])]:pr-0",
       className,
     )}
     {...props}
@@ -79,7 +79,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn("px-5 py-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
     {...props}
   />
 ));

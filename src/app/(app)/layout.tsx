@@ -1,8 +1,11 @@
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { CommandPalette, CommandPaletteProvider } from "@/components/command-palette";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const user = await getCurrentUser();
+
   return (
     <CommandPaletteProvider>
       <a
@@ -11,12 +14,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         Skip to main content
       </a>
-      <div className="min-h-screen">
-        <Topbar />
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 md:grid-cols-[288px_1fr]">
+      <div className="min-h-screen bg-background">
+        <Topbar user={user} />
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 md:grid-cols-[320px_1fr] px-4">
           <Sidebar />
           <main id="main-content" className="p-4 md:pr-6" tabIndex={-1}>
-            <div className="rounded-3xl border border-slate-200/60 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 md:p-6">
+            <div className="rounded-2xl border border-border bg-card/50 p-6 shadow-elevated backdrop-blur-xl md:p-8">
               {children}
             </div>
           </main>
