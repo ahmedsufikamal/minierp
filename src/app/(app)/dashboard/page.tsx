@@ -2,31 +2,14 @@ import Link from "next/link";
 import { AlertTriangle, ArrowRight, PackageSearch, Receipt, Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
-import { formatMoney } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Banner } from "@/components/ui/Banner";
-import { DataGrid, DataGridColumn } from "@/components/datagrid/DataGrid";
 import { SalesChart } from "./sales-chart";
 import { initChartOfAccountsAction } from "./actions";
+import { DashboardGrids, type DashboardLowStockRow, type DashboardOverdueInvoiceRow } from "./dashboard-grids";
 
 export const dynamic = "force-dynamic";
-
-type InvoiceDueRow = {
-  id: string;
-  number: string;
-  customerName: string;
-  dueDate: Date | null;
-  amountDueCents: number;
-};
-
-type LowStockRow = {
-  id: string;
-  name: string;
-  sku: string;
-  qty: number;
-  threshold: number;
-};
 
 function monthSeries() {
   const now = new Date();
@@ -74,19 +57,19 @@ export default async function DashboardPage() {
 
   const paidByInvoice = Object.fromEntries(invoicePayments.map((p) => [p.invoiceId ?? "", p._sum.amountCents ?? 0]));
 
-  const overdueInvoices: InvoiceDueRow[] = unpaidInvoices.map((invoice) => {
+  const overdueInvoices: DashboardOverdueInvoiceRow[] = unpaidInvoices.map((invoice) => {
     const total = invoice.lines.reduce((sum, line) => sum + line.qty * line.unitPriceCents, 0);
     const paid = paidByInvoice[invoice.id] ?? 0;
     return {
       id: invoice.id,
       number: invoice.number,
       customerName: invoice.customer.name,
-      dueDate: invoice.dueDate,
+      dueDate: invoice.dueDate ? invoice.dueDate.toISOString() : null,
       amountDueCents: Math.max(0, total - paid),
     };
   });
 
-  const lowStockRows: LowStockRow[] = lowStockBalances
+  const lowStockRows: DashboardLowStockRow[] = lowStockBalances
     .map((balance) => ({
       id: balance.item.id,
       name: balance.item.name,
@@ -114,22 +97,6 @@ export default async function DashboardPage() {
     { label: "Payments", value: payments, href: "/payments", note: "Cash movement" },
     { label: "Accounts", value: accounts, href: "/accounting", note: "Chart configured" },
     { label: "Journal Entries", value: entries, href: "/accounting", note: "Ledger activity" },
-  ];
-
-  const invoiceColumns: DataGridColumn<InvoiceDueRow>[] = [
-    { key: "number", header: "Invoice", render: (row) => <span className="font-mono text-xs">{row.number}</span> },
-    { key: "customer", header: "Customer", render: (row) => row.customerName },
-    { key: "dueDate", header: "Due Date", render: (row) => (row.dueDate ? new Date(row.dueDate).toLocaleDateString() : "—") },
-    { key: "amount", header: "Amount Due", render: (row) => <span className="font-medium">{formatMoney(row.amountDueCents)}</span> },
-    { key: "action", header: "", render: () => <Link href="/invoices" className="text-xs text-primary hover:underline">Open</Link> },
-  ];
-
-  const lowStockColumns: DataGridColumn<LowStockRow>[] = [
-    { key: "name", header: "Product", render: (row) => row.name },
-    { key: "sku", header: "SKU", render: (row) => <span className="font-mono text-xs">{row.sku}</span> },
-    { key: "qty", header: "On Hand", render: (row) => row.qty },
-    { key: "threshold", header: "Threshold", render: (row) => row.threshold },
-    { key: "action", header: "", render: () => <Link href="/products" className="text-xs text-primary hover:underline">Replenish</Link> },
   ];
 
   return (
@@ -168,29 +135,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <DataGrid
-          title="Overdue invoices"
-          description="Outstanding receivables requiring follow-up"
-          columns={invoiceColumns}
-          rows={overdueInvoices}
-          rowKey={(row) => row.id}
-          emptyTitle="No overdue invoices"
-          emptyDescription="Great! Your receivables are up to date."
-          emptyAction={<Button asChild size="sm"><Link href="/invoices">View invoices</Link></Button>}
-        />
-
-        <DataGrid
-          title="Low stock watch"
-          description="Items below configured thresholds"
-          columns={lowStockColumns}
-          rows={lowStockRows}
-          rowKey={(row) => row.id}
-          emptyTitle="No low-stock items"
-          emptyDescription="Inventory levels are healthy."
-          emptyAction={<Button asChild size="sm"><Link href="/inventory">Open inventory</Link></Button>}
-        />
-      </div>
+      <DashboardGrids overdueInvoices={overdueInvoices} lowStockRows={lowStockRows} />
 
       <section className="surface-1 p-4">
         <div className="mb-3 flex items-center justify-between">
