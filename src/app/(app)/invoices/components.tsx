@@ -75,7 +75,6 @@ export function NewInvoiceCard({
         <Button
           id="add-invoice"
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >

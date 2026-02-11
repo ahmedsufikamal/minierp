@@ -120,7 +120,7 @@ export function WarehousesClient({ rows }: { rows: Warehouse[] }) {
             <form onSubmit={(event) => onCreateLocation(warehouse.id, event)} className="mt-3 grid gap-2 sm:grid-cols-3">
               <input name="code" required placeholder="Location Code" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
               <input name="name" required placeholder="Location Name" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
-              <Button type="submit" variant="outline">Add Location</Button>
+              <Button type="submit">Add Location</Button>
             </form>
           </section>
         ))}

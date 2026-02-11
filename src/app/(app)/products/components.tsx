@@ -35,7 +35,6 @@ export function AddProductCard({ brands }: { brands: Array<{ id: string; name: s
         <Button
           id="add-product"
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >

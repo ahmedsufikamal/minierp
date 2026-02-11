@@ -26,7 +26,6 @@ export function AddCustomerCard() {
         </div>
         <Button
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >

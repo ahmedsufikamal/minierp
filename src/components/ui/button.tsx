@@ -9,18 +9,20 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "border border-transparent bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 hover:shadow-md",
+        default:
+          "border border-[hsl(var(--primary)/0.65)] bg-primary text-primary-foreground shadow-md hover:bg-primary/95 hover:shadow-lg",
         gradient:
-          "border border-transparent bg-[linear-gradient(135deg,hsl(var(--primary))_0%,hsl(var(--primary)/0.82)_100%)] text-primary-foreground shadow-sm hover:brightness-105 hover:shadow-md",
+          "border border-[hsl(var(--primary)/0.65)] bg-[linear-gradient(135deg,hsl(var(--primary))_0%,hsl(var(--primary)/0.82)_100%)] text-primary-foreground shadow-md hover:brightness-105 hover:shadow-lg",
         destructive:
-          "border border-transparent bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md",
+          "border border-[hsl(var(--destructive)/0.6)] bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90 hover:shadow-lg",
         outline:
-          "border border-border bg-[hsl(var(--surface-1))] text-[hsl(var(--text))] shadow-sm hover:border-[hsl(var(--ring)/0.45)] hover:bg-[hsl(var(--surface-interactive))]",
+          "border border-[hsl(var(--border)/0.95)] bg-[hsl(var(--surface-1))] text-[hsl(var(--text))] shadow-md hover:border-[hsl(var(--ring)/0.5)] hover:bg-[hsl(var(--surface-interactive))] hover:shadow-lg",
         secondary:
-          "border border-border bg-[hsl(var(--surface-2))] text-[hsl(var(--text))] shadow-sm hover:bg-[hsl(var(--surface-interactive))]",
-        ghost: "border border-transparent bg-transparent text-[hsl(var(--text))] hover:bg-[hsl(var(--surface-interactive))]",
+          "border border-[hsl(var(--border)/0.9)] bg-[hsl(var(--surface-2))] text-[hsl(var(--text))] shadow-md hover:bg-[hsl(var(--surface-interactive))] hover:shadow-lg",
+        ghost:
+          "border border-transparent bg-transparent text-[hsl(var(--text))] hover:border-[hsl(var(--border)/0.55)] hover:bg-[hsl(var(--surface-interactive))]",
         utility:
-          "border border-border bg-transparent text-muted-foreground hover:bg-[hsl(var(--surface-interactive))] hover:text-[hsl(var(--text))]",
+          "border border-[hsl(var(--border)/0.9)] bg-transparent text-muted-foreground hover:border-[hsl(var(--border))] hover:bg-[hsl(var(--surface-interactive))] hover:text-[hsl(var(--text))]",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

@@ -34,7 +34,6 @@ export function AddVendorCard() {
         <Button
           id="add-vendor"
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >

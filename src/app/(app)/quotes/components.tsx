@@ -67,7 +67,6 @@ export function NewQuoteCard({ customers, products }: { customers: Customer[]; p
         <Button
           id="add-quote"
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >

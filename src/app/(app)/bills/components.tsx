@@ -67,7 +67,6 @@ export function NewBillCard({ vendors, products }: { vendors: Vendor[]; products
         <Button
           id="add-bill"
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >

@@ -26,7 +26,7 @@ export function NewMoveCard({ products }: { products: Product[] }) {
           <div className="font-medium">New inventory move</div>
           <div className="text-sm text-slate-600">Record stock in/out adjustments.</div>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
+        <Button type="button" size="sm" onClick={() => setOpen((v) => !v)}>
           {open ? "Close" : "New"}
         </Button>
       </div>

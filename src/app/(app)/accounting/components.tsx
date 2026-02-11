@@ -28,7 +28,6 @@ export function NewAccountCard() {
         </div>
         <Button
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >
@@ -97,7 +96,6 @@ export function NewJournalEntryCard({ accounts }: { accounts: Account[] }) {
         </div>
         <Button
           type="button"
-          variant="outline"
           size="sm"
           onClick={() => setOpen((v) => !v)}
         >
