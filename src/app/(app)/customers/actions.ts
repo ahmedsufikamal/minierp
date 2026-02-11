@@ -78,7 +78,10 @@ export async function updateCustomer(id: string, formData: FormData) {
 
 export async function deleteCustomer(id: string) {
   const companyId = await getCompanyIdOrUserId();
-  await prisma.customer.deleteMany({ where: { id, companyId } });
+  const result = await prisma.customer.deleteMany({ where: { id, companyId } });
+  if (result.count === 0) {
+    return { ok: false, error: "Customer not found" };
+  }
   revalidatePath("/customers");
   return { ok: true };
 }

@@ -1,7 +1,5 @@
-import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
-import { formatMoney } from "@/lib/utils";
 import { ReportsClient } from "./reports-client";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +14,7 @@ export default async function ReportsPage(props: PageProps) {
   const from = new Date(fromParam);
   const to = new Date(toParam);
   if (isNaN(from.getTime())) from.setTime(new Date(new Date().getFullYear(), 0, 1).getTime());
-  if (isNaN(to.getTime())) to.setTime(Date.now());
+  if (isNaN(to.getTime())) to.setTime(new Date().getTime());
 
   const [
     salesByCustomer,
@@ -142,8 +140,8 @@ export default async function ReportsPage(props: PageProps) {
     const due = total - paid;
     return {
       number: inv.number,
-      customerName: inv.customer.name,
-      dueDate: inv.dueDate,
+      partyName: inv.customer.name,
+      dueDate: inv.dueDate ? inv.dueDate.toISOString() : null,
       totalCents: total,
       paidCents: paid,
       dueCents: due,
@@ -168,8 +166,8 @@ export default async function ReportsPage(props: PageProps) {
     const due = total - paid;
     return {
       number: bill.number,
-      vendorName: bill.vendor.name,
-      dueDate: bill.dueDate,
+      partyName: bill.vendor.name,
+      dueDate: bill.dueDate ? bill.dueDate.toISOString() : null,
       totalCents: total,
       paidCents: paid,
       dueCents: due,
@@ -177,10 +175,7 @@ export default async function ReportsPage(props: PageProps) {
   });
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Reports" subtitle="Sales, P&amp;L, and aged receivables/payables." />
-
-      <ReportsClient
+    <ReportsClient
         defaultFrom={fromParam}
         defaultTo={toParam}
         salesTotalCents={salesTotalCents}
@@ -195,6 +190,5 @@ export default async function ReportsPage(props: PageProps) {
         agedReceivables={agedReceivables}
         agedPayables={agedPayables}
       />
-    </div>
   );
 }

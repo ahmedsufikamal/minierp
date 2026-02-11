@@ -1,234 +1,220 @@
 import Link from "next/link";
+import { AlertTriangle, ArrowRight, PackageSearch, Receipt, Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatMoney } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import {
-  Users,
-  Truck,
-  Package,
-  FileText,
-  Receipt,
-  Boxes,
-  BookOpen,
-  LucideIcon,
-} from "lucide-react";
-import { initChartOfAccountsAction } from "./actions";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Banner } from "@/components/ui/Banner";
+import { DataGrid, DataGridColumn } from "@/components/datagrid/DataGrid";
 import { SalesChart } from "./sales-chart";
+import { initChartOfAccountsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-function last6Months(): { month: string; label: string }[] {
-  const out: { month: string; label: string }[] = [];
+type InvoiceDueRow = {
+  id: string;
+  number: string;
+  customerName: string;
+  dueDate: Date | null;
+  amountDueCents: number;
+};
+
+type LowStockRow = {
+  id: string;
+  name: string;
+  sku: string;
+  qty: number;
+  threshold: number;
+};
+
+function monthSeries() {
   const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const month = d.toISOString().slice(0, 7);
-    const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-    out.push({ month, label });
-  }
-  return out;
-}
-
-function StatCard({
-  title,
-  value,
-  href,
-  Icon,
-  gradient = false,
-}: {
-  title: string;
-  value: number;
-  href: string;
-  Icon: LucideIcon;
-  gradient?: boolean;
-}) {
-  return (
-    <Card variant={gradient ? "gradient" : "elevated"} className="group hover:scale-[1.02] transition-all duration-200">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{title}</div>
-            <div className="text-4xl font-bold tracking-tight text-foreground">{value.toLocaleString()}</div>
-          </div>
-          <div className={cn(
-            "rounded-xl p-3 transition-transform duration-200 group-hover:scale-110",
-            gradient 
-              ? "bg-primary/20 text-primary" 
-              : "bg-primary/10 text-primary border border-primary/20"
-          )}>
-            <Icon className="h-6 w-6" />
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between pt-4 border-t border-border/50">
-          <Badge variant="secondary" className="text-xs">View details</Badge>
-          <Link href={href}>
-            <Button variant="ghost" size="sm" className="h-8">
-              Open →
-            </Button>
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  return Array.from({ length: 6 }).map((_, idx) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+    return {
+      month: d.toISOString().slice(0, 7),
+      label: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+    };
+  });
 }
 
 export default async function DashboardPage() {
   const companyId = await getCompanyIdOrUserId();
 
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  const [customers, vendors, products, invoices, bills, moves, accounts, entries, invoicesWithLines] =
+  const [customers, vendors, products, invoices, bills, payments, accounts, entries, invoicesWithLines, unpaidInvoices, invoicePayments, lowStockBalances] =
     await Promise.all([
-      (async () => {
-        try {
-          return await prisma.customer.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.customer.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.vendor.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.vendor.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.product.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.product.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.salesInvoice.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.salesInvoice.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.purchaseBill.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.purchaseBill.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.inventoryMove.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.inventoryMove.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.account.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.account.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.journalEntry.count({ where: { companyId } });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.journalEntry.count({ where: { orgId: companyId } });
-          }
-          throw error;
-        }
-      })(),
-      (async () => {
-        try {
-          return await prisma.salesInvoice.findMany({
-            where: { companyId, invoiceDate: { gte: sixMonthsAgo } },
-            include: { lines: true },
-          });
-        } catch (error: any) {
-          if (error?.message?.includes("Unknown argument `companyId`")) {
-            return await prisma.salesInvoice.findMany({
-              where: { orgId: companyId, invoiceDate: { gte: sixMonthsAgo } },
-              include: { lines: true },
-            });
-          }
-          throw error;
-        }
-      })(),
+      prisma.customer.count({ where: { companyId } }),
+      prisma.vendor.count({ where: { companyId } }),
+      prisma.product.count({ where: { companyId } }),
+      prisma.salesInvoice.count({ where: { companyId } }),
+      prisma.purchaseBill.count({ where: { companyId } }),
+      prisma.payment.count({ where: { companyId } }),
+      prisma.account.count({ where: { companyId } }),
+      prisma.journalEntry.count({ where: { companyId } }),
+      prisma.salesInvoice.findMany({ where: { companyId }, include: { lines: true } }),
+      prisma.salesInvoice.findMany({
+        where: { companyId, status: { not: "PAID" } },
+        include: { lines: true, customer: { select: { name: true } } },
+        orderBy: { dueDate: "asc" },
+        take: 8,
+      }),
+      prisma.payment.groupBy({
+        by: ["invoiceId"],
+        where: { companyId, invoiceId: { not: null } },
+        _sum: { amountCents: true },
+      }),
+      prisma.stockBalance.findMany({
+        where: { companyId, locationId: null, item: { lowStockThreshold: { not: null } } },
+        include: { item: true },
+        orderBy: { qtyOnHand: "asc" },
+        take: 8,
+      }),
     ]);
 
-  const monthLabels = last6Months();
-  const byMonth = new Map<string, number>();
-  for (const inv of invoicesWithLines) {
-    const monthKey = inv.invoiceDate.toISOString().slice(0, 7);
-    const total = inv.lines.reduce((s, l) => s + l.qty * l.unitPriceCents, 0);
-    byMonth.set(monthKey, (byMonth.get(monthKey) ?? 0) + total);
-  }
-  const salesChartData = monthLabels.map(({ month, label }) => ({
-    month,
-    label,
-    totalCents: byMonth.get(month) ?? 0,
-  }));
+  const paidByInvoice = Object.fromEntries(invoicePayments.map((p) => [p.invoiceId ?? "", p._sum.amountCents ?? 0]));
+
+  const overdueInvoices: InvoiceDueRow[] = unpaidInvoices.map((invoice) => {
+    const total = invoice.lines.reduce((sum, line) => sum + line.qty * line.unitPriceCents, 0);
+    const paid = paidByInvoice[invoice.id] ?? 0;
+    return {
+      id: invoice.id,
+      number: invoice.number,
+      customerName: invoice.customer.name,
+      dueDate: invoice.dueDate,
+      amountDueCents: Math.max(0, total - paid),
+    };
+  });
+
+  const lowStockRows: LowStockRow[] = lowStockBalances
+    .map((balance) => ({
+      id: balance.item.id,
+      name: balance.item.name,
+      sku: balance.item.sku,
+      qty: balance.qtyOnHand,
+      threshold: balance.item.lowStockThreshold ?? 0,
+    }))
+    .filter((row) => row.qty <= row.threshold);
+
+  const monthly = monthSeries();
+  const revenueByMonth = new Map<string, number>();
+  invoicesWithLines.forEach((invoice) => {
+    const month = invoice.invoiceDate.toISOString().slice(0, 7);
+    const total = invoice.lines.reduce((sum, line) => sum + line.qty * line.unitPriceCents, 0);
+    revenueByMonth.set(month, (revenueByMonth.get(month) ?? 0) + total);
+  });
+  const salesChartData = monthly.map((m) => ({ month: m.month, label: m.label, totalCents: revenueByMonth.get(m.month) ?? 0 }));
+
+  const kpis = [
+    { label: "Customers", value: customers, href: "/customers", note: "Active accounts" },
+    { label: "Vendors", value: vendors, href: "/vendors", note: "Purchasing network" },
+    { label: "Products", value: products, href: "/products", note: "Catalog items" },
+    { label: "Invoices", value: invoices, href: "/invoices", note: "Issued documents" },
+    { label: "Bills", value: bills, href: "/bills", note: "Payables" },
+    { label: "Payments", value: payments, href: "/payments", note: "Cash movement" },
+    { label: "Accounts", value: accounts, href: "/accounting", note: "Chart configured" },
+    { label: "Journal Entries", value: entries, href: "/accounting", note: "Ledger activity" },
+  ];
+
+  const invoiceColumns: DataGridColumn<InvoiceDueRow>[] = [
+    { key: "number", header: "Invoice", render: (row) => <span className="font-mono text-xs">{row.number}</span> },
+    { key: "customer", header: "Customer", render: (row) => row.customerName },
+    { key: "dueDate", header: "Due Date", render: (row) => (row.dueDate ? new Date(row.dueDate).toLocaleDateString() : "—") },
+    { key: "amount", header: "Amount Due", render: (row) => <span className="font-medium">{formatMoney(row.amountDueCents)}</span> },
+    { key: "action", header: "", render: () => <Link href="/invoices" className="text-xs text-primary hover:underline">Open</Link> },
+  ];
+
+  const lowStockColumns: DataGridColumn<LowStockRow>[] = [
+    { key: "name", header: "Product", render: (row) => row.name },
+    { key: "sku", header: "SKU", render: (row) => <span className="font-mono text-xs">{row.sku}</span> },
+    { key: "qty", header: "On Hand", render: (row) => row.qty },
+    { key: "threshold", header: "Threshold", render: (row) => row.threshold },
+    { key: "action", header: "", render: () => <Link href="/products" className="text-xs text-primary hover:underline">Replenish</Link> },
+  ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            A quick snapshot of your miniERP data and performance metrics.
-          </p>
+    <div className="space-y-4">
+      <PageHeader
+        title="Dashboard"
+        description="Operational view of sales, inventory, and accounting health."
+        actions={(
+          <>
+            <Button asChild size="sm"><Link href="/invoices">Create invoice</Link></Button>
+            <Button variant="outline" size="sm"><Upload className="mr-1 h-4 w-4" /> Import inventory</Button>
+          </>
+        )}
+      />
+
+      <Banner
+        title="Complete accounting setup"
+        description="Initialize chart of accounts to enable full ledger and reporting workflows."
+        action={
+          <form action={initChartOfAccountsAction}>
+            <Button size="sm">Initialize now</Button>
+          </form>
+        }
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((kpi) => (
+          <Link key={kpi.label} href={kpi.href} className="surface-2 block p-3 hover:bg-[hsl(var(--surface-3))]">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">{kpi.label}</div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-2xl font-semibold">{kpi.value.toLocaleString()}</span>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{kpi.note}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <DataGrid
+          title="Overdue invoices"
+          description="Outstanding receivables requiring follow-up"
+          columns={invoiceColumns}
+          rows={overdueInvoices}
+          rowKey={(row) => row.id}
+          emptyTitle="No overdue invoices"
+          emptyDescription="Great! Your receivables are up to date."
+          emptyAction={<Button asChild size="sm"><Link href="/invoices">View invoices</Link></Button>}
+        />
+
+        <DataGrid
+          title="Low stock watch"
+          description="Items below configured thresholds"
+          columns={lowStockColumns}
+          rows={lowStockRows}
+          rowKey={(row) => row.id}
+          emptyTitle="No low-stock items"
+          emptyDescription="Inventory levels are healthy."
+          emptyAction={<Button asChild size="sm"><Link href="/inventory">Open inventory</Link></Button>}
+        />
+      </div>
+
+      <section className="surface-1 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Sales trend</h2>
+          <span className="text-xs text-muted-foreground">Last 6 months</span>
         </div>
-
-        <form action={initChartOfAccountsAction}>
-          <Button variant="gradient">Initialize chart of accounts</Button>
-        </form>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Customers" value={customers} href="/customers" Icon={Users} gradient />
-        <StatCard title="Vendors" value={vendors} href="/vendors" Icon={Truck} />
-        <StatCard title="Products" value={products} href="/products" Icon={Package} />
-        <StatCard title="Invoices" value={invoices} href="/invoices" Icon={FileText} gradient />
-        <StatCard title="Bills" value={bills} href="/bills" Icon={Receipt} />
-        <StatCard title="Inventory moves" value={moves} href="/inventory" Icon={Boxes} />
-        <StatCard title="Accounts" value={accounts} href="/accounting" Icon={BookOpen} />
-        <StatCard title="Journal entries" value={entries} href="/accounting" Icon={BookOpen} />
-      </div>
-
-      <Card variant="elevated">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl">Sales Overview</CardTitle>
-          <p className="text-sm text-muted-foreground">Last 6 months revenue trend</p>
-        </CardHeader>
-        <CardContent>
+        {salesChartData.some((point) => point.totalCents > 0) ? (
           <SalesChart data={salesChartData} />
-        </CardContent>
-      </Card>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+            <PackageSearch className="h-5 w-5 text-muted-foreground" />
+            <p className="text-sm font-medium">No sales data yet</p>
+            <p className="text-sm text-muted-foreground">Create an invoice to populate your trend insights.</p>
+            <Button asChild size="sm"><Link href="/invoices"><Receipt className="mr-1 h-4 w-4" /> Create invoice</Link></Button>
+          </div>
+        )}
+      </section>
+
+      {lowStockRows.length > 0 && (
+        <div className="surface-2 flex items-center gap-2 p-3 text-sm text-[hsl(var(--warning))]">
+          <AlertTriangle className="h-4 w-4" />
+          {lowStockRows.length} item(s) need replenishment attention.
+        </div>
+      )}
     </div>
   );
 }

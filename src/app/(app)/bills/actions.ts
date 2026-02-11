@@ -116,7 +116,10 @@ export async function updateBillStatus(id: string, formData: FormData) {
 
 export async function deleteBill(id: string) {
   const companyId = await getCompanyIdOrUserId();
-  await prisma.purchaseBill.deleteMany({ where: { id, companyId } });
+  const result = await prisma.purchaseBill.deleteMany({ where: { id, companyId } });
+  if (result.count === 0) {
+    return { ok: false, error: "Bill not found" };
+  }
   revalidatePath("/bills");
   revalidatePath("/dashboard");
   return { ok: true };

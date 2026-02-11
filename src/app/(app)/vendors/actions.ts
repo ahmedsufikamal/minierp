@@ -77,7 +77,10 @@ export async function updateVendor(id: string, formData: FormData) {
 
 export async function deleteVendor(id: string) {
   const companyId = await getCompanyIdOrUserId();
-  await prisma.vendor.deleteMany({ where: { id, companyId } });
+  const result = await prisma.vendor.deleteMany({ where: { id, companyId } });
+  if (result.count === 0) {
+    return { ok: false, error: "Vendor not found" };
+  }
   revalidatePath("/vendors");
   return { ok: true };
 }

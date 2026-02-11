@@ -157,7 +157,10 @@ export async function updateProduct(id: string, formData: FormData) {
 
 export async function deleteProduct(id: string) {
   const companyId = await getCompanyIdOrUserId();
-  await prisma.product.deleteMany({ where: { id, companyId } });
+  const result = await prisma.product.deleteMany({ where: { id, companyId } });
+  if (result.count === 0) {
+    return { ok: false, error: "Product not found" };
+  }
   revalidatePath("/products");
   return { ok: true };
 }

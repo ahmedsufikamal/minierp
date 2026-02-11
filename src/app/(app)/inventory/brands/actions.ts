@@ -8,26 +8,26 @@ export async function createBrand(formData: FormData) {
   const companyId = await getCompanyIdOrUserId();
   const user = await getCurrentUser();
   if (!user || !can(user.role, "inventory:write")) {
-    return { ok: false, error: "Not authorized to create brands." };
+    return;
   }
   const name = String(formData.get("name") || "").trim();
-  if (!name) return { ok: false, error: "Name is required" };
+  if (!name) return;
   await prisma.brand.upsert({
     where: { companyId_name: { companyId, name } },
     create: { companyId, name },
     update: {},
   });
   revalidatePath("/inventory/brands");
-  return { ok: true };
+  return;
 }
 
 export async function deleteBrand(id: string) {
   const companyId = await getCompanyIdOrUserId();
   const user = await getCurrentUser();
   if (!user || !can(user.role, "inventory:write")) {
-    return { ok: false, error: "Not authorized to delete brands." };
+    return;
   }
   await prisma.brand.deleteMany({ where: { id, companyId } });
   revalidatePath("/inventory/brands");
-  return { ok: true };
+  return;
 }

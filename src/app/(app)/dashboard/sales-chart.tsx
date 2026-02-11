@@ -29,7 +29,7 @@ export function SalesChart({ data }: { data: Point[] }) {
             tickFormatter={(v) => (v >= 100 ? `${(v / 100).toFixed(0)}` : String(v))}
           />
           <Tooltip
-            formatter={(value: number) => [(value / 100).toFixed(2), "Total"]}
+            formatter={(value) => [((Number(value ?? 0)) / 100).toFixed(2), "Total"]}
             contentStyle={{ fontSize: 12 }}
           />
           <Bar dataKey="totalCents" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
