@@ -181,27 +181,41 @@ async function main() {
       },
     });
 
-    await prisma.inventoryReorderRule.upsert({
+    const existingRule = await prisma.inventoryReorderRule.findFirst({
       where: {
-        companyId_itemId_warehouseId_locationId: {
-          companyId,
-          itemId: product.id,
-          warehouseId: warehouseMain.id,
-          locationId: null,
-        },
-      },
-      create: {
         companyId,
         itemId: product.id,
         warehouseId: warehouseMain.id,
-        minQty: 2,
-        maxQty: 20,
-        reorderPoint: 5,
-        reorderQty: 10,
-        leadTimeDays: 7,
+        locationId: null,
       },
-      update: {},
+      select: { id: true },
     });
+
+    if (existingRule) {
+      await prisma.inventoryReorderRule.update({
+        where: { id: existingRule.id },
+        data: {
+          minQty: 2,
+          maxQty: 20,
+          reorderPoint: 5,
+          reorderQty: 10,
+          leadTimeDays: 7,
+        },
+      });
+    } else {
+      await prisma.inventoryReorderRule.create({
+        data: {
+          companyId,
+          itemId: product.id,
+          warehouseId: warehouseMain.id,
+          minQty: 2,
+          maxQty: 20,
+          reorderPoint: 5,
+          reorderQty: 10,
+          leadTimeDays: 7,
+        },
+      });
+    }
   }
 
   const customFields = [
@@ -284,6 +298,128 @@ async function main() {
     },
     update: {
       isDefault: true,
+    },
+  });
+
+  const permissionCatalog = [
+    { key: "inventory.read", module: "inventory", description: "Read inventory entities" },
+    { key: "inventory.write", module: "inventory", description: "Create/update inventory entities" },
+    { key: "inventory.approve", module: "inventory", description: "Approve inventory transactions" },
+    { key: "sales.read", module: "sales", description: "Read sales entities" },
+    { key: "sales.write", module: "sales", description: "Write sales entities" },
+    { key: "finance.read", module: "finance", description: "Read finance entities" },
+    { key: "finance.write", module: "finance", description: "Write finance entities" },
+    { key: "admin.members", module: "admin", description: "Manage organization members" },
+    { key: "admin.roles", module: "admin", description: "Manage organization roles" },
+    { key: "admin.settings", module: "admin", description: "Manage organization settings" },
+    { key: "iam.audit.read", module: "iam", description: "Read IAM audit logs" },
+    { key: "iam.sessions.revoke", module: "iam", description: "Revoke IAM sessions" },
+    { key: "iam.impersonate", module: "iam", description: "Impersonate sessions" },
+  ];
+
+  for (const permission of permissionCatalog) {
+    await prisma.iamPermission.upsert({
+      where: { key: permission.key },
+      create: permission,
+      update: {
+        module: permission.module,
+        description: permission.description,
+      },
+    });
+  }
+
+  const allPermissions = await prisma.iamPermission.findMany({ select: { id: true, key: true } });
+  const permissionIdByKey = Object.fromEntries(allPermissions.map((p) => [p.key, p.id]));
+
+  const roleSeeds = [
+    { name: "OWNER", isDefault: true, isSystem: true, permissionKeys: permissionCatalog.map((p) => p.key) },
+    { name: "ADMIN", isDefault: false, isSystem: true, permissionKeys: permissionCatalog.filter((p) => p.key !== "iam.impersonate").map((p) => p.key) },
+    { name: "MANAGER", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "inventory.write", "sales.read", "sales.write", "finance.read"] },
+    { name: "MEMBER", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "sales.read", "finance.read"] },
+    { name: "VIEWER", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "sales.read", "finance.read"] },
+    { name: "AUDITOR", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "sales.read", "finance.read", "iam.audit.read"] },
+  ];
+
+  for (const roleSeed of roleSeeds) {
+    const role = await prisma.iamRole.upsert({
+      where: { companyId_name: { companyId, name: roleSeed.name } },
+      create: {
+        companyId,
+        name: roleSeed.name,
+        description: `${roleSeed.name} default role`,
+        isSystem: roleSeed.isSystem,
+        isDefault: roleSeed.isDefault,
+      },
+      update: {
+        isSystem: roleSeed.isSystem,
+        isDefault: roleSeed.isDefault,
+      },
+    });
+
+    for (const key of roleSeed.permissionKeys) {
+      const permissionId = permissionIdByKey[key];
+      if (!permissionId) continue;
+      await prisma.iamRolePermission.upsert({
+        where: {
+          roleId_permissionId: { roleId: role.id, permissionId },
+        },
+        create: { roleId: role.id, permissionId },
+        update: {},
+      });
+    }
+  }
+
+  if (firstUser) {
+    const ownerRole = await prisma.iamRole.findUnique({
+      where: { companyId_name: { companyId, name: "OWNER" } },
+      select: { id: true },
+    });
+
+    await prisma.user.update({
+      where: { id: firstUser.id },
+      data: {
+        status: "ACTIVE",
+        platformRole: "SUPER_ADMIN",
+        activeCompanyId: companyId,
+      },
+    });
+
+    await prisma.companyMembership.updateMany({
+      where: { userId: firstUser.id, companyId },
+      data: {
+        role: "OWNER",
+        roleId: ownerRole?.id ?? null,
+        status: "ACTIVE",
+        joinedAt: new Date(),
+      },
+    });
+  }
+
+  await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      logoUrl: "https://dummyimage.com/256x256/0f172a/ffffff&text=miniERP",
+      primaryColor: "214 95% 62%",
+      accentColor: "220 24% 18%",
+      fontFamily: "Inter, ui-sans-serif, system-ui",
+      primaryDomain: process.env.SEED_PRIMARY_DOMAIN || null,
+      allowedDomains: process.env.SEED_ALLOWED_DOMAINS
+        ? process.env.SEED_ALLOWED_DOMAINS.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean)
+        : [],
+      domainVerificationStatus: process.env.SEED_PRIMARY_DOMAIN ? "VERIFIED" : "PENDING",
+      allowedAuthMethods: ["PASSWORD", "MAGIC_LINK", "OAUTH_GOOGLE", "OAUTH_MICROSOFT"],
+      mfaPolicy: { mode: "OPTIONAL", enforceForRoles: ["OWNER", "ADMIN"], allowOtpFallback: true },
+      sessionPolicy: {
+        idleTimeoutMinutes: 30,
+        absoluteTimeoutMinutes: 480,
+        rememberMeAbsoluteTimeoutMinutes: 43200,
+        rotateEveryMinutes: 15,
+      },
+      botProtectionPolicy: {
+        turnstileEnabled: false,
+        rateLimitWindowSeconds: 60,
+        rateLimitMaxAttempts: 8,
+      },
     },
   });
 

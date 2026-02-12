@@ -42,6 +42,27 @@ export default async function SettingsPage() {
           Open audit log →
         </Link>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border p-4">
+          <h2 className="font-medium text-slate-900 mb-2">Account security</h2>
+          <p className="text-sm text-slate-600 mb-3">
+            Manage your profile, active sessions, and MFA settings.
+          </p>
+          <Link href="/settings/account" className="text-sm font-medium text-indigo-600 hover:underline">
+            Open account settings →
+          </Link>
+        </div>
+        <div className="rounded-xl border p-4">
+          <h2 className="font-medium text-slate-900 mb-2">Organization IAM</h2>
+          <p className="text-sm text-slate-600 mb-3">
+            Configure tenant branding, members, roles, and auth policies.
+          </p>
+          <Link href="/org/settings" className="text-sm font-medium text-indigo-600 hover:underline">
+            Open organization IAM →
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,9 @@
-# miniERP (Next.js + Clerk + Prisma) — Ubuntu 24.04 LTS ready
+# miniERP (Next.js + Custom IAM + Prisma) — Ubuntu 24.04 LTS ready
 
 This is a clean, modern mini-ERP starter built with:
 
 - Next.js App Router
-- Clerk authentication (supports Organizations for multi-tenant)
+- Custom IAM authentication (multi-tenant organizations, RBAC, MFA, OTP, magic links, OAuth)
 - Prisma ORM (Prisma 7 config-first)
 - PostgreSQL
 - Tailwind CSS v4
@@ -62,11 +62,9 @@ CREATE DATABASE minierp OWNER minierp_user;
 
 ---
 
-## 2) Clerk setup
+## 2) IAM setup
 
-1. Create a Clerk application
-2. Copy the keys into `.env` (see below)
-3. (Optional) Enable Organizations in Clerk if you want multi-tenant separation
+See `README-iam.md` for full end-to-end identity and access setup, including OAuth, MFA, OTP, organization settings, and admin console.
 
 ---
 
@@ -78,15 +76,12 @@ Create `.env` in project root:
 # Postgres
 DATABASE_URL="postgresql://minierp_user:CHANGE_ME_STRONG@127.0.0.1:5432/minierp?schema=public"
 
-# Clerk
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
-
-# Optional Clerk routes
-CLERK_SIGN_IN_URL="/sign-in"
-CLERK_SIGN_UP_URL="/sign-up"
-CLERK_AFTER_SIGN_IN_URL="/dashboard"
-CLERK_AFTER_SIGN_UP_URL="/dashboard"
+# IAM (see README-iam.md for full list)
+IAM_V2_ENABLED=1
+IAM_PROVIDER=local
+IAM_TOKEN_HASH_SECRET="replace-with-long-secret"
+IAM_ENCRYPTION_SECRET="replace-with-long-secret"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
 > Prisma 7 uses `prisma.config.ts` to read DATABASE_URL (config-first).
@@ -166,4 +161,4 @@ sudo systemctl status minierp
 ## Notes
 
 - Auth protection is in `src/proxy.ts` (Next.js 16 middleware replacement).
-- If you want “single-tenant” only, keep Organizations disabled; the app falls back to `userId` as tenant id.
+- IAM module docs: `README-iam.md`.

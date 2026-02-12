@@ -84,6 +84,7 @@
   body {
     background: hsl(var(--bg));
     color: hsl(var(--text));
+    font-family: var(--tenant-font-family, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif);
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }

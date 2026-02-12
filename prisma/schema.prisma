@@ -141,17 +141,127 @@ enum InventoryExportJobStatus {
   FAILED
 }
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         String   @default("USER")
-  companyId    String   @default("default-org") @map("orgId")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum IamTenantStatus {
+  ACTIVE
+  DISABLED
+  PENDING_DELETION
+}
 
-  memberships CompanyMembership[]
+enum IamPlatformRole {
+  SUPER_ADMIN
+  SUPPORT
+  NONE
+}
+
+enum IamUserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DISABLED
+}
+
+enum IamMembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum IamAuthMethod {
+  PASSWORD
+  MAGIC_LINK
+  OAUTH_GOOGLE
+  OAUTH_MICROSOFT
+  OTP_EMAIL
+  OTP_SMS
+}
+
+enum IamMfaPolicyMode {
+  OPTIONAL
+  REQUIRED_FOR_ADMINS
+  REQUIRED_FOR_ALL
+}
+
+enum IamDomainVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum IamOtpChannel {
+  EMAIL
+  SMS
+}
+
+enum IamSessionRevokeReason {
+  USER_LOGOUT
+  USER_REVOKE_ALL
+  ADMIN_REVOKE
+  SECURITY_EVENT
+}
+
+enum IamMfaFactorType {
+  TOTP
+  OTP_EMAIL
+  OTP_SMS
+}
+
+enum IamAutoJoinRuleType {
+  VERIFIED_DOMAIN
+  EMAIL_ALLOWLIST
+  MANUAL_APPROVAL
+}
+
+enum IamAuditAction {
+  AUTH_LOGIN
+  AUTH_LOGIN_FAILED
+  AUTH_LOGOUT
+  AUTH_SIGNUP
+  MFA_ENROLLED
+  MFA_CHALLENGE_VERIFIED
+  OTP_SENT
+  OTP_VERIFIED
+  MAGIC_LINK_SENT
+  MAGIC_LINK_VERIFIED
+  SESSION_REVOKED
+  SESSION_REVOKE_ALL
+  INVITE_SENT
+  INVITE_ACCEPTED
+  ROLE_CHANGED
+  POLICY_UPDATED
+  IMPERSONATION_STARTED
+  IMPERSONATION_ENDED
+  TENANT_DISABLED
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  passwordHash    String
+  name            String
+  role            String          @default("USER")
+  companyId       String          @default("default-org") @map("orgId")
+  phone           String?
+  avatarUrl       String?
+  platformRole    IamPlatformRole @default(NONE)
+  status          IamUserStatus   @default(ACTIVE)
+  activeCompanyId String?         @map("activeOrgId")
+  sessionVersion  Int             @default(1)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  activeCompany       Company?                 @relation("ActiveCompany", fields: [activeCompanyId], references: [id], onDelete: SetNull)
+  memberships         CompanyMembership[]
+  iamSessions         IamSession[]
+  iamMfaFactors       IamMfaFactor[]
+  iamRecoveryCodes    IamRecoveryCode[]
+  iamOtpChallenges    IamOtpChallenge[]
+  iamMagicLinkTokens  IamMagicLinkToken[]
+  iamOAuthAccounts    IamOAuthAccount[]
+  iamInvitesCreated   IamInvitation[]          @relation("IamInviteCreator")
+  iamAuditActorEvents IamAuditLog[]            @relation("IamAuditActor")
+  iamLoginAttempts    IamLoginAttempt[]
+  iamImpersonations   IamImpersonationSession[] @relation("IamImpersonationActor")
+  iamImpersonatedBy   IamImpersonationSession[] @relation("IamImpersonationTarget")
 }
 
 model Customer {
@@ -665,28 +775,57 @@ model StockLedger {
 
 // Multi-company support for explicit company membership / active context selection.
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String?  @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                     String                      @id @default(cuid())
+  name                   String
+  slug                   String?                     @unique
+  isActive               Boolean                     @default(true)
+  status                 IamTenantStatus             @default(ACTIVE)
+  logoUrl                String?
+  primaryColor           String?
+  accentColor            String?
+  fontFamily             String?
+  cssVars                Json?
+  customCss              String?
+  primaryDomain          String?                     @unique
+  allowedDomains         Json?
+  domainVerificationStatus IamDomainVerificationStatus @default(PENDING)
+  allowedAuthMethods     Json?
+  mfaPolicy              Json?
+  sessionPolicy          Json?
+  botProtectionPolicy    Json?
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
 
-  memberships CompanyMembership[]
+  memberships             CompanyMembership[]
+  activeUsers             User[]                     @relation("ActiveCompany")
+  iamRoles                IamRole[]
+  iamInvites              IamInvitation[]
+  iamAutoJoinRules        IamAutoJoinRule[]
+  iamSessions             IamSession[]
+  iamOtpChallenges        IamOtpChallenge[]
+  iamAuditLogs            IamAuditLog[]
+  iamLoginAttempts        IamLoginAttempt[]
+  iamImpersonationTargets IamImpersonationSession[] @relation("IamImpersonationCompany")
 }
 
 model CompanyMembership {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  role      String
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String              @id @default(cuid())
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId  String
+  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role       String
+  roleId     String?
+  roleRef    IamRole?            @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  status     IamMembershipStatus @default(ACTIVE)
+  isDefault  Boolean             @default(false)
+  joinedAt   DateTime?
+  lastActiveAt DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
 
   @@unique([userId, companyId])
+  @@index([companyId, roleId])
   @@index([companyId, role])
 }
 
@@ -1154,4 +1293,250 @@ model InventoryLabelTemplate {
 
   @@unique([companyId, name])
   @@index([companyId, paperType, isDefault])
+}
+
+model IamPermission {
+  id          String              @id @default(cuid())
+  key         String              @unique
+  module      String
+  description String?
+  isSystem    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  roles IamRolePermission[]
+
+  @@index([module])
+}
+
+model IamRole {
+  id          String              @id @default(cuid())
+  companyId   String              @map("orgId")
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isSystem    Boolean             @default(false)
+  isDefault   Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  permissions IamRolePermission[]
+  memberships CompanyMembership[]
+  invites     IamInvitation[]
+
+  @@unique([companyId, name])
+  @@index([companyId, isSystem])
+}
+
+model IamRolePermission {
+  id           String        @id @default(cuid())
+  roleId       String
+  role         IamRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   IamPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model IamInvitation {
+  id              String     @id @default(cuid())
+  companyId       String     @map("orgId")
+  company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  email           String
+  roleId          String?
+  role            IamRole?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  tokenHash       String     @unique
+  expiresAt       DateTime
+  createdByUserId String?
+  createdBy       User?      @relation("IamInviteCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  acceptedAt      DateTime?
+  autoJoinRuleId  String?
+  autoJoinRule    IamAutoJoinRule? @relation(fields: [autoJoinRuleId], references: [id], onDelete: SetNull)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([companyId, email])
+  @@index([companyId, createdAt])
+}
+
+model IamAutoJoinRule {
+  id         String              @id @default(cuid())
+  companyId  String              @map("orgId")
+  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ruleType   IamAutoJoinRuleType
+  config     Json
+  isEnabled  Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  invites IamInvitation[]
+
+  @@index([companyId, ruleType, isEnabled])
+}
+
+model IamSession {
+  id               String                 @id @default(cuid())
+  sessionTokenHash String                 @unique
+  userId           String
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId        String
+  company          Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  impersonatorUserId String?
+  rememberMe       Boolean                @default(false)
+  userAgent        String?
+  ip               String?
+  requestId        String?
+  createdAt        DateTime               @default(now())
+  lastSeenAt       DateTime               @default(now())
+  idleExpiresAt    DateTime
+  expiresAt        DateTime
+  stepUpVerifiedAt DateTime?
+  revokedAt        DateTime?
+  revokeReason     IamSessionRevokeReason?
+  updatedAt        DateTime               @updatedAt
+
+  impersonation IamImpersonationSession?
+
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([expiresAt])
+}
+
+model IamMfaFactor {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        IamMfaFactorType
+  label       String?
+  secretEnc   String?
+  destination String?
+  isPrimary   Boolean         @default(false)
+  isVerified  Boolean         @default(false)
+  verifiedAt  DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  recoveryCodes IamRecoveryCode[]
+
+  @@index([userId, type])
+}
+
+model IamRecoveryCode {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  factorId  String?
+  factor    IamMfaFactor? @relation(fields: [factorId], references: [id], onDelete: SetNull)
+  codeHash  String        @unique
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+}
+
+model IamOtpChallenge {
+  id         String        @id @default(cuid())
+  userId     String?
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companyId  String?
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  channel    IamOtpChannel
+  destination String
+  purpose    String
+  codeHash   String
+  attempts   Int           @default(0)
+  maxAttempts Int          @default(5)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  requestId  String?
+  ip         String?
+  createdAt  DateTime      @default(now())
+
+  @@index([destination, createdAt])
+  @@index([companyId, createdAt])
+}
+
+model IamMagicLinkToken {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email      String
+  purpose    String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  requestId  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([email, createdAt])
+}
+
+model IamOAuthAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       String
+  providerUserId String
+  email          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([provider, providerUserId])
+  @@index([userId, provider])
+}
+
+model IamAuditLog {
+  id          String         @id @default(cuid())
+  companyId   String?        @map("orgId")
+  company     Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  actorUserId String?
+  actor       User?          @relation("IamAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      IamAuditAction
+  entityType  String
+  entityId    String?
+  before      Json?
+  after       Json?
+  metadata    Json?
+  ip          String?
+  userAgent   String?
+  requestId   String?
+  createdAt   DateTime       @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([action, createdAt])
+}
+
+model IamLoginAttempt {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companyId  String?  @map("orgId")
+  company    Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  email      String?
+  result     String
+  reasonCode String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([companyId, createdAt])
+}
+
+model IamImpersonationSession {
+  id              String      @id @default(cuid())
+  sessionId       String      @unique
+  session         IamSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  actorUserId     String
+  actorUser       User        @relation("IamImpersonationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  targetUserId    String
+  targetUser      User        @relation("IamImpersonationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetCompanyId String
+  targetCompany   Company     @relation("IamImpersonationCompany", fields: [targetCompanyId], references: [id], onDelete: Cascade)
+  reason          String
+  startedAt       DateTime    @default(now())
+  expiresAt       DateTime
+  endedAt         DateTime?
 }

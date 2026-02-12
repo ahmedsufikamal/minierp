@@ -2,11 +2,16 @@ import "./globals.css";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { resolveTenantThemeByRequest, themeToCssVars } from "@/modules/iam";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const tenantTheme = await resolveTenantThemeByRequest();
+  const style = themeToCssVars(tenantTheme);
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen bg-background text-foreground antialiased" style={style}>
+        {tenantTheme?.customCss ? <style>{tenantTheme.customCss}</style> : null}
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

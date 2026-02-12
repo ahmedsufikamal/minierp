@@ -16,22 +16,26 @@ const protectedRoutes = [
   "/payments",
   "/reports",
   "/settings",
+  "/org",
+  "/admin",
 ];
-const publicRoutes = ["/sign-in", "/sign-up", "/"];
+const publicRoutes = ["/sign-in", "/sign-up", "/auth/sign-in", "/auth/sign-up", "/auth/verify", "/"];
 
-export default async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
   const isProtectedRoute = protectedRoutes.some((route) => path.startsWith(route));
   const isPublicRoute = publicRoutes.includes(path);
 
-  const cookie = req.cookies.get("session")?.value;
-  const session = await decrypt(cookie);
+  const legacyCookie = req.cookies.get("session")?.value;
+  const legacySession = await decrypt(legacyCookie);
+  const iamSessionToken = req.cookies.get("iam_session")?.value;
+  const isAuthenticated = Boolean(legacySession?.userId || iamSessionToken);
 
-  if (isProtectedRoute && !session?.userId) {
-    return NextResponse.redirect(new URL("/sign-in", req.nextUrl));
+  if (isProtectedRoute && !isAuthenticated) {
+    return NextResponse.redirect(new URL("/auth/sign-in", req.nextUrl));
   }
 
-  if (isPublicRoute && session?.userId && path !== "/" && path !== "/dashboard") {
+  if (isPublicRoute && isAuthenticated && path !== "/" && path !== "/dashboard") {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
   }
 

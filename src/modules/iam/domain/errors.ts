@@ -1,0 +1,51 @@
+export type IamErrorCode =
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "VALIDATION_ERROR"
+  | "CONFLICT"
+  | "RATE_LIMITED"
+  | "BOT_PROTECTION_FAILED"
+  | "MFA_REQUIRED"
+  | "TOKEN_EXPIRED"
+  | "TOKEN_INVALID"
+  | "INTERNAL_ERROR";
+
+export class IamError extends Error {
+  readonly code: IamErrorCode;
+  readonly status: number;
+  readonly details?: unknown;
+
+  constructor(code: IamErrorCode, message: string, details?: unknown) {
+    super(message);
+    this.name = "IamError";
+    this.code = code;
+    this.details = details;
+    this.status =
+      code === "UNAUTHORIZED"
+        ? 401
+        : code === "FORBIDDEN"
+          ? 403
+          : code === "NOT_FOUND"
+            ? 404
+            : code === "VALIDATION_ERROR"
+              ? 400
+              : code === "CONFLICT"
+                ? 409
+                : code === "RATE_LIMITED"
+                  ? 429
+                  : code === "BOT_PROTECTION_FAILED"
+                    ? 400
+                    : code === "MFA_REQUIRED"
+                      ? 428
+                      : code === "TOKEN_EXPIRED"
+                        ? 410
+                        : code === "TOKEN_INVALID"
+                          ? 400
+                          : 500;
+  }
+}
+
+export function isIamError(error: unknown): error is IamError {
+  return error instanceof IamError;
+}

@@ -1,7 +1,10 @@
 import "server-only";
+
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
+import { clearSessionCookie } from "@/modules/iam/infrastructure/session";
 
 function getJwtKey() {
   const secret = process.env.JWT_SECRET;
@@ -11,6 +14,10 @@ function getJwtKey() {
     );
   }
   return new TextEncoder().encode(secret);
+}
+
+function isIamV2Enabled(): boolean {
+  return process.env.IAM_V2_ENABLED === "1";
 }
 
 export type SessionPayload = {
@@ -41,6 +48,18 @@ export async function decrypt(session: string | undefined = "") {
 }
 
 export async function createSession(userId: string, companyId: string, email: string, name: string) {
+  if (isIamV2Enabled()) {
+    void email;
+    void name;
+    const { createSessionRecord, setSessionCookie } = await import("@/modules/iam/infrastructure/session");
+    const created = await createSessionRecord({
+      userId,
+      companyId,
+    });
+    await setSessionCookie(created.token, created.expiresAt);
+    return;
+  }
+
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const session = await encrypt({ userId, companyId, email, name, expiresAt });
 
@@ -56,6 +75,30 @@ export async function createSession(userId: string, companyId: string, email: st
 
 export async function verifySession() {
   const cookieStore = await cookies();
+
+  if (isIamV2Enabled()) {
+    const token = cookieStore.get("iam_session")?.value;
+    const provider = getIdentityProvider();
+    const principal = await provider.verifySession(token);
+
+    if (!principal?.userId) {
+      redirect("/auth/sign-in");
+    }
+
+    return {
+      isAuth: true,
+      userId: principal.userId,
+      companyId: principal.activeCompanyId,
+      email: principal.email,
+      name: principal.name,
+      role: principal.membershipRole,
+      platformRole: principal.platformRole,
+      permissions: principal.permissions,
+      sessionId: principal.sessionId,
+      stepUpVerifiedAt: principal.stepUpVerifiedAt,
+    };
+  }
+
   const session = cookieStore.get("session")?.value;
   const payload = await decrypt(session);
 
@@ -74,5 +117,20 @@ export async function verifySession() {
 
 export async function deleteSession() {
   const cookieStore = await cookies();
+
+  if (isIamV2Enabled()) {
+    const token = cookieStore.get("iam_session")?.value;
+    if (token) {
+      const provider = getIdentityProvider();
+      const principal = await provider.verifySession(token);
+      if (principal) {
+        await provider.revokeSession(principal.sessionId, principal.userId);
+      }
+    }
+    await clearSessionCookie();
+    cookieStore.delete("session");
+    return;
+  }
+
   cookieStore.delete("session");
 }
