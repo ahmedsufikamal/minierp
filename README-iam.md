@@ -65,6 +65,10 @@ OAuth:
 
 Notifications:
 - `IAM_NOTIFICATION_PROVIDER=http` (or omit for no-op)
+- `IAM_QUEUE_PROVIDER=inline|bullmq` (default `inline`)
+- `REDIS_URL` (required when `IAM_QUEUE_PROVIDER=bullmq`)
+- `IAM_QUEUE_NAME` (optional; default `iam-notifications`)
+- `IAM_QUEUE_CONCURRENCY` (optional; worker concurrency)
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
 - `TWILIO_ACCOUNT_SID`
@@ -121,6 +125,11 @@ Run web app:
 npm run dev
 ```
 
+Run IAM worker (required if using `IAM_QUEUE_PROVIDER=bullmq`):
+```bash
+npm run iam:worker
+```
+
 ## Routes Added
 Auth/UI:
 - `/auth/sign-in`
@@ -143,7 +152,9 @@ APIs:
 - `POST /api/auth/magic-link/send`
 - `POST /api/auth/mfa/enroll`
 - `POST /api/auth/mfa/verify`
+- `POST /api/auth/mfa/recovery/verify`
 - `POST /api/auth/session/bridge`
+- `GET /api/auth/config`
 - `GET /api/sessions`
 - `POST /api/sessions/revoke`
 - `POST /api/sessions/revoke-all`
@@ -156,9 +167,25 @@ APIs:
 - `POST /api/invites/claim`
 - `GET/POST /api/orgs/{id}/roles`
 - `PATCH/DELETE /api/orgs/{id}/roles/{roleId}`
+- `GET/POST /api/orgs/{id}/auto-join-rules`
+- `PATCH/DELETE /api/orgs/{id}/auto-join-rules/{ruleId}`
 - `GET /api/orgs/{id}/permissions`
 - `GET /api/audit`
 - OAuth: `/api/auth/oauth/{google|microsoft}/{start|callback}`
+- `PATCH /api/account/profile`
+- `POST /api/account/email/change/send-otp`
+- `POST /api/account/phone/verify/send`
+- `POST /api/account/phone/verify/confirm`
+- `POST /api/account/password/change`
+- `POST /api/account/password/reset`
+- `POST /api/admin/tenants/{id}/disable`
+- `POST /api/admin/tenants/{id}/force-logout`
+- `POST /api/admin/tenants/{id}/force-mfa`
+- `POST /api/admin/users/{id}/force-password-reset`
+- `POST /api/admin/impersonation/start`
+- `POST /api/admin/impersonation/stop`
+- `POST /api/orgs/{id}/domains/verification-token`
+- `POST /api/orgs/{id}/domains/verify`
 
 ## How To
 Create roles/permissions:
@@ -176,11 +203,26 @@ Enable social sign-on:
 - Set Google/Microsoft env vars.
 - Use sign-in buttons on `/auth/sign-in`.
 
+Queue-backed notifications:
+- Set `IAM_QUEUE_PROVIDER=bullmq` and `REDIS_URL`.
+- Start the worker with `npm run iam:worker`.
+- Keep `IAM_NOTIFICATION_PROVIDER=http` to deliver through Resend/Twilio from the worker.
+
 Rotate secrets:
 - Rotate `IAM_TOKEN_HASH_SECRET` and `IAM_ENCRYPTION_SECRET` with planned session/token invalidation.
 
 ## Testing
-Unit and integration:
+Unit:
+```bash
+npm run test:unit
+```
+
+Integration (requires PostgreSQL reachable from `DATABASE_URL`):
+```bash
+npm run test:integration
+```
+
+Combined suite:
 ```bash
 npm run test
 ```
@@ -201,8 +243,26 @@ npm run lint
 - Keep `NEXT_PUBLIC_APP_URL`, IAM secrets, and storage signing secret set; startup fails in production if required values are missing.
 - Set strict `NEXT_PUBLIC_APP_URL` and domain mappings.
 - Enable Turnstile and edge/WAF rate limiting.
+- Run at least one IAM worker replica when `IAM_QUEUE_PROVIDER=bullmq`.
 - Configure notification provider credentials.
 - Monitor IAM audit logs and define retention/export policy.
 - Define key rotation policy for IAM secrets.
 - Backup PostgreSQL and validate restore procedures.
 - Enforce CI quality gates (`typecheck`, `lint`, `test`, `build`) and migration safety checks before deploy.
+
+## Bridge Sunset Checklist (March 14, 2026)
+Execute this checklist on or after **March 14, 2026**:
+
+1. Set `IAM_LEGACY_FALLBACK_ENABLED=0`.
+2. Set `IAM_DUAL_WRITE_LEGACY_SESSION=0`.
+3. Set `API_KEY_QUERY_FALLBACK_ENABLED=0`.
+4. Redeploy and monitor auth/session error rates for at least 24 hours.
+5. Remove bridge code paths in a cleanup PR:
+   - Legacy session fallback resolution.
+   - Dual-write legacy cookie behavior.
+   - Query-string API key compatibility branches.
+6. Re-run full gates:
+   - `npm run typecheck`
+   - `npm run lint`
+   - `npm run test`
+   - `npm run test:e2e`

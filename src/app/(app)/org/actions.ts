@@ -1,13 +1,15 @@
 "use server";
 
+import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requirePermission, setActiveCompany } from "@/modules/iam";
+import { requireAuth, requirePermission, requireStepUp, setActiveCompany } from "@/modules/iam";
 import { ensureDefaultTenantRoles } from "@/modules/iam/application/bootstrap";
 import { createOrgSchema, invitePayloadSchema, roleUpsertSchema } from "@/modules/iam/interface/schemas";
 import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
+import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
 
 export async function switchOrgAction(formData: FormData) {
   const principal = await requireAuth();
@@ -111,12 +113,22 @@ export async function createOrgAction(formData: FormData) {
 
 export async function saveOrgSettingsAction(formData: FormData) {
   const principal = await requirePermission("admin.settings");
+  await requireStepUp();
+
+  const existing = await prisma.company.findUnique({
+    where: { id: principal.activeCompanyId },
+    select: {
+      primaryDomain: true,
+      allowedDomains: true,
+      domainVerificationStatus: true,
+    },
+  });
 
   const logoUrl = String(formData.get("logoUrl") || "").trim() || null;
   const primaryColor = String(formData.get("primaryColor") || "").trim() || null;
   const accentColor = String(formData.get("accentColor") || "").trim() || null;
   const fontFamily = String(formData.get("fontFamily") || "").trim() || null;
-  const primaryDomain = String(formData.get("primaryDomain") || "").trim() || null;
+  const primaryDomain = String(formData.get("primaryDomain") || "").trim().toLowerCase() || null;
   const allowedDomainsRaw = String(formData.get("allowedDomains") || "").trim();
 
   const allowedAuthMethods = {
@@ -132,6 +144,18 @@ export async function saveOrgSettingsAction(formData: FormData) {
 
   const mfaMode = String(formData.get("mfaMode") || "OPTIONAL");
   const turnstileEnabled = formData.get("turnstileEnabled") === "on";
+  const nextAllowedDomains = allowedDomainsRaw
+    ? allowedDomainsRaw
+        .split(",")
+        .map((v) => v.trim().toLowerCase())
+        .filter(Boolean)
+    : [];
+  const previousAllowedDomains = Array.isArray(existing?.allowedDomains)
+    ? existing.allowedDomains.map((value) => String(value).toLowerCase().trim()).filter(Boolean)
+    : [];
+  const domainsChanged =
+    (existing?.primaryDomain ?? null) !== primaryDomain ||
+    JSON.stringify(previousAllowedDomains) !== JSON.stringify(nextAllowedDomains);
 
   await prisma.company.update({
     where: { id: principal.activeCompanyId },
@@ -141,12 +165,10 @@ export async function saveOrgSettingsAction(formData: FormData) {
       accentColor,
       fontFamily,
       primaryDomain,
-      allowedDomains: allowedDomainsRaw
-        ? allowedDomainsRaw
-            .split(",")
-            .map((v) => v.trim().toLowerCase())
-            .filter(Boolean)
-        : [],
+      allowedDomains: nextAllowedDomains,
+      domainVerificationStatus: domainsChanged ? "PENDING" : undefined,
+      domainVerificationToken: domainsChanged ? null : undefined,
+      domainVerificationGeneratedAt: domainsChanged ? null : undefined,
       allowedAuthMethods: enabledMethods,
       mfaPolicy: {
         mode: mfaMode,
@@ -158,6 +180,29 @@ export async function saveOrgSettingsAction(formData: FormData) {
         rateLimitWindowSeconds: 60,
         rateLimitMaxAttempts: 8,
       },
+    },
+  });
+
+  await writeIamAudit({
+    action: "POLICY_UPDATED",
+    companyId: principal.activeCompanyId,
+    actorUserId: principal.userId,
+    entityType: "Company",
+    entityId: principal.activeCompanyId,
+    before: existing
+      ? {
+          primaryDomain: existing.primaryDomain,
+          allowedDomains: existing.allowedDomains,
+          domainVerificationStatus: existing.domainVerificationStatus,
+        }
+      : null,
+    after: {
+      primaryDomain,
+      allowedDomains: nextAllowedDomains,
+      domainVerificationStatus: domainsChanged ? "PENDING" : existing?.domainVerificationStatus,
+      enabledMethods,
+      mfaMode,
+      turnstileEnabled,
     },
   });
 
@@ -191,6 +236,7 @@ export async function inviteMemberAction(formData: FormData) {
 
 export async function changeMemberRoleAction(formData: FormData) {
   const principal = await requirePermission("admin.members");
+  await requireStepUp();
   const companyId = String(formData.get("companyId") || "");
   const userId = String(formData.get("userId") || "");
   const roleId = String(formData.get("roleId") || "");
@@ -209,6 +255,7 @@ export async function changeMemberRoleAction(formData: FormData) {
 
 export async function setMemberStatusAction(formData: FormData) {
   const principal = await requirePermission("admin.members");
+  await requireStepUp();
   const companyId = String(formData.get("companyId") || "");
   const userId = String(formData.get("userId") || "");
   const status = String(formData.get("status") || "");
@@ -339,6 +386,7 @@ export async function cancelInviteAction(formData: FormData) {
 
 export async function createRoleAction(formData: FormData) {
   const principal = await requirePermission("admin.roles");
+  await requireStepUp();
 
   const permissionKeys = formData
     .getAll("permissionKeys")
@@ -381,5 +429,215 @@ export async function createRoleAction(formData: FormData) {
   }
 
   revalidatePath("/org/roles");
+  return { ok: true };
+}
+
+export async function upsertAutoJoinRuleAction(formData: FormData) {
+  const principal = await requirePermission("admin.settings");
+  await requireStepUp();
+
+  const ruleId = String(formData.get("ruleId") || "").trim() || undefined;
+  const ruleType = String(formData.get("ruleType") || "").trim();
+  const domains = String(formData.get("domains") || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const allowlist = String(formData.get("allowlist") || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const requireAdminApproval = formData.get("requireAdminApproval") === "on";
+  const isEnabled = formData.get("isEnabled") === "on";
+
+  if (!["VERIFIED_DOMAIN", "EMAIL_ALLOWLIST", "MANUAL_APPROVAL"].includes(ruleType)) {
+    return { ok: false, error: "Invalid ruleType" };
+  }
+
+  const previous = ruleId
+    ? await prisma.iamAutoJoinRule.findUnique({
+        where: { id: ruleId },
+        select: {
+          id: true,
+          companyId: true,
+          ruleType: true,
+          config: true,
+          isEnabled: true,
+        },
+      })
+    : null;
+  if (previous && previous.companyId !== principal.activeCompanyId) {
+    return { ok: false, error: "Cross-tenant auto-join update blocked" };
+  }
+
+  const updated = await getIdentityProvider().upsertAutoJoinRule({
+    companyId: principal.activeCompanyId,
+    ruleId,
+    ruleType: ruleType as "VERIFIED_DOMAIN" | "EMAIL_ALLOWLIST" | "MANUAL_APPROVAL",
+    config: {
+      domains,
+      allowlist,
+      requireAdminApproval,
+    },
+    isEnabled,
+  });
+
+  await writeIamAudit({
+    action: "POLICY_UPDATED",
+    companyId: principal.activeCompanyId,
+    actorUserId: principal.userId,
+    entityType: "IamAutoJoinRule",
+    entityId: updated.id,
+    before: previous
+      ? {
+          ruleType: previous.ruleType,
+          config: previous.config,
+          isEnabled: previous.isEnabled,
+        }
+      : null,
+    after: {
+      ruleType: updated.ruleType,
+      config: updated.config,
+      isEnabled: updated.isEnabled,
+    },
+  });
+
+  revalidatePath("/org/settings");
+  return { ok: true };
+}
+
+export async function deleteAutoJoinRuleAction(formData: FormData) {
+  const principal = await requirePermission("admin.settings");
+  await requireStepUp();
+
+  const ruleId = String(formData.get("ruleId") || "").trim();
+  if (!ruleId) return { ok: false, error: "Missing ruleId" };
+
+  const previous = await prisma.iamAutoJoinRule.findUnique({
+    where: { id: ruleId },
+    select: { id: true, companyId: true, ruleType: true, config: true, isEnabled: true },
+  });
+  if (!previous || previous.companyId !== principal.activeCompanyId) {
+    return { ok: false, error: "Auto-join rule not found for active tenant" };
+  }
+
+  await getIdentityProvider().deleteAutoJoinRule({
+    companyId: principal.activeCompanyId,
+    ruleId,
+  });
+
+  await writeIamAudit({
+    action: "POLICY_UPDATED",
+    companyId: principal.activeCompanyId,
+    actorUserId: principal.userId,
+    entityType: "IamAutoJoinRule",
+    entityId: ruleId,
+    before: {
+      ruleType: previous.ruleType,
+      config: previous.config,
+      isEnabled: previous.isEnabled,
+    },
+    after: { deleted: true },
+  });
+
+  revalidatePath("/org/settings");
+  return { ok: true };
+}
+
+function buildVerificationToken(companyId: string, primaryDomain: string): string {
+  const nonce = crypto.randomBytes(16).toString("hex");
+  return `minierp-verify.${companyId}.${primaryDomain.toLowerCase()}.${nonce}`;
+}
+
+function safeCompare(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+export async function generateDomainVerificationTokenAction() {
+  const principal = await requirePermission("admin.settings");
+  await requireStepUp();
+
+  const company = await prisma.company.findUnique({
+    where: { id: principal.activeCompanyId },
+    select: { id: true, primaryDomain: true, domainVerificationStatus: true },
+  });
+  if (!company?.primaryDomain) {
+    return { ok: false, error: "Set a primary domain before generating a verification token" };
+  }
+
+  const token = buildVerificationToken(company.id, company.primaryDomain);
+  const generatedAt = new Date();
+  await prisma.company.update({
+    where: { id: company.id },
+    data: {
+      domainVerificationToken: token,
+      domainVerificationGeneratedAt: generatedAt,
+      domainVerificationStatus: "PENDING",
+    },
+  });
+
+  await writeIamAudit({
+    action: "POLICY_UPDATED",
+    companyId: principal.activeCompanyId,
+    actorUserId: principal.userId,
+    entityType: "CompanyDomainVerification",
+    entityId: principal.activeCompanyId,
+    before: { domainVerificationStatus: company.domainVerificationStatus },
+    after: { domainVerificationStatus: "PENDING", generatedAt: generatedAt.toISOString() },
+  });
+
+  revalidatePath("/org/settings");
+  return { ok: true, token };
+}
+
+export async function verifyDomainAction(formData: FormData) {
+  const principal = await requirePermission("admin.settings");
+  await requireStepUp();
+  const token = String(formData.get("domainVerificationToken") || "").trim();
+  if (!token) {
+    return { ok: false, error: "Verification token is required" };
+  }
+
+  const company = await prisma.company.findUnique({
+    where: { id: principal.activeCompanyId },
+    select: {
+      primaryDomain: true,
+      domainVerificationStatus: true,
+      domainVerificationToken: true,
+      domainVerificationGeneratedAt: true,
+    },
+  });
+  if (!company?.primaryDomain || !company.domainVerificationToken || !company.domainVerificationGeneratedAt) {
+    return { ok: false, error: "Generate a token first" };
+  }
+  if (Date.now() - company.domainVerificationGeneratedAt.getTime() > 7 * 24 * 60 * 60 * 1000) {
+    return { ok: false, error: "Verification token expired. Generate a new token." };
+  }
+  if (!safeCompare(company.domainVerificationToken, token)) {
+    return { ok: false, error: "Verification token invalid" };
+  }
+
+  await prisma.company.update({
+    where: { id: principal.activeCompanyId },
+    data: {
+      domainVerificationStatus: "VERIFIED",
+      domainVerificationToken: null,
+      domainVerificationGeneratedAt: null,
+    },
+  });
+
+  await writeIamAudit({
+    action: "POLICY_UPDATED",
+    companyId: principal.activeCompanyId,
+    actorUserId: principal.userId,
+    entityType: "CompanyDomainVerification",
+    entityId: principal.activeCompanyId,
+    before: { domainVerificationStatus: company.domainVerificationStatus },
+    after: { domainVerificationStatus: "VERIFIED" },
+  });
+
+  revalidatePath("/org/settings");
   return { ok: true };
 }

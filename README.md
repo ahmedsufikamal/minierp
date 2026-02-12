@@ -87,6 +87,11 @@ IAM_DUAL_WRITE_LEGACY_SESSION=1
 IAM_LEGACY_FALLBACK_SUNSET_DAYS=30
 IAM_INVITE_SIGNUP_BRIDGE_ENABLED=1
 IAM_INVENTORY_PERMISSION_SYNC_ENABLED=1
+IAM_NOTIFICATION_PROVIDER=http
+IAM_QUEUE_PROVIDER=inline
+# For queued delivery in cloud:
+# IAM_QUEUE_PROVIDER=bullmq
+# REDIS_URL=redis://127.0.0.1:6379/0
 ```
 
 > Prisma 7 uses `prisma.config.ts` to read DATABASE_URL (config-first).
@@ -110,6 +115,11 @@ npm run prisma:migrate:dev -- --name init
 npm run dev
 ```
 
+If using queue-backed IAM notifications:
+```bash
+npm run iam:worker
+```
+
 Open:
 
 - http://localhost:3000
@@ -121,6 +131,8 @@ Open:
 ```bash
 npm run typecheck
 npm run lint
+npm run test:unit
+npm run test:integration
 npm run test
 npm run build
 ```

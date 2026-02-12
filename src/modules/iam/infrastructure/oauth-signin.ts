@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { defaultRoleDescriptions, defaultRolePermissions, type PermissionKey } from "@/modules/iam/domain/permissions";
+import { IamError } from "@/modules/iam/domain/errors";
+import { assertAuthMethodAllowed } from "@/modules/iam/application/policy";
 import { createSessionRecord, setSessionCookie } from "@/modules/iam/infrastructure/session";
 import { exchangeOAuthCode, type OAuthProvider } from "@/modules/iam/infrastructure/oauth";
 import { verifyOAuthState } from "@/modules/iam/infrastructure/oauth-state";
@@ -163,10 +165,23 @@ export async function completeOAuthSignIn(input: {
     throw new Error("No active membership available for OAuth user");
   }
 
+  await assertAuthMethodAllowed(
+    membership.companyId,
+    input.provider === "google" ? "OAUTH_GOOGLE" : "OAUTH_MICROSOFT",
+  );
+
   await prisma.user.update({
     where: { id: userId },
     data: { activeCompanyId: membership.companyId },
   });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { mustResetPassword: true },
+  });
+  if (user?.mustResetPassword) {
+    throw new IamError("PASSWORD_RESET_REQUIRED", "Password reset required before sign-in");
+  }
 
   const created = await createSessionRecord({
     userId,

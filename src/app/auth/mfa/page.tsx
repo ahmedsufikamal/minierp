@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
-import { enrollMfaAction, verifyMfaAction } from "@/app/auth-actions";
+import { enrollMfaAction, verifyMfaAction, verifyMfaRecoveryAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,13 +15,16 @@ type EnrollState =
     };
 
 type VerifyState = { error: string } | undefined;
+type RecoveryState = { error: string } | undefined;
 
 const initEnroll: EnrollState = { error: "" };
 const initVerify: VerifyState = { error: "" };
+const initRecovery: RecoveryState = { error: "" };
 
 export default function MfaPage() {
   const [enrollState, enrollAction] = useActionState(enrollMfaAction, initEnroll);
   const [verifyState, verifyAction] = useActionState(verifyMfaAction, initVerify);
+  const [recoveryState, recoveryAction] = useActionState(verifyMfaRecoveryAction, initRecovery);
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next")?.trim() ?? "";
 
@@ -59,6 +62,13 @@ export default function MfaPage() {
             <Input name="code" placeholder="123456" required />
             <Button type="submit" className="w-full" variant="outline">Verify MFA code</Button>
             {verifyState?.error ? <p className="text-sm text-destructive">{verifyState.error}</p> : null}
+          </form>
+
+          <form action={recoveryAction} className="space-y-2">
+            {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
+            <Input name="code" placeholder="Recovery code" required />
+            <Button type="submit" className="w-full" variant="secondary">Use recovery code</Button>
+            {recoveryState?.error ? <p className="text-sm text-destructive">{recoveryState.error}</p> : null}
           </form>
         </CardContent>
       </Card>

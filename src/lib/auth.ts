@@ -46,9 +46,19 @@ export async function getCurrentUser() {
         platformRole: true,
         activeCompanyId: true,
         status: true,
+        avatarUrl: true,
+        phone: true,
+        mustResetPassword: true,
       },
     });
-    return user;
+    if (!user) return null;
+    return {
+      ...user,
+      isImpersonating: Boolean(session.isImpersonating),
+      impersonatorUserId: session.impersonatorUserId ?? null,
+      impersonationExpiresAt: session.impersonationExpiresAt ?? null,
+      deviceFingerprint: session.deviceFingerprint ?? null,
+    };
   } catch (error) {
     if (isSchemaMismatch(error)) {
       const user = await prisma.user.findUnique({
@@ -59,6 +69,8 @@ export async function getCurrentUser() {
           name: true,
           role: true,
           companyId: true,
+          avatarUrl: true,
+          phone: true,
         },
       });
 
@@ -69,6 +81,11 @@ export async function getCurrentUser() {
         platformRole: "NONE" as const,
         activeCompanyId: isIamV2Enabled() ? (session.companyId ?? user.companyId) : user.companyId,
         status: "ACTIVE" as const,
+        mustResetPassword: false,
+        isImpersonating: Boolean(session.isImpersonating),
+        impersonatorUserId: session.impersonatorUserId ?? null,
+        impersonationExpiresAt: session.impersonationExpiresAt ?? null,
+        deviceFingerprint: session.deviceFingerprint ?? null,
       };
     }
 

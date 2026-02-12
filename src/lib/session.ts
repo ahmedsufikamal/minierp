@@ -133,12 +133,20 @@ export async function verifySession() {
           sessionId: `legacy:${payload.userId}`,
           stepUpVerifiedAt: null,
           mfaRequired: false,
+          mustResetPassword: false,
+          isImpersonating: false,
+          impersonatorUserId: null,
+          impersonationExpiresAt: null,
+          deviceFingerprint: null,
         };
       }
     }
 
     if (!principal?.userId) {
       redirect("/auth/sign-in");
+    }
+    if (principal.mustResetPassword) {
+      redirect("/auth/reset-password");
     }
     if (principal.mfaRequired) {
       redirect("/auth/mfa?required=1");
@@ -156,6 +164,11 @@ export async function verifySession() {
       sessionId: principal.sessionId,
       stepUpVerifiedAt: principal.stepUpVerifiedAt,
       mfaRequired: principal.mfaRequired,
+      mustResetPassword: principal.mustResetPassword,
+      isImpersonating: principal.isImpersonating,
+      impersonatorUserId: principal.impersonatorUserId,
+      impersonationExpiresAt: principal.impersonationExpiresAt,
+      deviceFingerprint: principal.deviceFingerprint,
     };
   }
 

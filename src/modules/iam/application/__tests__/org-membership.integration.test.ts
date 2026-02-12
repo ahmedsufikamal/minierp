@@ -2,23 +2,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { LocalIdentityProvider } from "@/modules/iam/infrastructure/local-identity-provider";
 
-const hasDb = Boolean(process.env.DATABASE_URL);
-
-describe.skipIf(!hasDb)("iam integration", () => {
+describe("iam integration", () => {
   const provider = new LocalIdentityProvider();
   const marker = `it-${Date.now()}`;
   let inviterUserId = "";
   let inviteToken = "";
   let companyId = "";
-  let dbReady = false;
 
   beforeAll(async () => {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      dbReady = true;
-    } catch {
-      return;
-    }
+    await prisma.$queryRaw`SELECT 1`;
 
     process.env.IAM_TOKEN_HASH_SECRET ||= "integration_hash_secret_12345678901234567890";
     process.env.IAM_ENCRYPTION_SECRET ||= "integration_encrypt_secret_12345678901234567890";
@@ -57,7 +49,6 @@ describe.skipIf(!hasDb)("iam integration", () => {
   });
 
   afterAll(async () => {
-    if (!dbReady) return;
     await prisma.iamInvitation.deleteMany({ where: { email: { contains: marker } } });
     await prisma.companyMembership.deleteMany({ where: { user: { email: { contains: marker } } } });
     await prisma.user.deleteMany({ where: { email: { contains: marker } } });
@@ -65,25 +56,21 @@ describe.skipIf(!hasDb)("iam integration", () => {
   });
 
   it("creates tenant and membership during signup", async () => {
-    if (!dbReady) return;
     const membership = await prisma.companyMembership.findFirst({ where: { userId: inviterUserId, companyId } });
     expect(membership).toBeTruthy();
   });
 
   it("writes invitation record", async () => {
-    if (!dbReady) return;
     const invite = await prisma.iamInvitation.findFirst({ where: { companyId, email: `${marker}-member@example.com` } });
     expect(invite).toBeTruthy();
   });
 
   it("persists session records for created user", async () => {
-    if (!dbReady) return;
     const sessions = await prisma.iamSession.findMany({ where: { userId: inviterUserId } });
     expect(sessions.length).toBeGreaterThan(0);
   });
 
   it("keeps invite hash stored", async () => {
-    if (!dbReady) return;
     expect(inviteToken.length).toBeGreaterThan(20);
   });
 });

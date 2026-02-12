@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireTenantMembership, requirePermission } from "@/modules/iam";
+import { requireTenantMembership, requirePermission, requireStepUp } from "@/modules/iam";
 import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
 import { assertSameOrigin } from "@/modules/iam/interface/origin";
@@ -66,6 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     assertSameOrigin(request);
     const principal = await requirePermission("admin.settings");
+    await requireStepUp();
     const { id } = await params;
 
     if (principal.activeCompanyId !== id) {
@@ -106,6 +107,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     assertSameOrigin(request);
     const principal = await requirePermission("admin.settings");
+    await requireStepUp();
     const { id } = await params;
 
     if (principal.activeCompanyId !== id) {

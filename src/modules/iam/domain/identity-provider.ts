@@ -1,7 +1,21 @@
-import type { IamPrincipal, TenantTheme } from "@/modules/iam/domain/types";
+import type {
+  IamAutoJoinRuleConfig,
+  IamAutoJoinRuleSummary,
+  IamMfaFactorSummary,
+  IamPrincipal,
+  TenantTheme,
+} from "@/modules/iam/domain/types";
 import type { PermissionKey } from "@/modules/iam/domain/permissions";
 
 export interface IdentityProviderAdapter {
+  createSession(input: {
+    userId: string;
+    companyId: string;
+    rememberMe?: boolean;
+    ip?: string | null;
+    userAgent?: string | null;
+    requestId?: string | null;
+  }): Promise<{ sessionId: string }>;
   signUp(input: {
     email: string;
     password: string;
@@ -34,6 +48,11 @@ export interface IdentityProviderAdapter {
 
   enrollMfa(input: { userId: string; label?: string }): Promise<{ secret: string; otpauthUri: string; recoveryCodes: string[] }>;
   verifyMfa(input: { userId: string; code: string }): Promise<{ ok: true }>;
+  verifyRecoveryCode(input: { userId: string; code: string }): Promise<{ ok: true }>;
+  listMfaFactors(userId: string): Promise<IamMfaFactorSummary[]>;
+  setPrimaryMfaFactor(input: { userId: string; factorId: string }): Promise<void>;
+  removeMfaFactor(input: { userId: string; factorId: string }): Promise<void>;
+  regenerateRecoveryCodes(input: { userId: string; factorId: string }): Promise<string[]>;
 
   resolveTenantTheme(input: { host?: string | null; companyId?: string | null }): Promise<TenantTheme | null>;
 
@@ -54,7 +73,26 @@ export interface IdentityProviderAdapter {
   }): Promise<{ invitationId: string }>;
   acceptInvite(input: { token: string; userId: string }): Promise<void>;
   claimInvite(input: { token: string; userId: string; userEmail: string }): Promise<void>;
+  listAutoJoinRules(companyId: string): Promise<IamAutoJoinRuleSummary[]>;
+  upsertAutoJoinRule(input: {
+    companyId: string;
+    ruleId?: string;
+    ruleType: "VERIFIED_DOMAIN" | "EMAIL_ALLOWLIST" | "MANUAL_APPROVAL";
+    config: IamAutoJoinRuleConfig;
+    isEnabled?: boolean;
+  }): Promise<IamAutoJoinRuleSummary>;
+  deleteAutoJoinRule(input: { companyId: string; ruleId: string }): Promise<void>;
 
   setRole(input: { companyId: string; userId: string; roleId: string }): Promise<void>;
   checkPermission(input: { userId: string; companyId: string; permission: PermissionKey }): Promise<boolean>;
+  startImpersonation(input: {
+    actorUserId: string;
+    targetUserId: string;
+    targetCompanyId: string;
+    reason: string;
+    ttlMinutes?: number;
+    ip?: string | null;
+    userAgent?: string | null;
+  }): Promise<{ sessionId: string; expiresAt: Date }>;
+  stopImpersonation(input: { actorUserId: string; sessionId: string }): Promise<void>;
 }

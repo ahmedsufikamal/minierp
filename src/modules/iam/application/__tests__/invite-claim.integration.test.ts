@@ -4,24 +4,16 @@ import { ensureDefaultTenantRoles } from "@/modules/iam/application/bootstrap";
 import { hashToken } from "@/modules/iam/infrastructure/crypto";
 import { LocalIdentityProvider } from "@/modules/iam/infrastructure/local-identity-provider";
 
-const hasDb = Boolean(process.env.DATABASE_URL);
-
-describe.skipIf(!hasDb)("invite claim integration", () => {
+describe("invite claim integration", () => {
   const marker = `invite-${Date.now()}`;
   const provider = new LocalIdentityProvider();
   const token = `token-${marker}`;
   let companyId = "";
   let invitationId = "";
   let userId = "";
-  let dbReady = false;
 
   beforeAll(async () => {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      dbReady = true;
-    } catch {
-      return;
-    }
+    await prisma.$queryRaw`SELECT 1`;
 
     process.env.IAM_TOKEN_HASH_SECRET ||= "integration_hash_secret_12345678901234567890";
     process.env.IAM_ENCRYPTION_SECRET ||= "integration_encrypt_secret_12345678901234567890";
@@ -75,7 +67,6 @@ describe.skipIf(!hasDb)("invite claim integration", () => {
   });
 
   afterAll(async () => {
-    if (!dbReady) return;
     await prisma.iamInvitation.deleteMany({ where: { id: invitationId } });
     await prisma.companyMembership.deleteMany({ where: { userId } });
     await prisma.user.deleteMany({ where: { id: userId } });
@@ -83,14 +74,12 @@ describe.skipIf(!hasDb)("invite claim integration", () => {
   });
 
   it("previews invite token metadata", async () => {
-    if (!dbReady) return;
     const invite = await provider.previewInvite(token);
     expect(invite.companyId).toBe(companyId);
     expect(invite.email).toBe(`${marker}@example.com`);
   });
 
   it("rejects claim when email mismatches", async () => {
-    if (!dbReady) return;
     await expect(
       provider.claimInvite({
         token,
@@ -101,7 +90,6 @@ describe.skipIf(!hasDb)("invite claim integration", () => {
   });
 
   it("claims invite and activates membership when email matches", async () => {
-    if (!dbReady) return;
     await provider.claimInvite({
       token,
       userId,

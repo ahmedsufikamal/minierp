@@ -9,6 +9,8 @@ import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
 import { createSession, deleteSession, syncLegacyFromIamSession } from "@/lib/session";
 import {
   sendMagicLinkSchema,
+  resetPasswordSchema,
+  mfaRecoveryVerifySchema,
   mfaEnrollSchema,
   mfaVerifySchema,
   sessionRevokeSchema,
@@ -16,10 +18,11 @@ import {
   signUpSchema,
   verifyMagicLinkSchema,
 } from "@/modules/iam/interface/schemas";
-import { requireAuth } from "@/modules/iam";
+import { requireAuth, requireStepUp } from "@/modules/iam";
 import { IamError, isIamError } from "@/modules/iam/domain/errors";
 import { assertRateLimit } from "@/modules/iam/infrastructure/rate-limit";
 import { verifyTurnstileToken } from "@/modules/iam/infrastructure/turnstile";
+import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
 
 function isIamV2Enabled(): boolean {
   return process.env.IAM_V2_ENABLED === "1";
@@ -194,6 +197,12 @@ export async function signin(prevState: unknown, formData: FormData) {
       });
     }
   } catch (error) {
+    if (isIamError(error) && error.code === "PASSWORD_RESET_REQUIRED") {
+      const email = encodeURIComponent(parsed.data.email.trim().toLowerCase());
+      const nextPath = safeNextPath(parsed.data.next);
+      const next = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+      redirect(`/auth/reset-password?email=${email}${next}`);
+    }
     return { error: toActionErrorMessage(error) };
   }
 
@@ -206,6 +215,63 @@ export async function signin(prevState: unknown, formData: FormData) {
   }
 
   redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
+}
+
+export async function resetPasswordAction(prevState: unknown, formData: FormData) {
+  const parsed = resetPasswordSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid reset payload" };
+  }
+
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: {
+      id: true,
+      passwordHash: true,
+      mustResetPassword: true,
+      activeCompanyId: true,
+    },
+  });
+  if (!user) {
+    return { error: "Invalid credentials" };
+  }
+  if (!user.mustResetPassword) {
+    return { error: "Password reset is not currently required for this account" };
+  }
+
+  const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
+  if (!valid) {
+    return { error: "Invalid credentials" };
+  }
+
+  const nextHash = await bcrypt.hash(parsed.data.newPassword, 12);
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: nextHash,
+        mustResetPassword: false,
+      },
+    }),
+    prisma.iamSession.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date(), revokeReason: "SECURITY_EVENT" },
+    }),
+  ]);
+
+  await writeIamAudit({
+    action: "POLICY_UPDATED",
+    companyId: user.activeCompanyId ?? null,
+    actorUserId: user.id,
+    entityType: "User",
+    entityId: user.id,
+    metadata: { passwordResetCompleted: true },
+  });
+
+  const nextPath = safeNextPath(parsed.data.next);
+  const next = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+  redirect(`/auth/sign-in?passwordReset=1${next}`);
 }
 
 export async function sendMagicLinkAction(prevState: unknown, formData: FormData) {
@@ -243,19 +309,27 @@ export async function verifyMagicLinkAction(prevState: unknown, formData: FormDa
     return { error: parsed.error.issues[0]?.message ?? "Invalid token" };
   }
 
-  const ctx = await requestContext();
-  await assertRateLimit({
-    key: `verify:${ctx.ip ?? "unknown"}`,
-    scope: "magic_link_verify",
-    maxAttempts: safeInt(process.env.IAM_MAGIC_LINK_VERIFY_RATE_LIMIT_MAX_ATTEMPTS, 20, 1, 200),
-    windowSeconds: safeInt(process.env.IAM_MAGIC_LINK_VERIFY_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
-  });
+  try {
+    const ctx = await requestContext();
+    await assertRateLimit({
+      key: `verify:${ctx.ip ?? "unknown"}`,
+      scope: "magic_link_verify",
+      maxAttempts: safeInt(process.env.IAM_MAGIC_LINK_VERIFY_RATE_LIMIT_MAX_ATTEMPTS, 20, 1, 200),
+      windowSeconds: safeInt(process.env.IAM_MAGIC_LINK_VERIFY_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
 
-  const provider = getIdentityProvider();
-  await provider.verifyMagicLink({ token: parsed.data.token, ip: ctx.ip, userAgent: ctx.userAgent });
-  if (isIamV2Enabled()) {
-    await syncLegacyFromIamSession();
+    const provider = getIdentityProvider();
+    await provider.verifyMagicLink({ token: parsed.data.token, ip: ctx.ip, userAgent: ctx.userAgent });
+    if (isIamV2Enabled()) {
+      await syncLegacyFromIamSession();
+    }
+  } catch (error) {
+    if (isIamError(error) && error.code === "PASSWORD_RESET_REQUIRED") {
+      redirect("/auth/reset-password");
+    }
+    return { error: toActionErrorMessage(error) };
   }
+
   redirect("/dashboard");
 }
 
@@ -265,14 +339,33 @@ export async function enrollMfaAction(prevState: unknown, formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const principal = await requireAuth({ allowMfaPending: true });
-  const provider = getIdentityProvider();
-  const enrolled = await provider.enrollMfa({
-    userId: principal.userId,
-    label: parsed.data.label,
-  });
+  try {
+    const principal = await requireAuth({ allowMfaPending: true });
+    const provider = getIdentityProvider();
+    const ctx = await requestContext();
 
-  return { ok: true, data: enrolled };
+    await assertRateLimit({
+      scope: "mfa_enroll_user",
+      key: principal.userId,
+      maxAttempts: safeInt(process.env.IAM_MFA_ENROLL_RATE_LIMIT_MAX_ATTEMPTS, 6, 1, 100),
+      windowSeconds: safeInt(process.env.IAM_MFA_ENROLL_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+    await assertRateLimit({
+      scope: "mfa_enroll_ip",
+      key: ctx.ip ?? "unknown",
+      maxAttempts: safeInt(process.env.IAM_MFA_ENROLL_IP_RATE_LIMIT_MAX_ATTEMPTS, 20, 1, 500),
+      windowSeconds: safeInt(process.env.IAM_MFA_ENROLL_IP_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+
+    const enrolled = await provider.enrollMfa({
+      userId: principal.userId,
+      label: parsed.data.label,
+    });
+
+    return { ok: true, data: enrolled };
+  } catch (error) {
+    return { error: toActionErrorMessage(error) };
+  }
 }
 
 export async function verifyMfaAction(prevState: unknown, formData: FormData) {
@@ -281,17 +374,76 @@ export async function verifyMfaAction(prevState: unknown, formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid code" };
   }
 
-  const principal = await requireAuth({ allowMfaPending: true });
-  const provider = getIdentityProvider();
-  await provider.verifyMfa({
-    userId: principal.userId,
-    code: parsed.data.code,
-  });
-  if (isIamV2Enabled()) {
-    await syncLegacyFromIamSession();
+  try {
+    const principal = await requireAuth({ allowMfaPending: true });
+    const provider = getIdentityProvider();
+    const ctx = await requestContext();
+
+    await assertRateLimit({
+      scope: "mfa_verify_user",
+      key: principal.userId,
+      maxAttempts: safeInt(process.env.IAM_MFA_VERIFY_RATE_LIMIT_MAX_ATTEMPTS, 10, 1, 100),
+      windowSeconds: safeInt(process.env.IAM_MFA_VERIFY_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+    await assertRateLimit({
+      scope: "mfa_verify_ip",
+      key: ctx.ip ?? "unknown",
+      maxAttempts: safeInt(process.env.IAM_MFA_VERIFY_IP_RATE_LIMIT_MAX_ATTEMPTS, 40, 1, 500),
+      windowSeconds: safeInt(process.env.IAM_MFA_VERIFY_IP_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+
+    await provider.verifyMfa({
+      userId: principal.userId,
+      code: parsed.data.code,
+    });
+    if (isIamV2Enabled()) {
+      await syncLegacyFromIamSession();
+    }
+  } catch (error) {
+    return { error: toActionErrorMessage(error) };
   }
 
   redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
+}
+
+export async function verifyMfaRecoveryAction(prevState: unknown, formData: FormData) {
+  const parsed = mfaRecoveryVerifySchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid recovery code" };
+  }
+
+  const next = safeNextPath(formData.get("next"));
+
+  try {
+    const principal = await requireAuth({ allowMfaPending: true });
+    const provider = getIdentityProvider();
+    const ctx = await requestContext();
+
+    await assertRateLimit({
+      scope: "mfa_recovery_user",
+      key: principal.userId,
+      maxAttempts: safeInt(process.env.IAM_MFA_RECOVERY_RATE_LIMIT_MAX_ATTEMPTS, 6, 1, 100),
+      windowSeconds: safeInt(process.env.IAM_MFA_RECOVERY_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+    await assertRateLimit({
+      scope: "mfa_recovery_ip",
+      key: ctx.ip ?? "unknown",
+      maxAttempts: safeInt(process.env.IAM_MFA_RECOVERY_IP_RATE_LIMIT_MAX_ATTEMPTS, 20, 1, 500),
+      windowSeconds: safeInt(process.env.IAM_MFA_RECOVERY_IP_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+
+    await provider.verifyRecoveryCode({
+      userId: principal.userId,
+      code: parsed.data.code,
+    });
+    if (isIamV2Enabled()) {
+      await syncLegacyFromIamSession();
+    }
+  } catch (error) {
+    return { error: toActionErrorMessage(error) };
+  }
+
+  redirect(next ?? "/dashboard");
 }
 
 export async function revokeSessionAction(prevState: unknown, formData: FormData) {
@@ -309,6 +461,7 @@ export async function revokeSessionAction(prevState: unknown, formData: FormData
 
 export async function revokeAllSessionsAction() {
   const principal = await requireAuth();
+  await requireStepUp();
   const provider = getIdentityProvider();
   await provider.revokeAllSessionsForUser(principal.userId, principal.userId);
   redirect("/auth/sign-in?signedOut=1");

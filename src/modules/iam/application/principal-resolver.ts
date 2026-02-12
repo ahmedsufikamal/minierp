@@ -139,6 +139,7 @@ export async function buildLegacyPrincipalFromSession(payload: SessionPayload): 
       sessionId: `legacy:${payload.userId}`,
       stepUpVerifiedAt: null,
       mfaRequired: false,
+      mustResetPassword: false,
     };
   } catch (error) {
     if (!isSchemaMismatch(error)) {
@@ -156,6 +157,7 @@ export async function buildLegacyPrincipalFromSession(payload: SessionPayload): 
       sessionId: `legacy:${payload.userId}`,
       stepUpVerifiedAt: null,
       mfaRequired: false,
+      mustResetPassword: false,
     };
   }
 }
@@ -175,13 +177,19 @@ export async function resolvePrincipalFromTokens(
   dependencies: PrincipalResolverDependencies = defaultDependencies,
 ): Promise<PrincipalResolution> {
   if (input.iamSessionToken) {
-    const iamPrincipal = await dependencies.verifyIamSessionToken(input.iamSessionToken);
-    if (iamPrincipal) {
-      return {
-        principal: iamPrincipal,
-        source: "iam",
-        legacyPayload: null,
-      };
+    try {
+      const iamPrincipal = await dependencies.verifyIamSessionToken(input.iamSessionToken);
+      if (iamPrincipal) {
+        return {
+          principal: iamPrincipal,
+          source: "iam",
+          legacyPayload: null,
+        };
+      }
+    } catch (error) {
+      if (!isSchemaMismatch(error)) {
+        throw error;
+      }
     }
   }
 

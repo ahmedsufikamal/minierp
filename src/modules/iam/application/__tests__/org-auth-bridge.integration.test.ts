@@ -6,24 +6,16 @@ import { ensureDefaultTenantRoles } from "@/modules/iam/application/bootstrap";
 import { resolvePrincipalFromTokens } from "@/modules/iam/application/principal-resolver";
 import { bridgeLegacyPrincipalToIamSession } from "@/modules/iam/application/session-bridge";
 
-const hasDb = Boolean(process.env.DATABASE_URL);
-
-describe.skipIf(!hasDb)("org auth bridge integration", () => {
+describe("org auth bridge integration", () => {
   const marker = `org-bridge-${Date.now()}`;
   let companyId = "";
   let ownerUserId = "";
   let viewerUserId = "";
   let ownerLegacyToken = "";
   let viewerLegacyToken = "";
-  let dbReady = false;
 
   beforeAll(async () => {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      dbReady = true;
-    } catch {
-      return;
-    }
+    await prisma.$queryRaw`SELECT 1`;
 
     process.env.JWT_SECRET ||= "integration_jwt_secret_12345678901234567890";
     process.env.IAM_TOKEN_HASH_SECRET ||= "integration_hash_secret_12345678901234567890";
@@ -110,7 +102,6 @@ describe.skipIf(!hasDb)("org auth bridge integration", () => {
   });
 
   afterAll(async () => {
-    if (!dbReady) return;
     await prisma.iamSession.deleteMany({ where: { userId: { in: [ownerUserId, viewerUserId] } } });
     await prisma.companyMembership.deleteMany({ where: { userId: { in: [ownerUserId, viewerUserId] } } });
     await prisma.user.deleteMany({ where: { id: { in: [ownerUserId, viewerUserId] } } });
@@ -118,7 +109,6 @@ describe.skipIf(!hasDb)("org auth bridge integration", () => {
   });
 
   it("resolves legacy owner principal and grants org settings permission", async () => {
-    if (!dbReady) return;
     const resolved = await resolvePrincipalFromTokens(
       {
         legacySessionToken: ownerLegacyToken,
@@ -138,7 +128,6 @@ describe.skipIf(!hasDb)("org auth bridge integration", () => {
   });
 
   it("bridges a legacy principal into a persisted IAM session", async () => {
-    if (!dbReady) return;
     const resolved = await resolvePrincipalFromTokens(
       {
         legacySessionToken: ownerLegacyToken,
@@ -165,7 +154,6 @@ describe.skipIf(!hasDb)("org auth bridge integration", () => {
   });
 
   it("keeps viewer blocked from org settings permission", async () => {
-    if (!dbReady) return;
     const resolved = await resolvePrincipalFromTokens(
       {
         legacySessionToken: viewerLegacyToken,

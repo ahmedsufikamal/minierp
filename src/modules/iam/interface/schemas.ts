@@ -62,6 +62,10 @@ export const mfaVerifySchema = z.object({
   next: z.string().optional(),
 });
 
+export const mfaRecoveryVerifySchema = z.object({
+  code: z.string().min(6).max(64),
+});
+
 export const createOrgSchema = z.object({
   name: z.string().min(2).max(120),
   slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
@@ -111,8 +115,74 @@ export const policyConfigSchema = z.object({
   }),
 });
 
+export const autoJoinRuleSchema = z.object({
+  ruleType: z.enum(["VERIFIED_DOMAIN", "EMAIL_ALLOWLIST", "MANUAL_APPROVAL"]),
+  config: z.object({
+    domains: z.array(z.string().min(1)).optional(),
+    allowlist: z.array(z.string().email()).optional(),
+    requireAdminApproval: z.boolean().optional(),
+  }),
+  isEnabled: z.boolean().optional().default(true),
+});
+
 export const sessionRevokeSchema = z.object({
   sessionId: z.string().min(1),
+});
+
+export const impersonationStartSchema = z.object({
+  targetUserId: z.string().min(1),
+  targetCompanyId: z.string().min(1),
+  reason: z.string().min(8).max(500),
+  ttlMinutes: z.number().int().min(1).max(60).optional(),
+});
+
+export const accountProfileSchema = z.object({
+  name: z.string().min(2).max(120).optional(),
+  phone: z.string().min(5).max(32).optional().nullable(),
+  avatarUrl: z.string().url().max(1024).optional().nullable(),
+  email: z.string().email().optional(),
+  emailOtpCode: z.string().min(4).max(8).optional(),
+  phoneOtpCode: z.string().min(4).max(8).optional(),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z
+    .string()
+    .min(12, "Password must be at least 12 characters")
+    .max(128, "Password must be at most 128 characters")
+    .regex(/[a-z]/, "Password must include a lowercase letter")
+    .regex(/[A-Z]/, "Password must include an uppercase letter")
+    .regex(/[0-9]/, "Password must include a number")
+    .regex(/[^A-Za-z0-9]/, "Password must include a symbol"),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email(),
+  currentPassword: z.string().min(1),
+  newPassword: changePasswordSchema.shape.newPassword,
+  next: z.string().optional(),
+});
+
+export const sendEmailChangeOtpSchema = z.object({
+  email: z.string().email(),
+});
+
+export const sendPhoneVerifySchema = z.object({
+  phone: z.string().min(5).max(32),
+});
+
+export const confirmPhoneVerifySchema = z.object({
+  phone: z.string().min(5).max(32),
+  code: z.string().min(4).max(8),
+});
+
+export const verifyDomainSchema = z.object({
+  token: z.string().min(8).max(256),
+});
+
+export const authConfigQuerySchema = z.object({
+  companyId: z.string().min(1).optional(),
 });
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
@@ -125,3 +195,4 @@ export type InvitePayload = z.infer<typeof invitePayloadSchema>;
 export type ClaimInviteInput = z.infer<typeof claimInviteSchema>;
 export type RoleUpsertInput = z.infer<typeof roleUpsertSchema>;
 export type PolicyConfigInput = z.infer<typeof policyConfigSchema>;
+export type AutoJoinRuleInput = z.infer<typeof autoJoinRuleSchema>;

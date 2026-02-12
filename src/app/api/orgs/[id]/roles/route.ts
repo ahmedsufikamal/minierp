@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/modules/iam";
+import { requirePermission, requireStepUp } from "@/modules/iam";
 import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
 import { assertSameOrigin } from "@/modules/iam/interface/origin";
@@ -37,6 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     assertSameOrigin(request);
     const principal = await requirePermission("admin.roles");
+    await requireStepUp();
     const { id } = await params;
     if (principal.activeCompanyId !== id) {
       throw new IamError("FORBIDDEN", "Cross-tenant role creation blocked");

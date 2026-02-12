@@ -13,6 +13,9 @@ export async function requireAuth(options: { allowMfaPending?: boolean } = {}): 
     throw new IamError("UNAUTHORIZED", "Authentication required");
   }
   const principal = resolved.principal;
+  if (principal.mustResetPassword) {
+    throw new IamError("PASSWORD_RESET_REQUIRED", "Password reset is required before continuing");
+  }
   if (principal.mfaRequired && !options.allowMfaPending) {
     throw new IamError("MFA_REQUIRED", "Multi-factor authentication verification required");
   }
@@ -31,7 +34,10 @@ function redirectForAuthError(error: unknown, nextPath: string): never {
     if (error.code === "UNAUTHORIZED") {
       redirect(withNextParam("/auth/sign-in", nextPath));
     }
-    if (error.code === "MFA_REQUIRED") {
+    if (error.code === "PASSWORD_RESET_REQUIRED") {
+      redirect(withNextParam("/auth/reset-password", nextPath));
+    }
+    if (error.code === "MFA_REQUIRED" || error.code === "STEP_UP_REQUIRED") {
       redirect(withNextParam("/auth/mfa?required=1", nextPath));
     }
   }
@@ -85,13 +91,13 @@ export async function requirePlatformAdmin(): Promise<IamPrincipal> {
 }
 
 export async function requireStepUp(maxAgeMinutes = 10): Promise<IamPrincipal> {
-  const principal = await requireTenantMembership();
+  const principal = await requireAuth();
   if (!principal.stepUpVerifiedAt) {
-    throw new IamError("MFA_REQUIRED", "Step-up authentication required");
+    throw new IamError("STEP_UP_REQUIRED", "Step-up authentication required");
   }
   const maxAgeMs = maxAgeMinutes * 60 * 1000;
   if (Date.now() - principal.stepUpVerifiedAt.getTime() > maxAgeMs) {
-    throw new IamError("MFA_REQUIRED", "Step-up authentication expired");
+    throw new IamError("STEP_UP_REQUIRED", "Step-up authentication expired");
   }
   return principal;
 }

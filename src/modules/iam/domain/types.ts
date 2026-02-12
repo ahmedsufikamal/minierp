@@ -50,6 +50,37 @@ export interface IamPrincipal {
   sessionId: string;
   stepUpVerifiedAt?: Date | null;
   mfaRequired?: boolean;
+  mustResetPassword?: boolean;
+  isImpersonating?: boolean;
+  impersonatorUserId?: string | null;
+  impersonationExpiresAt?: Date | null;
+  deviceFingerprint?: string | null;
+}
+
+export interface IamMfaFactorSummary {
+  id: string;
+  type: "TOTP" | "OTP_EMAIL" | "OTP_SMS";
+  label: string | null;
+  destination: string | null;
+  isPrimary: boolean;
+  isVerified: boolean;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+}
+
+export interface IamAutoJoinRuleConfig {
+  domains?: string[];
+  allowlist?: string[];
+  requireAdminApproval?: boolean;
+}
+
+export interface IamAutoJoinRuleSummary {
+  id: string;
+  ruleType: "VERIFIED_DOMAIN" | "EMAIL_ALLOWLIST" | "MANUAL_APPROVAL";
+  config: IamAutoJoinRuleConfig;
+  isEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface TenantTheme {

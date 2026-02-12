@@ -1,12 +1,23 @@
 import { cookies } from "next/headers";
+import crypto from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionCookieDomain } from "@/lib/runtime-env";
 import { hashToken, randomToken } from "@/modules/iam/infrastructure/crypto";
 import { parseMfaPolicy, parseSessionPolicy } from "@/modules/iam/application/policy";
 import { getPermissionsForUserCompany } from "@/modules/iam/application/rbac";
 import type { IamPrincipal } from "@/modules/iam/domain/types";
+import { IamError } from "@/modules/iam/domain/errors";
+import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
 
 const COOKIE_NAME = "iam_session";
+
+function isSchemaMismatch(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  );
+}
 
 function parseMinutes(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 30;
@@ -21,6 +32,23 @@ export async function createSessionRecord(input: {
   userAgent?: string | null;
   requestId?: string | null;
 }): Promise<{ token: string; sessionId: string; expiresAt: Date }> {
+  let mustResetPassword = false;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { mustResetPassword: true },
+    });
+    mustResetPassword = Boolean(user?.mustResetPassword);
+  } catch (error) {
+    if (!isSchemaMismatch(error)) {
+      throw error;
+    }
+  }
+
+  if (mustResetPassword) {
+    throw new IamError("PASSWORD_RESET_REQUIRED", "Password reset required before session creation");
+  }
+
   const company = await prisma.company.findUnique({
     where: { id: input.companyId },
     select: { sessionPolicy: true },
@@ -83,36 +111,157 @@ export async function clearSessionCookie(): Promise<void> {
 }
 
 export async function verifySessionToken(sessionToken: string): Promise<IamPrincipal | null> {
-  const sessionTokenHash = hashToken(sessionToken);
-  const now = new Date();
+  try {
+    const sessionTokenHash = hashToken(sessionToken);
+    const now = new Date();
 
-  const session = await prisma.iamSession.findUnique({
-    where: { sessionTokenHash },
-    select: {
-      id: true,
-      userId: true,
-      companyId: true,
-      stepUpVerifiedAt: true,
-      revokedAt: true,
-      idleExpiresAt: true,
-      expiresAt: true,
-      company: {
-        select: { mfaPolicy: true },
-      },
-      user: {
-        select: {
-          email: true,
-          name: true,
-          platformRole: true,
+  let session:
+    | {
+        id: string;
+        userId: string;
+        companyId: string;
+        stepUpVerifiedAt: Date | null;
+        revokedAt: Date | null;
+        idleExpiresAt: Date;
+        expiresAt: Date;
+        ip: string | null;
+        userAgent: string | null;
+        company: { mfaPolicy: unknown } | null;
+        user: { email: string; name: string; platformRole: "SUPER_ADMIN" | "SUPPORT" | "NONE"; mustResetPassword: boolean };
+        impersonation: { actorUserId: string; expiresAt: Date; endedAt: Date | null } | null;
+      }
+    | null = null;
+
+  try {
+    session = await prisma.iamSession.findUnique({
+      where: { sessionTokenHash },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        stepUpVerifiedAt: true,
+        revokedAt: true,
+        idleExpiresAt: true,
+        expiresAt: true,
+        ip: true,
+        userAgent: true,
+        company: {
+          select: { mfaPolicy: true },
+        },
+        user: {
+          select: {
+            email: true,
+            name: true,
+            platformRole: true,
+            mustResetPassword: true,
+          },
+        },
+        impersonation: {
+          select: {
+            actorUserId: true,
+            expiresAt: true,
+            endedAt: true,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (!isSchemaMismatch(error)) {
+      throw error;
+    }
+
+    const legacySession = await prisma.iamSession.findUnique({
+      where: { sessionTokenHash },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        stepUpVerifiedAt: true,
+        revokedAt: true,
+        idleExpiresAt: true,
+        expiresAt: true,
+        ip: true,
+        userAgent: true,
+        company: {
+          select: { mfaPolicy: true },
+        },
+        user: {
+          select: {
+            email: true,
+            name: true,
+            platformRole: true,
+          },
+        },
+        impersonation: {
+          select: {
+            actorUserId: true,
+            expiresAt: true,
+            endedAt: true,
+          },
+        },
+      },
+    });
+
+    session = legacySession
+      ? {
+          ...legacySession,
+          user: {
+            ...legacySession.user,
+            mustResetPassword: false,
+          },
+        }
+      : null;
+  }
 
   if (!session) return null;
   if (session.revokedAt) return null;
   if (session.expiresAt <= now) return null;
   if (session.idleExpiresAt <= now) return null;
+  if (session.impersonation?.endedAt) {
+    await prisma.iamSession.update({
+      where: { id: session.id },
+      data: {
+        revokedAt: new Date(),
+        revokeReason: "SECURITY_EVENT",
+      },
+    });
+    return null;
+  }
+  if (session.impersonation && session.impersonation.expiresAt <= now) {
+    const endedAt = new Date();
+    const [, ended] = await prisma.$transaction([
+      prisma.iamSession.update({
+        where: { id: session.id },
+        data: {
+          revokedAt: endedAt,
+          revokeReason: "SECURITY_EVENT",
+        },
+      }),
+      prisma.iamImpersonationSession.updateMany({
+        where: {
+          sessionId: session.id,
+          endedAt: null,
+        },
+        data: {
+          endedAt,
+        },
+      }),
+    ]);
+
+    if (ended.count > 0) {
+      await writeIamAudit({
+        action: "IMPERSONATION_ENDED",
+        companyId: session.companyId,
+        actorUserId: session.impersonation.actorUserId,
+        entityType: "IamImpersonationSession",
+        entityId: session.id,
+        metadata: { reason: "EXPIRED", expiresAt: session.impersonation.expiresAt.toISOString() },
+        ip: session.ip ?? null,
+        userAgent: session.userAgent ?? null,
+      });
+    }
+    return null;
+  }
 
   const membership = await prisma.companyMembership.findUnique({
     where: { userId_companyId: { userId: session.userId, companyId: session.companyId } },
@@ -127,19 +276,34 @@ export async function verifySessionToken(sessionToken: string): Promise<IamPrinc
   const mfaRequired = mfaRequiredByPolicy && !session.stepUpVerifiedAt;
 
   const permissions = await getPermissionsForUserCompany(session.userId, session.companyId);
+  const deviceFingerprint = crypto
+    .createHash("sha256")
+    .update(`${session.ip ?? "unknown"}|${session.userAgent ?? "unknown"}`)
+    .digest("hex");
 
-  return {
-    userId: session.userId,
-    email: session.user.email,
-    name: session.user.name,
-    platformRole: session.user.platformRole,
-    activeCompanyId: session.companyId,
-    membershipRole: membership.role,
-    permissions,
-    sessionId: session.id,
-    stepUpVerifiedAt: session.stepUpVerifiedAt,
-    mfaRequired,
-  };
+    return {
+      userId: session.userId,
+      email: session.user.email,
+      name: session.user.name,
+      platformRole: session.user.platformRole,
+      activeCompanyId: session.companyId,
+      membershipRole: membership.role,
+      permissions,
+      sessionId: session.id,
+      stepUpVerifiedAt: session.stepUpVerifiedAt,
+      mfaRequired,
+      mustResetPassword: session.user.mustResetPassword,
+      isImpersonating: Boolean(session.impersonation && !session.impersonation.endedAt),
+      impersonatorUserId: session.impersonation?.actorUserId ?? null,
+      impersonationExpiresAt: session.impersonation?.expiresAt ?? null,
+      deviceFingerprint,
+    };
+  } catch (error) {
+    if (isSchemaMismatch(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function touchSession(sessionId: string, companyId: string): Promise<void> {

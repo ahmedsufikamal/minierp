@@ -241,7 +241,12 @@ model User {
   role            String          @default("USER")
   companyId       String          @default("default-org") @map("orgId")
   phone           String?
+  phoneVerifiedAt DateTime?
   avatarUrl       String?
+  emailVerifiedAt DateTime?
+  pendingEmail    String?
+  pendingEmailExpiresAt DateTime?
+  mustResetPassword Boolean       @default(false)
   platformRole    IamPlatformRole @default(NONE)
   status          IamUserStatus   @default(ACTIVE)
   activeCompanyId String?         @map("activeOrgId")
@@ -789,6 +794,8 @@ model Company {
   primaryDomain          String?                     @unique
   allowedDomains         Json?
   domainVerificationStatus IamDomainVerificationStatus @default(PENDING)
+  domainVerificationToken String?
+  domainVerificationGeneratedAt DateTime?
   allowedAuthMethods     Json?
   mfaPolicy              Json?
   sessionPolicy          Json?

@@ -6,7 +6,11 @@ import { IamError } from "@/modules/iam/domain/errors";
 import type { IdentityProviderAdapter } from "@/modules/iam/domain/identity-provider";
 import type { PermissionKey } from "@/modules/iam/domain/permissions";
 import { defaultRoleDescriptions, defaultRolePermissions, permissionCatalog } from "@/modules/iam/domain/permissions";
-import { parseMfaPolicy } from "@/modules/iam/application/policy";
+import {
+  assertAuthMethodAllowed,
+  assertAuthMethodAllowedForEmail,
+  parseMfaPolicy,
+} from "@/modules/iam/application/policy";
 import { hasPermission } from "@/modules/iam/application/rbac";
 import {
   clearSessionCookie,
@@ -33,11 +37,114 @@ function safeInt(value: string | undefined, fallback: number, min = 1, max = 86_
   return Math.min(max, Math.max(min, Math.floor(parsed)));
 }
 
+function isSchemaMismatch(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  );
+}
+
 function isInviteSignupBridgeEnabled(): boolean {
   const explicit = process.env.IAM_INVITE_SIGNUP_BRIDGE_ENABLED;
   if (explicit === "1") return true;
   if (explicit === "0") return false;
   return true;
+}
+
+type AutoJoinRuleMatch = {
+  companyId: string;
+  ruleId: string;
+  ruleType: "VERIFIED_DOMAIN" | "EMAIL_ALLOWLIST" | "MANUAL_APPROVAL";
+};
+
+function normalizeDomain(email: string): string {
+  return email.split("@")[1]?.trim().toLowerCase() ?? "";
+}
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function parseAutoJoinConfig(raw: unknown): {
+  domains: string[];
+  allowlist: string[];
+  requireAdminApproval: boolean;
+} {
+  if (!raw || typeof raw !== "object") {
+    return { domains: [], allowlist: [], requireAdminApproval: false };
+  }
+  const source = raw as {
+    domains?: unknown;
+    allowlist?: unknown;
+    requireAdminApproval?: unknown;
+  };
+  const domains = Array.isArray(source.domains) ? source.domains.map((v) => String(v).toLowerCase().trim()).filter(Boolean) : [];
+  const allowlist = Array.isArray(source.allowlist) ? source.allowlist.map((v) => String(v).toLowerCase().trim()).filter(Boolean) : [];
+  return {
+    domains,
+    allowlist,
+    requireAdminApproval: Boolean(source.requireAdminApproval),
+  };
+}
+
+async function findAutoJoinRule(email: string): Promise<AutoJoinRuleMatch | null> {
+  const normalizedEmail = normalizeEmail(email);
+  const domain = normalizeDomain(normalizedEmail);
+  if (!domain) return null;
+
+  const rules = await prisma.iamAutoJoinRule.findMany({
+    where: { isEnabled: true },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      companyId: true,
+      ruleType: true,
+      config: true,
+      company: {
+        select: {
+          domainVerificationStatus: true,
+        },
+      },
+    },
+  });
+
+  for (const rule of rules) {
+    const config = parseAutoJoinConfig(rule.config);
+    if (rule.ruleType === "EMAIL_ALLOWLIST") {
+      if (config.allowlist.includes(normalizedEmail)) {
+        return {
+          companyId: rule.companyId,
+          ruleId: rule.id,
+          ruleType: rule.ruleType,
+        };
+      }
+      continue;
+    }
+
+    if (rule.ruleType === "VERIFIED_DOMAIN") {
+      if (rule.company.domainVerificationStatus !== "VERIFIED") {
+        continue;
+      }
+      if (config.domains.includes(domain)) {
+        return {
+          companyId: rule.companyId,
+          ruleId: rule.id,
+          ruleType: rule.ruleType,
+        };
+      }
+      continue;
+    }
+
+    if (rule.ruleType === "MANUAL_APPROVAL" && config.domains.includes(domain)) {
+      return {
+        companyId: rule.companyId,
+        ruleId: rule.id,
+        ruleType: rule.ruleType,
+      };
+    }
+  }
+
+  return null;
 }
 
 async function ensurePermissionSeed() {
@@ -106,10 +213,11 @@ async function getDefaultCompanyForUser(userId: string): Promise<{ companyId: st
   return membership;
 }
 
-async function assertLoginAttemptLimit(email: string, ip?: string | null): Promise<void> {
+async function assertLoginAttemptLimit(email: string, ip?: string | null, userId?: string): Promise<void> {
   const windowSeconds = safeInt(process.env.IAM_LOGIN_FAILED_WINDOW_SECONDS, 15 * 60, 30, 24 * 60 * 60);
   const maxFailedByEmail = safeInt(process.env.IAM_LOGIN_MAX_FAILED_EMAIL_ATTEMPTS, 10, 1, 200);
   const maxFailedByIp = safeInt(process.env.IAM_LOGIN_MAX_FAILED_IP_ATTEMPTS, 30, 1, 500);
+  const maxFailedByUser = safeInt(process.env.IAM_LOGIN_MAX_FAILED_USER_ATTEMPTS, 12, 1, 200);
   const since = new Date(Date.now() - windowSeconds * 1000);
 
   const failedByEmail = await prisma.iamLoginAttempt.count({
@@ -137,9 +245,42 @@ async function assertLoginAttemptLimit(email: string, ip?: string | null): Promi
       throw new IamError("RATE_LIMITED", "Too many failed sign-in attempts. Try again later.");
     }
   }
+
+  if (userId) {
+    const failedByUser = await prisma.iamLoginAttempt.count({
+      where: {
+        userId,
+        result: "FAILED",
+        createdAt: { gte: since },
+      },
+    });
+    if (failedByUser >= maxFailedByUser) {
+      throw new IamError("RATE_LIMITED", "Too many failed sign-in attempts. Try again later.");
+    }
+  }
 }
 
 export class LocalIdentityProvider implements IdentityProviderAdapter {
+  async createSession(input: {
+    userId: string;
+    companyId: string;
+    rememberMe?: boolean;
+    ip?: string | null;
+    userAgent?: string | null;
+    requestId?: string | null;
+  }): Promise<{ sessionId: string }> {
+    const created = await createSessionRecord({
+      userId: input.userId,
+      companyId: input.companyId,
+      rememberMe: input.rememberMe,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      requestId: input.requestId,
+    });
+    await setSessionCookie(created.token, created.expiresAt);
+    return { sessionId: created.sessionId };
+  }
+
   async signUp(input: {
     email: string;
     password: string;
@@ -158,12 +299,17 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
 
     const useInviteBridge = Boolean(input.inviteToken && isInviteSignupBridgeEnabled());
     const invitePreview = useInviteBridge ? await this.previewInvite(input.inviteToken as string) : null;
+    const autoJoinMatch = invitePreview ? null : await findAutoJoinRule(normalizedEmail);
+    if (autoJoinMatch?.ruleType === "MANUAL_APPROVAL") {
+      throw new IamError("AUTO_JOIN_RULE_VIOLATION", "This tenant requires manual approval before sign-up.");
+    }
     if (invitePreview && invitePreview.email !== normalizedEmail) {
       throw new IamError("FORBIDDEN_EMAIL_MISMATCH", "Invitation email must match the sign-up email");
     }
 
     const companyId =
       invitePreview?.companyId ??
+      autoJoinMatch?.companyId ??
       (
         await prisma.company.create({
           data: {
@@ -184,6 +330,10 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
         })
       ).id;
 
+    if (invitePreview || autoJoinMatch) {
+      await assertAuthMethodAllowed(companyId, "PASSWORD");
+    }
+
     const passwordHash = await bcrypt.hash(input.password, 12);
     const user = await prisma.user.create({
       data: {
@@ -192,7 +342,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
         name: input.name,
         companyId,
         activeCompanyId: companyId,
-        role: invitePreview ? "MEMBER" : "OWNER",
+        role: invitePreview || autoJoinMatch ? "MEMBER" : "OWNER",
         status: "ACTIVE",
       },
       select: { id: true },
@@ -205,6 +355,38 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
         token: input.inviteToken,
         userId: user.id,
         userEmail: normalizedEmail,
+      });
+    } else if (autoJoinMatch) {
+      const memberRole = await prisma.iamRole.findUnique({
+        where: { companyId_name: { companyId, name: "MEMBER" } },
+        select: { id: true },
+      });
+
+      await prisma.companyMembership.create({
+        data: {
+          userId: user.id,
+          companyId,
+          role: "MEMBER",
+          roleId: memberRole?.id ?? null,
+          status: "ACTIVE",
+          isDefault: true,
+          joinedAt: new Date(),
+        },
+      });
+
+      await writeIamAudit({
+        action: "POLICY_UPDATED",
+        companyId,
+        actorUserId: user.id,
+        entityType: "IamAutoJoinRule",
+        entityId: autoJoinMatch.ruleId,
+        metadata: {
+          autoJoinRuleId: autoJoinMatch.ruleId,
+          email: normalizedEmail,
+          ruleType: autoJoinMatch.ruleType,
+        },
+        ip: input.ip,
+        userAgent: input.userAgent,
       });
     } else {
       const ownerRole = await prisma.iamRole.findUnique({
@@ -265,16 +447,50 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     const normalizedEmail = input.email.trim().toLowerCase();
     await assertLoginAttemptLimit(normalizedEmail, input.ip);
 
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        passwordHash: true,
-        status: true,
-      },
-    });
+    let user:
+      | {
+          id: string;
+          email: string;
+          name: string;
+          passwordHash: string;
+          status: "ACTIVE" | "INVITED" | "SUSPENDED" | "DISABLED";
+          mustResetPassword: boolean;
+        }
+      | null = null;
+
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          passwordHash: true,
+          status: true,
+          mustResetPassword: true,
+        },
+      });
+    } catch (error) {
+      if (!isSchemaMismatch(error)) {
+        throw error;
+      }
+      const legacyUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          passwordHash: true,
+          status: true,
+        },
+      });
+      user = legacyUser
+        ? {
+            ...legacyUser,
+            mustResetPassword: false,
+          }
+        : null;
+    }
 
     if (!user) {
       await bcrypt.compare(input.password ?? randomToken(16), DUMMY_PASSWORD_HASH);
@@ -303,6 +519,8 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       });
       throw new IamError("FORBIDDEN", "User account is not active");
     }
+
+    await assertLoginAttemptLimit(normalizedEmail, input.ip, user.id);
 
     if (!input.password) {
       await prisma.iamLoginAttempt.create({
@@ -333,6 +551,29 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       throw new IamError("UNAUTHORIZED", "Invalid credentials");
     }
 
+    if (user.mustResetPassword) {
+      await prisma.iamLoginAttempt.create({
+        data: {
+          userId: user.id,
+          email: normalizedEmail,
+          result: "FAILED",
+          reasonCode: "PASSWORD_RESET_REQUIRED",
+          ip: input.ip ?? null,
+          userAgent: input.userAgent ?? null,
+        },
+      });
+      await writeIamAudit({
+        action: "AUTH_LOGIN_FAILED",
+        actorUserId: user.id,
+        entityType: "User",
+        entityId: user.id,
+        metadata: { reasonCode: "PASSWORD_RESET_REQUIRED" },
+        ip: input.ip,
+        userAgent: input.userAgent,
+      });
+      throw new IamError("PASSWORD_RESET_REQUIRED", "Password reset required before sign-in");
+    }
+
     const membership = input.companyIdHint
       ? await prisma.companyMembership.findUnique({
           where: { userId_companyId: { userId: user.id, companyId: input.companyIdHint } },
@@ -346,6 +587,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
 
     const companyId = membership.companyId;
     await ensureCompanyRoles(companyId);
+    await assertAuthMethodAllowed(companyId, "PASSWORD");
 
     const mfaPolicy = parseMfaPolicy(
       (await prisma.company.findUnique({ where: { id: companyId }, select: { mfaPolicy: true } }))?.mfaPolicy,
@@ -402,12 +644,35 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       },
     });
 
+    const lastSuccessRows = await prisma.iamLoginAttempt.findMany({
+      where: {
+        userId: user.id,
+        result: "SUCCESS",
+      },
+      orderBy: { createdAt: "desc" },
+      take: 2,
+      select: { ip: true, userAgent: true },
+    });
+    const lastSuccess = lastSuccessRows[1] ?? null;
+    const suspicious =
+      Boolean(lastSuccess) &&
+      (lastSuccess?.ip !== (input.ip ?? null) || lastSuccess?.userAgent !== (input.userAgent ?? null));
+    if (suspicious) {
+      await getNotificationService().sendSecurityAlert({
+        to: user.email,
+        event: "New sign-in detected from a different IP/device",
+        ip: input.ip,
+        userAgent: input.userAgent,
+      });
+    }
+
     await writeIamAudit({
       action: "AUTH_LOGIN",
       companyId,
       actorUserId: user.id,
       entityType: "User",
       entityId: user.id,
+      metadata: suspicious ? { suspicious: true } : undefined,
       ip: input.ip,
       userAgent: input.userAgent,
     });
@@ -466,7 +731,11 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
 
     await revokeAllSessionsForUser(userId, "USER_REVOKE_ALL");
     if (!actorUserId || actorUserId === userId) {
-      await clearSessionCookie();
+      try {
+        await clearSessionCookie();
+      } catch {
+        // No request cookie context (e.g., integration tests).
+      }
     }
     await writeIamAudit({
       action: "SESSION_REVOKE_ALL",
@@ -481,6 +750,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
   }
 
   async sendMagicLink(input: { email: string; redirectTo?: string }): Promise<void> {
+    await assertAuthMethodAllowedForEmail(input.email, "MAGIC_LINK");
     await sendMagicLinkMessage({ email: input.email, redirectTo: input.redirectTo });
     await writeIamAudit({
       action: "MAGIC_LINK_SENT",
@@ -491,7 +761,24 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
 
   async verifyMagicLink(input: { token: string; ip?: string | null; userAgent?: string | null }): Promise<{ sessionId: string }> {
     const consumed = await consumeMagicLink(input.token);
+    let user: { mustResetPassword: boolean } | null = null;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: consumed.userId },
+        select: { mustResetPassword: true },
+      });
+    } catch (error) {
+      if (!isSchemaMismatch(error)) {
+        throw error;
+      }
+      user = { mustResetPassword: false };
+    }
+    if (user?.mustResetPassword) {
+      throw new IamError("PASSWORD_RESET_REQUIRED", "Password reset required before sign-in");
+    }
+
     const { companyId } = await getDefaultCompanyForUser(consumed.userId);
+    await assertAuthMethodAllowed(companyId, "MAGIC_LINK");
 
     const created = await createSessionRecord({
       userId: consumed.userId,
@@ -524,6 +811,13 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     companyId?: string;
     ip?: string | null;
   }): Promise<void> {
+    if (input.purpose === "SIGN_IN") {
+      if (input.companyId) {
+        await assertAuthMethodAllowed(input.companyId, input.channel === "EMAIL" ? "OTP_EMAIL" : "OTP_SMS");
+      } else if (input.channel === "EMAIL") {
+        await assertAuthMethodAllowedForEmail(input.destination, "OTP_EMAIL");
+      }
+    }
     await sendOtpCode(input);
     await writeIamAudit({
       action: "OTP_SENT",
@@ -536,6 +830,9 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
   }
 
   async verifyOtp(input: { destination: string; code: string; purpose: string }): Promise<{ ok: true }> {
+    if (input.purpose === "SIGN_IN") {
+      await assertAuthMethodAllowedForEmail(input.destination, "OTP_EMAIL");
+    }
     await verifyOtpCode(input);
     await writeIamAudit({
       action: "OTP_VERIFIED",
@@ -562,7 +859,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       select: { id: true },
     });
 
-    const recoveryCodes = Array.from({ length: 10 }, () => randomToken(8));
+    const recoveryCodes = Array.from({ length: 10 }, () => randomToken(8).toUpperCase());
     for (const code of recoveryCodes) {
       await prisma.iamRecoveryCode.create({
         data: {
@@ -584,30 +881,63 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
   }
 
   async verifyMfa(input: { userId: string; code: string }): Promise<{ ok: true }> {
-    const factor = await prisma.iamMfaFactor.findFirst({
+    const factors = await prisma.iamMfaFactor.findMany({
       where: { userId: input.userId, type: "TOTP" },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
     });
+    const { decryptText } = await import("@/modules/iam/infrastructure/crypto");
 
-    if (!factor || !factor.secretEnc) {
-      throw new IamError("NOT_FOUND", "MFA factor not found");
+    let verifiedFactorId: string | null = null;
+    for (const factor of factors) {
+      if (!factor.secretEnc) continue;
+      const secret = decryptText(factor.secretEnc);
+      const valid = verifyTotp(secret, input.code, 1, 30);
+      if (!valid) continue;
+
+      await prisma.iamMfaFactor.update({
+        where: { id: factor.id },
+        data: {
+          isVerified: true,
+          verifiedAt: factor.verifiedAt ?? new Date(),
+          lastUsedAt: new Date(),
+        },
+      });
+      verifiedFactorId = factor.id;
+      break;
     }
 
-    const { decryptText } = await import("@/modules/iam/infrastructure/crypto");
-    const secret = decryptText(factor.secretEnc);
-    const valid = verifyTotp(secret, input.code, 1, 30);
-    if (!valid) {
+    if (!verifiedFactorId) {
+      const user = await prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { activeCompanyId: true, email: true },
+      });
+      const policy = user?.activeCompanyId
+        ? parseMfaPolicy(
+            (await prisma.company.findUnique({
+              where: { id: user.activeCompanyId },
+              select: { mfaPolicy: true },
+            }))?.mfaPolicy,
+          )
+        : null;
+
+      if (policy?.allowOtpFallback && user?.email) {
+        await verifyOtpCode({
+          destination: user.email,
+          code: input.code,
+          purpose: "MFA_CHALLENGE",
+        });
+        const otpFactor = await prisma.iamMfaFactor.findFirst({
+          where: { userId: input.userId, type: "OTP_EMAIL" },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        });
+        verifiedFactorId = otpFactor?.id ?? null;
+      }
+    }
+
+    if (!verifiedFactorId) {
       throw new IamError("TOKEN_INVALID", "Invalid MFA code");
     }
-
-    await prisma.iamMfaFactor.update({
-      where: { id: factor.id },
-      data: {
-        isVerified: true,
-        verifiedAt: factor.verifiedAt ?? new Date(),
-        lastUsedAt: new Date(),
-      },
-    });
 
     await prisma.iamSession.updateMany({
       where: { userId: input.userId, revokedAt: null },
@@ -618,10 +948,161 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       action: "MFA_CHALLENGE_VERIFIED",
       actorUserId: input.userId,
       entityType: "IamMfaFactor",
-      entityId: factor.id,
+      entityId: verifiedFactorId,
     });
 
     return { ok: true };
+  }
+
+  async verifyRecoveryCode(input: { userId: string; code: string }): Promise<{ ok: true }> {
+    const codeHash = hashToken(input.code.trim().toUpperCase());
+    const row = await prisma.iamRecoveryCode.findFirst({
+      where: {
+        userId: input.userId,
+        codeHash,
+      },
+      select: { id: true, usedAt: true, factorId: true },
+    });
+
+    if (!row) {
+      throw new IamError("RECOVERY_CODE_INVALID", "Recovery code is invalid");
+    }
+    if (row.usedAt) {
+      throw new IamError("RECOVERY_CODE_USED", "Recovery code already used");
+    }
+
+    await prisma.iamRecoveryCode.update({
+      where: { id: row.id },
+      data: { usedAt: new Date() },
+    });
+    await prisma.iamSession.updateMany({
+      where: { userId: input.userId, revokedAt: null },
+      data: { stepUpVerifiedAt: new Date() },
+    });
+
+    await writeIamAudit({
+      action: "MFA_CHALLENGE_VERIFIED",
+      actorUserId: input.userId,
+      entityType: "IamRecoveryCode",
+      entityId: row.id,
+    });
+
+    return { ok: true };
+  }
+
+  async listMfaFactors(userId: string) {
+    const factors = await prisma.iamMfaFactor.findMany({
+      where: { userId },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        type: true,
+        label: true,
+        destination: true,
+        isPrimary: true,
+        isVerified: true,
+        createdAt: true,
+        lastUsedAt: true,
+      },
+    });
+
+    return factors;
+  }
+
+  async setPrimaryMfaFactor(input: { userId: string; factorId: string }): Promise<void> {
+    const factor = await prisma.iamMfaFactor.findUnique({
+      where: { id: input.factorId },
+      select: { id: true, userId: true, isVerified: true },
+    });
+    if (!factor || factor.userId !== input.userId) {
+      throw new IamError("NOT_FOUND", "MFA factor not found");
+    }
+    if (!factor.isVerified) {
+      throw new IamError("VALIDATION_ERROR", "Only verified factors can be set as primary");
+    }
+
+    await prisma.$transaction([
+      prisma.iamMfaFactor.updateMany({
+        where: { userId: input.userId, isPrimary: true },
+        data: { isPrimary: false },
+      }),
+      prisma.iamMfaFactor.update({
+        where: { id: input.factorId },
+        data: { isPrimary: true },
+      }),
+    ]);
+
+    await writeIamAudit({
+      action: "MFA_ENROLLED",
+      actorUserId: input.userId,
+      entityType: "IamMfaFactor",
+      entityId: input.factorId,
+      metadata: { setPrimary: true },
+    });
+  }
+
+  async removeMfaFactor(input: { userId: string; factorId: string }): Promise<void> {
+    const factor = await prisma.iamMfaFactor.findUnique({
+      where: { id: input.factorId },
+      select: { id: true, userId: true },
+    });
+    if (!factor || factor.userId !== input.userId) {
+      throw new IamError("NOT_FOUND", "MFA factor not found");
+    }
+
+    const count = await prisma.iamMfaFactor.count({
+      where: { userId: input.userId, isVerified: true },
+    });
+    if (count <= 1) {
+      throw new IamError("VALIDATION_ERROR", "At least one MFA factor must remain enrolled");
+    }
+
+    await prisma.$transaction([
+      prisma.iamRecoveryCode.deleteMany({ where: { factorId: input.factorId } }),
+      prisma.iamMfaFactor.delete({ where: { id: input.factorId } }),
+    ]);
+
+    await writeIamAudit({
+      action: "MFA_ENROLLED",
+      actorUserId: input.userId,
+      entityType: "IamMfaFactor",
+      entityId: input.factorId,
+      metadata: { removed: true },
+    });
+  }
+
+  async regenerateRecoveryCodes(input: { userId: string; factorId: string }): Promise<string[]> {
+    const factor = await prisma.iamMfaFactor.findUnique({
+      where: { id: input.factorId },
+      select: { id: true, userId: true },
+    });
+    if (!factor || factor.userId !== input.userId) {
+      throw new IamError("NOT_FOUND", "MFA factor not found");
+    }
+
+    const recoveryCodes = Array.from({ length: 10 }, () => randomToken(8).toUpperCase());
+    await prisma.$transaction(async (tx) => {
+      await tx.iamRecoveryCode.deleteMany({ where: { userId: input.userId, factorId: input.factorId } });
+      for (const code of recoveryCodes) {
+        await tx.iamRecoveryCode.create({
+          data: {
+            userId: input.userId,
+            factorId: input.factorId,
+            codeHash: hashToken(code),
+          },
+        });
+      }
+    });
+
+    await writeIamAudit({
+      action: "MFA_ENROLLED",
+      actorUserId: input.userId,
+      entityType: "IamRecoveryCode",
+      entityId: input.factorId,
+      metadata: { regenerated: true },
+    });
+
+    return recoveryCodes;
   }
 
   async resolveTenantTheme(input: { host?: string | null; companyId?: string | null }) {
@@ -882,6 +1363,99 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     });
   }
 
+  async listAutoJoinRules(companyId: string) {
+    const rows = await prisma.iamAutoJoinRule.findMany({
+      where: { companyId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        ruleType: true,
+        config: true,
+        isEnabled: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      ruleType: row.ruleType,
+      config: parseAutoJoinConfig(row.config),
+      isEnabled: row.isEnabled,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  }
+
+  async upsertAutoJoinRule(input: {
+    companyId: string;
+    ruleId?: string;
+    ruleType: "VERIFIED_DOMAIN" | "EMAIL_ALLOWLIST" | "MANUAL_APPROVAL";
+    config: { domains?: string[]; allowlist?: string[]; requireAdminApproval?: boolean };
+    isEnabled?: boolean;
+  }) {
+    const normalizedConfig = parseAutoJoinConfig(input.config);
+
+    const row = input.ruleId
+      ? await prisma.iamAutoJoinRule.update({
+          where: { id: input.ruleId },
+          data: {
+            ruleType: input.ruleType,
+            config: normalizedConfig,
+            isEnabled: input.isEnabled ?? true,
+          },
+          select: {
+            id: true,
+            ruleType: true,
+            config: true,
+            isEnabled: true,
+            createdAt: true,
+            updatedAt: true,
+            companyId: true,
+          },
+        })
+      : await prisma.iamAutoJoinRule.create({
+          data: {
+            companyId: input.companyId,
+            ruleType: input.ruleType,
+            config: normalizedConfig,
+            isEnabled: input.isEnabled ?? true,
+          },
+          select: {
+            id: true,
+            ruleType: true,
+            config: true,
+            isEnabled: true,
+            createdAt: true,
+            updatedAt: true,
+            companyId: true,
+          },
+        });
+
+    if (row.companyId !== input.companyId) {
+      throw new IamError("FORBIDDEN", "Cross-tenant auto-join rule update blocked");
+    }
+
+    return {
+      id: row.id,
+      ruleType: row.ruleType,
+      config: parseAutoJoinConfig(row.config),
+      isEnabled: row.isEnabled,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  async deleteAutoJoinRule(input: { companyId: string; ruleId: string }): Promise<void> {
+    const row = await prisma.iamAutoJoinRule.findUnique({
+      where: { id: input.ruleId },
+      select: { companyId: true },
+    });
+    if (!row || row.companyId !== input.companyId) {
+      throw new IamError("FORBIDDEN", "Cross-tenant auto-join rule deletion blocked");
+    }
+    await prisma.iamAutoJoinRule.delete({ where: { id: input.ruleId } });
+  }
+
   async setRole(input: { companyId: string; userId: string; roleId: string }): Promise<void> {
     const role = await prisma.iamRole.findUnique({
       where: { id: input.roleId },
@@ -905,6 +1479,18 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       },
     });
 
+    await writeIamAudit({
+      action: "ROLE_CHANGED",
+      companyId: input.companyId,
+      actorUserId: null,
+      entityType: "CompanyMembership",
+      entityId: `${input.userId}:${input.companyId}`,
+      metadata: {
+        roleId: role.id,
+        roleName: role.name,
+      },
+    });
+
     const member = await prisma.user.findUnique({ where: { id: input.userId }, select: { email: true } });
     if (member?.email) {
       const company = await prisma.company.findUnique({ where: { id: input.companyId }, select: { name: true } });
@@ -918,5 +1504,121 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
 
   async checkPermission(input: { userId: string; companyId: string; permission: PermissionKey }): Promise<boolean> {
     return hasPermission(input.userId, input.companyId, input.permission);
+  }
+
+  async startImpersonation(input: {
+    actorUserId: string;
+    targetUserId: string;
+    targetCompanyId: string;
+    reason: string;
+    ttlMinutes?: number;
+    ip?: string | null;
+    userAgent?: string | null;
+  }): Promise<{ sessionId: string; expiresAt: Date }> {
+    const actor = await prisma.user.findUnique({
+      where: { id: input.actorUserId },
+      select: { platformRole: true },
+    });
+    if (!actor || actor.platformRole !== "SUPER_ADMIN") {
+      throw new IamError("IMPERSONATION_NOT_ALLOWED", "Impersonation is restricted to super admins");
+    }
+
+    const membership = await prisma.companyMembership.findUnique({
+      where: {
+        userId_companyId: {
+          userId: input.targetUserId,
+          companyId: input.targetCompanyId,
+        },
+      },
+      select: { status: true },
+    });
+    if (!membership || membership.status !== "ACTIVE") {
+      throw new IamError("FORBIDDEN", "Target user must have active membership in target tenant");
+    }
+
+    const ttlMinutes = input.ttlMinutes ?? 15;
+    const created = await createSessionRecord({
+      userId: input.targetUserId,
+      companyId: input.targetCompanyId,
+      rememberMe: false,
+      ip: input.ip,
+      userAgent: input.userAgent,
+    });
+    await setSessionCookie(created.token, created.expiresAt);
+
+    await prisma.iamSession.update({
+      where: { id: created.sessionId },
+      data: { impersonatorUserId: input.actorUserId },
+    });
+
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+    await prisma.iamImpersonationSession.create({
+      data: {
+        sessionId: created.sessionId,
+        actorUserId: input.actorUserId,
+        targetUserId: input.targetUserId,
+        targetCompanyId: input.targetCompanyId,
+        reason: input.reason,
+        expiresAt,
+      },
+    });
+
+    await writeIamAudit({
+      action: "IMPERSONATION_STARTED",
+      companyId: input.targetCompanyId,
+      actorUserId: input.actorUserId,
+      entityType: "IamImpersonationSession",
+      entityId: created.sessionId,
+      metadata: {
+        targetUserId: input.targetUserId,
+        reason: input.reason,
+        expiresAt: expiresAt.toISOString(),
+      },
+      ip: input.ip,
+      userAgent: input.userAgent,
+    });
+
+    return { sessionId: created.sessionId, expiresAt };
+  }
+
+  async stopImpersonation(input: { actorUserId: string; sessionId: string }): Promise<void> {
+    const row = await prisma.iamImpersonationSession.findUnique({
+      where: { sessionId: input.sessionId },
+      select: {
+        sessionId: true,
+        actorUserId: true,
+        targetCompanyId: true,
+        endedAt: true,
+      },
+    });
+    if (!row || row.endedAt) {
+      throw new IamError("NOT_FOUND", "Impersonation session not found");
+    }
+    if (row.actorUserId !== input.actorUserId) {
+      throw new IamError("IMPERSONATION_NOT_ALLOWED", "Impersonation stop is only allowed for the initiating actor");
+    }
+
+    await prisma.iamImpersonationSession.update({
+      where: { sessionId: input.sessionId },
+      data: { endedAt: new Date() },
+    });
+    await revokeSessionById(input.sessionId, "ADMIN_REVOKE");
+
+    const actorMembership = await getDefaultCompanyForUser(input.actorUserId);
+    const actorSession = await createSessionRecord({
+      userId: input.actorUserId,
+      companyId: actorMembership.companyId,
+      rememberMe: false,
+    });
+    await setSessionCookie(actorSession.token, actorSession.expiresAt);
+
+    await writeIamAudit({
+      action: "IMPERSONATION_ENDED",
+      companyId: row.targetCompanyId,
+      actorUserId: input.actorUserId,
+      entityType: "IamImpersonationSession",
+      entityId: input.sessionId,
+      metadata: { reason: "MANUAL_STOP" },
+    });
   }
 }

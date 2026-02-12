@@ -10,12 +10,16 @@ interface AppShellProps {
   user?: {
     name?: string | null;
     email?: string | null;
+    isImpersonating?: boolean | null;
+    impersonatorUserId?: string | null;
+    impersonationExpiresAt?: string | Date | null;
   } | null;
 }
 
 export function AppShell({ children, user }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [stoppingImpersonation, setStoppingImpersonation] = useState(false);
 
   useEffect(() => {
     void fetch("/api/auth/session/bridge", {
@@ -23,6 +27,21 @@ export function AppShell({ children, user }: AppShellProps) {
       credentials: "same-origin",
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!user?.isImpersonating || !user.impersonationExpiresAt) return;
+    const expiresAt = new Date(user.impersonationExpiresAt).getTime();
+    if (!Number.isFinite(expiresAt)) return;
+    const delayMs = expiresAt - Date.now();
+    if (delayMs <= 0) {
+      window.location.reload();
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      window.location.reload();
+    }, delayMs + 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [user?.isImpersonating, user?.impersonationExpiresAt]);
 
   return (
     <div className="h-screen overflow-hidden bg-[hsl(var(--bg))]">
@@ -48,6 +67,36 @@ export function AppShell({ children, user }: AppShellProps) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onOpenMobile={() => setMobileOpen(true)} user={user} />
+          {user?.isImpersonating ? (
+            <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+              <span>
+                Impersonation active
+                {user.impersonationExpiresAt
+                  ? ` · Expires ${new Date(user.impersonationExpiresAt).toLocaleTimeString()}`
+                  : ""}
+              </span>
+              <button
+                className="rounded border border-amber-300/60 px-2 py-1 text-amber-100 disabled:opacity-60"
+                disabled={stoppingImpersonation}
+                onClick={async () => {
+                  setStoppingImpersonation(true);
+                  try {
+                    await fetch("/api/admin/impersonation/stop", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: "{}",
+                      credentials: "same-origin",
+                    });
+                    window.location.reload();
+                  } finally {
+                    setStoppingImpersonation(false);
+                  }
+                }}
+              >
+                {stoppingImpersonation ? "Stopping..." : "Stop impersonation"}
+              </button>
+            </div>
+          ) : null}
           <main id="main-content" className="min-h-0 flex-1 overflow-auto p-4 md:p-5" tabIndex={-1}>
             {children}
           </main>
