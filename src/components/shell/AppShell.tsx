@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -16,6 +16,13 @@ interface AppShellProps {
 export function AppShell({ children, user }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/auth/session/bridge", {
+      method: "POST",
+      credentials: "same-origin",
+    }).catch(() => undefined);
+  }, []);
 
   return (
     <div className="h-screen overflow-hidden bg-[hsl(var(--bg))]">

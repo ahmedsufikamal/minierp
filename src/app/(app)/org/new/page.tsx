@@ -1,8 +1,16 @@
 import { createOrgAction } from "@/app/(app)/org/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { requireAuthPage } from "@/modules/iam";
 
-export default function NewOrgPage() {
+export default async function NewOrgPage() {
+  await requireAuthPage("/org/new");
+
+  const submitCreateOrg = async (formData: FormData) => {
+    "use server";
+    await createOrgAction(formData);
+  };
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
@@ -10,7 +18,7 @@ export default function NewOrgPage() {
         <p className="text-sm text-muted-foreground">Provision a new tenant and bootstrap its roles and policies.</p>
       </div>
 
-      <form action={createOrgAction} className="space-y-4 rounded-lg border p-4">
+      <form action={submitCreateOrg} className="space-y-4 rounded-lg border p-4">
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="name">Organization name</label>
           <Input id="name" name="name" placeholder="Acme Corp" required />

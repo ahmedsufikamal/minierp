@@ -1,23 +1,49 @@
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { IamError } from "@/modules/iam/domain/errors";
+import { IamError, isIamError } from "@/modules/iam/domain/errors";
 import type { IamPrincipal } from "@/modules/iam/domain/types";
 import type { PermissionKey } from "@/modules/iam/domain/permissions";
 import { hasPermission } from "@/modules/iam/application/rbac";
 import { resolveTenantFromRequest, requireMembership } from "@/modules/iam/application/tenant-context";
-import { verifySessionToken } from "@/modules/iam/infrastructure/session";
+import { resolvePrincipalFromCookies } from "@/modules/iam/application/principal-resolver";
 
-export async function requireAuth(): Promise<IamPrincipal> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("iam_session")?.value ?? null;
-  if (!token) {
+export async function requireAuth(options: { allowMfaPending?: boolean } = {}): Promise<IamPrincipal> {
+  const resolved = await resolvePrincipalFromCookies();
+  if (!resolved.principal) {
     throw new IamError("UNAUTHORIZED", "Authentication required");
   }
-  const principal = await verifySessionToken(token);
-  if (!principal) {
-    throw new IamError("UNAUTHORIZED", "Session expired or invalid");
+  const principal = resolved.principal;
+  if (principal.mfaRequired && !options.allowMfaPending) {
+    throw new IamError("MFA_REQUIRED", "Multi-factor authentication verification required");
   }
   return principal;
+}
+
+function withNextParam(path: string, nextPath: string): string {
+  const [base, existing] = path.split("?", 2);
+  const query = new URLSearchParams(existing ?? "");
+  query.set("next", nextPath);
+  return `${base}?${query.toString()}`;
+}
+
+function redirectForAuthError(error: unknown, nextPath: string): never {
+  if (isIamError(error)) {
+    if (error.code === "UNAUTHORIZED") {
+      redirect(withNextParam("/auth/sign-in", nextPath));
+    }
+    if (error.code === "MFA_REQUIRED") {
+      redirect(withNextParam("/auth/mfa?required=1", nextPath));
+    }
+  }
+  throw error;
+}
+
+export async function requireAuthPage(nextPath: string, options: { allowMfaPending?: boolean } = {}): Promise<IamPrincipal> {
+  try {
+    return await requireAuth(options);
+  } catch (error) {
+    redirectForAuthError(error, nextPath);
+  }
 }
 
 export async function requireTenantMembership(): Promise<IamPrincipal> {
@@ -40,6 +66,14 @@ export async function requirePermission(permission: PermissionKey): Promise<IamP
     throw new IamError("FORBIDDEN", `Missing permission: ${permission}`);
   }
   return principal;
+}
+
+export async function requirePermissionPage(permission: PermissionKey, nextPath: string): Promise<IamPrincipal> {
+  try {
+    return await requirePermission(permission);
+  } catch (error) {
+    redirectForAuthError(error, nextPath);
+  }
 }
 
 export async function requirePlatformAdmin(): Promise<IamPrincipal> {

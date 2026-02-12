@@ -1,12 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/modules/iam";
+import { requirePermissionPage } from "@/modules/iam";
 import { saveOrgSettingsAction } from "@/app/(app)/org/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+function normalizeMfaMode(value: string): "OPTIONAL" | "REQUIRED_FOR_ADMINS" | "REQUIRED_FOR_ALL" {
+  if (value === "REQUIRED_FOR_ADMINS" || value === "REQUIRED_FOR_ALL") {
+    return value;
+  }
+  return "OPTIONAL";
+}
+
 export default async function OrgSettingsPage() {
-  await requirePermission("admin.settings");
-  const principal = await requirePermission("admin.settings");
+  const principal = await requirePermissionPage("admin.settings", "/org/settings");
 
   const company = await prisma.company.findUnique({
     where: { id: principal.activeCompanyId },
@@ -27,8 +33,12 @@ export default async function OrgSettingsPage() {
   });
 
   const authMethods = (company?.allowedAuthMethods as string[] | null) ?? [];
-  const mfaMode = String((company?.mfaPolicy as { mode?: string } | null)?.mode ?? "OPTIONAL");
+  const mfaMode = normalizeMfaMode(String((company?.mfaPolicy as { mode?: string } | null)?.mode ?? "OPTIONAL"));
   const turnstileEnabled = Boolean((company?.botProtectionPolicy as { turnstileEnabled?: boolean } | null)?.turnstileEnabled ?? false);
+  const submitSettings = async (formData: FormData) => {
+    "use server";
+    await saveOrgSettingsAction(formData);
+  };
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -37,7 +47,7 @@ export default async function OrgSettingsPage() {
         <p className="text-sm text-muted-foreground">Branding, domains, and authentication policies.</p>
       </div>
 
-      <form action={saveOrgSettingsAction} className="space-y-6 rounded-lg border p-4">
+      <form action={submitSettings} className="space-y-6 rounded-lg border p-4">
         <section className="space-y-3">
           <h2 className="font-medium">Branding</h2>
           <Input name="logoUrl" placeholder="Logo URL" defaultValue={company?.logoUrl ?? ""} />
@@ -70,10 +80,10 @@ export default async function OrgSettingsPage() {
 
         <section className="space-y-3">
           <h2 className="font-medium">MFA policy</h2>
-          <select name="mfaMode" className="h-9 rounded-md border border-border bg-transparent px-3">
-            <option value="OPTIONAL" selected={mfaMode === "OPTIONAL"}>Optional</option>
-            <option value="REQUIRED_FOR_ADMINS" selected={mfaMode === "REQUIRED_FOR_ADMINS"}>Required for owners/admins</option>
-            <option value="REQUIRED_FOR_ALL" selected={mfaMode === "REQUIRED_FOR_ALL"}>Required for all users</option>
+          <select name="mfaMode" defaultValue={mfaMode} className="h-9 rounded-md border border-border bg-transparent px-3">
+            <option value="OPTIONAL">Optional</option>
+            <option value="REQUIRED_FOR_ADMINS">Required for owners/admins</option>
+            <option value="REQUIRED_FOR_ALL">Required for all users</option>
           </select>
         </section>
 

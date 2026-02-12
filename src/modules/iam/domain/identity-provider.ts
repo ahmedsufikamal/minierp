@@ -8,6 +8,7 @@ export interface IdentityProviderAdapter {
     name: string;
     companyName?: string;
     companySlug?: string;
+    inviteToken?: string;
     ip?: string | null;
     userAgent?: string | null;
   }): Promise<{ sessionId: string }>;
@@ -37,6 +38,13 @@ export interface IdentityProviderAdapter {
   resolveTenantTheme(input: { host?: string | null; companyId?: string | null }): Promise<TenantTheme | null>;
 
   listOrgMembers(companyId: string): Promise<Array<{ userId: string; email: string; name: string; role: string; status: string }>>;
+  previewInvite(token: string): Promise<{
+    invitationId: string;
+    companyId: string;
+    companyName: string;
+    email: string;
+    expiresAt: Date;
+  }>;
   inviteToOrg(input: {
     companyId: string;
     email: string;
@@ -45,6 +53,7 @@ export interface IdentityProviderAdapter {
     autoJoinRuleId?: string | null;
   }): Promise<{ invitationId: string }>;
   acceptInvite(input: { token: string; userId: string }): Promise<void>;
+  claimInvite(input: { token: string; userId: string; userEmail: string }): Promise<void>;
 
   setRole(input: { companyId: string; userId: string; roleId: string }): Promise<void>;
   checkPermission(input: { userId: string; companyId: string; permission: PermissionKey }): Promise<boolean>;

@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/modules/iam";
+import { requireAuthPage } from "@/modules/iam";
 import { switchOrgAction } from "@/app/(app)/org/actions";
 import { Button } from "@/components/ui/button";
 
 export default async function OrgSelectPage() {
-  const principal = await requireAuth();
+  const principal = await requireAuthPage("/org/select");
   const memberships = await prisma.companyMembership.findMany({
     where: {
       userId: principal.userId,
@@ -22,6 +22,10 @@ export default async function OrgSelectPage() {
     },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
   });
+  const submitSwitchOrg = async (formData: FormData) => {
+    "use server";
+    await switchOrgAction(formData);
+  };
 
   return (
     <div className="space-y-6">
@@ -32,7 +36,7 @@ export default async function OrgSelectPage() {
 
       <div className="grid gap-3">
         {memberships.map((membership) => (
-          <form key={membership.companyId} action={switchOrgAction} className="rounded-lg border p-4">
+          <form key={membership.companyId} action={submitSwitchOrg} className="rounded-lg border p-4">
             <input type="hidden" name="companyId" value={membership.companyId} />
             <div className="flex items-center justify-between gap-4">
               <div>

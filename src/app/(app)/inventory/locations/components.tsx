@@ -1,14 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { formatMoney } from "@/lib/utils";
-import type { StockLocation } from "@prisma/client";
+
+type LocationListRow = {
+  id: string;
+  code: string;
+  name: string | null;
+};
 
 export function LocationsList({
   locations,
   locationTotals,
 }: {
-  locations: StockLocation[];
+  locations: LocationListRow[];
   locationTotals: Map<string, { qty: number; value: number; itemCount: number }>;
 }) {
   return (

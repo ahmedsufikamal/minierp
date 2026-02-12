@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/modules/iam";
+import { requirePermissionPage } from "@/modules/iam";
 import { createRoleAction } from "@/app/(app)/org/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default async function OrgRolesPage() {
-  const principal = await requirePermission("admin.roles");
+  const principal = await requirePermissionPage("admin.roles", "/org/roles");
 
   const [roles, permissions] = await Promise.all([
     prisma.iamRole.findMany({
@@ -23,9 +23,21 @@ export default async function OrgRolesPage() {
     }),
     prisma.iamPermission.findMany({
       orderBy: [{ module: "asc" }, { key: "asc" }],
-      select: { id: true, key: true, module: true },
+      select: { id: true, key: true, module: true, description: true },
     }),
   ]);
+  const groupedPermissions = permissions.reduce<Record<string, typeof permissions>>((acc, permission) => {
+    const moduleName = permission.module || "general";
+    if (!acc[moduleName]) {
+      acc[moduleName] = [];
+    }
+    acc[moduleName].push(permission);
+    return acc;
+  }, {});
+  const submitCreateRole = async (formData: FormData) => {
+    "use server";
+    await createRoleAction(formData);
+  };
 
   return (
     <div className="space-y-6">
@@ -34,15 +46,23 @@ export default async function OrgRolesPage() {
         <p className="text-sm text-muted-foreground">Build custom tenant roles and permission matrices.</p>
       </div>
 
-      <form action={createRoleAction} className="space-y-3 rounded-lg border p-4">
+      <form action={submitCreateRole} className="space-y-3 rounded-lg border p-4">
         <Input name="name" placeholder="Role name" required />
         <Input name="description" placeholder="Description" />
-        <div className="grid gap-2 md:grid-cols-2">
-          {permissions.map((permission) => (
-            <label key={permission.id} className="text-sm">
-              <input type="checkbox" name="permissionKeys" value={permission.key} className="mr-2" />
-              {permission.key}
-            </label>
+        <div className="space-y-3">
+          {Object.entries(groupedPermissions).map(([moduleName, modulePermissions]) => (
+            <div key={moduleName} className="space-y-2 rounded border p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{moduleName}</p>
+              <div className="grid gap-2 md:grid-cols-2">
+                {modulePermissions.map((permission) => (
+                  <label key={permission.id} className="text-sm">
+                    <input type="checkbox" name="permissionKeys" value={permission.key} className="mr-2" />
+                    <span className="font-medium">{permission.key}</span>
+                    {permission.description ? <span className="ml-1 text-xs text-muted-foreground">({permission.description})</span> : null}
+                  </label>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <Button type="submit">Create role</Button>
@@ -52,7 +72,10 @@ export default async function OrgRolesPage() {
         {roles.map((role) => (
           <div key={role.id} className="rounded-lg border p-4">
             <div className="mb-2 flex items-center justify-between">
-              <p className="font-medium">{role.name}</p>
+              <div>
+                <p className="font-medium">{role.name}</p>
+                {role.description ? <p className="text-xs text-muted-foreground">{role.description}</p> : null}
+              </div>
               {role.isSystem ? <span className="text-xs text-muted-foreground">system</span> : null}
             </div>
             <div className="flex flex-wrap gap-1">

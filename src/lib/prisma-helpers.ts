@@ -1,5 +1,3 @@
-import { prisma } from "./prisma";
-
 /**
  * Helper to convert companyId to orgId for queries when Prisma client is stale.
  * This is a temporary compatibility layer until Prisma client is regenerated.
@@ -22,8 +20,9 @@ export async function queryWithCompanyId<T>(
 ): Promise<T> {
   try {
     return await queryFn({ companyId });
-  } catch (error: any) {
-    if (error?.message?.includes("Unknown argument `companyId`")) {
+  } catch (error: unknown) {
+    const e = error as { message?: string };
+    if (e?.message?.includes("Unknown argument `companyId`")) {
       return await fallbackFn({ orgId: companyId });
     }
     throw error;

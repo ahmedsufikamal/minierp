@@ -13,9 +13,7 @@ function isMissingSchemaError(error: unknown): boolean {
 
 export default async function InventoryDocumentsPage() {
   const companyId = await getCompanyIdOrUserId();
-  let needsMigration = false;
-
-  const docs = await prisma.inventoryDocument
+  const docsResult = await prisma.inventoryDocument
     .findMany({
       where: { companyId },
       include: {
@@ -26,13 +24,15 @@ export default async function InventoryDocumentsPage() {
       orderBy: { createdAt: "desc" },
       take: 200,
     })
+    .then((rows) => ({ rows, needsMigration: false }))
     .catch((error: unknown) => {
       if (isMissingSchemaError(error)) {
-        needsMigration = true;
-        return [];
+        return { rows: [], needsMigration: true };
       }
       throw error;
     });
+  const docs = docsResult.rows;
+  const needsMigration = docsResult.needsMigration;
 
   return (
     <div className="space-y-4">

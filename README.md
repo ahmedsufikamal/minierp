@@ -82,6 +82,11 @@ IAM_PROVIDER=local
 IAM_TOKEN_HASH_SECRET="replace-with-long-secret"
 IAM_ENCRYPTION_SECRET="replace-with-long-secret"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+IAM_LEGACY_FALLBACK_ENABLED=1
+IAM_DUAL_WRITE_LEGACY_SESSION=1
+IAM_LEGACY_FALLBACK_SUNSET_DAYS=30
+IAM_INVITE_SIGNUP_BRIDGE_ENABLED=1
+IAM_INVENTORY_PERMISSION_SYNC_ENABLED=1
 ```
 
 > Prisma 7 uses `prisma.config.ts` to read DATABASE_URL (config-first).
@@ -111,7 +116,20 @@ Open:
 
 ---
 
-## 6) Production (simple, VM-friendly)
+## 6) Quality gates (must pass before deploy)
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+```
+
+CI workflow is defined at `.github/workflows/ci.yml` and includes migration safety checks.
+
+---
+
+## 7) Production (simple, VM-friendly)
 
 Build:
 

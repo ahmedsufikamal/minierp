@@ -1,12 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/modules/iam";
+import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
+import { assertSameOrigin } from "@/modules/iam/interface/origin";
 import { roleUpsertSchema } from "@/modules/iam/interface/schemas";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; roleId: string }> }) {
   try {
-    await requirePermission("admin.roles");
+    assertSameOrigin(request);
+    const principal = await requirePermission("admin.roles");
     const { id, roleId } = await params;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant role update blocked");
+    }
     const body = await parseBody(request, roleUpsertSchema);
 
     const role = await prisma.iamRole.update({
@@ -19,7 +25,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
 
     if (role.companyId !== id) {
-      throw new Error("Role does not belong to tenant");
+      throw new IamError("FORBIDDEN", "Role does not belong to tenant");
     }
 
     await prisma.iamRolePermission.deleteMany({ where: { roleId } });
@@ -45,17 +51,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string; roleId: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string; roleId: string }> }) {
   try {
-    await requirePermission("admin.roles");
+    assertSameOrigin(request);
+    const principal = await requirePermission("admin.roles");
     const { id, roleId } = await params;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant role deletion blocked");
+    }
 
     const role = await prisma.iamRole.findUnique({ where: { id: roleId }, select: { companyId: true, isSystem: true } });
     if (!role || role.companyId !== id) {
-      throw new Error("Role does not belong to tenant");
+      throw new IamError("FORBIDDEN", "Role does not belong to tenant");
     }
     if (role.isSystem) {
-      throw new Error("System roles cannot be deleted");
+      throw new IamError("VALIDATION_ERROR", "System roles cannot be deleted");
     }
 
     await prisma.iamRole.delete({ where: { id: roleId } });

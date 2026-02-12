@@ -29,7 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     brand: {
       findFirst: vi.fn(async () => null),
     },
-    $transaction: vi.fn(async (cb: any) => cb({})),
+    $transaction: vi.fn(async (cb: (tx: Record<string, never>) => unknown) => cb({})),
   },
 }));
 

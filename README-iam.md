@@ -46,7 +46,15 @@ Core:
 - `IAM_PROVIDER=local`
 - `IAM_TOKEN_HASH_SECRET` (>=32 chars)
 - `IAM_ENCRYPTION_SECRET` (>=32 chars)
-- `NEXT_PUBLIC_APP_URL` (e.g. `http://localhost:3000`)
+- `NEXT_PUBLIC_APP_URL` (required in production, e.g. `https://erp.example.com`)
+- `SESSION_COOKIE_DOMAIN` (optional, set for shared subdomain auth)
+- `IAM_REQUIRE_SAME_ORIGIN=1` (recommended for production state-changing API routes)
+- `IAM_LEGACY_FALLBACK_ENABLED=1` (migration bridge)
+- `IAM_DUAL_WRITE_LEGACY_SESSION=1` (write both `iam_session` + legacy `session` during rollout)
+- `IAM_LEGACY_FALLBACK_SUNSET_DAYS=30` (operational reminder window)
+- `IAM_INVITE_SIGNUP_BRIDGE_ENABLED=1` (invite token sign-up/claim flow)
+- `IAM_INVENTORY_PERMISSION_SYNC_ENABLED=1` (prefer IAM permissions in inventory APIs with compatibility aliases)
+- `INVENTORY_STORAGE_SIGNING_SECRET` (>=32 chars in production)
 
 OAuth:
 - `GOOGLE_OAUTH_CLIENT_ID`
@@ -68,7 +76,26 @@ Bot protection:
 - `TURNSTILE_SECRET_KEY`
 
 Rate limit mode:
-- `IAM_RATE_LIMIT_MODE=db` (optional; default in-memory)
+- `IAM_RATE_LIMIT_MODE=db` (optional; production defaults to `db`, development defaults to in-memory)
+
+API key transport policy:
+- `API_KEY` and `API_ORG_ID` for `/api/v1/*`
+- `API_KEY_QUERY_FALLBACK_ENABLED=1` during bridge window only
+- `API_KEY_QUERY_SUNSET_DATE=2026-03-14` (default)
+- `API_ALLOW_DEFAULT_ORG_FALLBACK=0` (set to `1` for local dev only if needed)
+
+## Hardening Feature-Flag Matrix
+- Bridge rollout start date: **February 12, 2026**
+- Bridge sunset target date: **March 14, 2026**
+
+| Flag | Purpose | Default During Bridge | Target After Sunset |
+| --- | --- | --- | --- |
+| `IAM_V2_ENABLED` | Use IAM v2 session/auth paths | `1` | `1` |
+| `IAM_LEGACY_FALLBACK_ENABLED` | Accept legacy `session` cookie in IAM guards | `1` | `0` |
+| `IAM_DUAL_WRITE_LEGACY_SESSION` | Write legacy + IAM cookies at auth completion | `1` | `0` |
+| `IAM_INVITE_SIGNUP_BRIDGE_ENABLED` | Invite claim via sign-up bridge | `1` | `1` |
+| `IAM_INVENTORY_PERMISSION_SYNC_ENABLED` | IAM-first inventory permission checks | `1` | `1` |
+| `API_KEY_QUERY_FALLBACK_ENABLED` | Accept `apiKey` query parameter | `1` | `0` |
 
 ## Local Development
 Infrastructure (already in repo):
@@ -86,6 +113,7 @@ Apply migrations and seed:
 ```bash
 npm run prisma:migrate:dev -- --name iam_v1
 npm run prisma:seed
+npm run iam:backfill
 ```
 
 Run web app:
@@ -115,6 +143,7 @@ APIs:
 - `POST /api/auth/magic-link/send`
 - `POST /api/auth/mfa/enroll`
 - `POST /api/auth/mfa/verify`
+- `POST /api/auth/session/bridge`
 - `GET /api/sessions`
 - `POST /api/sessions/revoke`
 - `POST /api/sessions/revoke-all`
@@ -123,6 +152,8 @@ APIs:
 - `GET/PUT/DELETE /api/orgs/{id}/members`
 - `POST /api/orgs/{id}/invites`
 - `POST/GET /api/invites/accept`
+- `GET /api/invites/preview?token=...`
+- `POST /api/invites/claim`
 - `GET/POST /api/orgs/{id}/roles`
 - `PATCH/DELETE /api/orgs/{id}/roles/{roleId}`
 - `GET /api/orgs/{id}/permissions`
@@ -167,9 +198,11 @@ npm run lint
 
 ## Production Checklist
 - Enable HTTPS and secure cookie deployment.
+- Keep `NEXT_PUBLIC_APP_URL`, IAM secrets, and storage signing secret set; startup fails in production if required values are missing.
 - Set strict `NEXT_PUBLIC_APP_URL` and domain mappings.
 - Enable Turnstile and edge/WAF rate limiting.
 - Configure notification provider credentials.
 - Monitor IAM audit logs and define retention/export policy.
 - Define key rotation policy for IAM secrets.
 - Backup PostgreSQL and validate restore procedures.
+- Enforce CI quality gates (`typecheck`, `lint`, `test`, `build`) and migration safety checks before deploy.

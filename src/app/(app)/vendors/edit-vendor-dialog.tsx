@@ -15,7 +15,6 @@ import { updateVendor } from "./actions";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import type { Vendor } from "@prisma/client";
 
 function fieldError(err: Record<string, string[]> | undefined, name: string): string | undefined {
   return err?.[name]?.[0];

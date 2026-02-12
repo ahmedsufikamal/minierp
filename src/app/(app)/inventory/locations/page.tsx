@@ -6,20 +6,49 @@ import { LocationsList } from "./components";
 
 export const dynamic = "force-dynamic";
 
+type MissingSchemaError = {
+  code?: string;
+  message?: string;
+};
+
+type LocationRow = {
+  id: string;
+  code: string;
+  name: string | null;
+};
+
+type BalanceRow = {
+  locationId: string | null;
+  qtyOnHand: number;
+  avgCostMinor: number | null;
+  location: { code: string } | null;
+};
+
+type OverallBalanceRow = {
+  qtyOnHand: number;
+  avgCostMinor: number | null;
+};
+
+function isMissingSchemaError(error: unknown): boolean {
+  const e = error as MissingSchemaError;
+  return e?.code === "P2021" || e?.code === "P2022" || Boolean(e?.message?.includes("does not exist"));
+}
+
 export default async function InventoryLocationsPage() {
   const companyId = await getCompanyIdOrUserId();
 
-  let locations: any[] = [];
-  let balances: any[] = [];
-  let overallBalances: any[] = [];
+  let locations: LocationRow[] = [];
+  let balances: BalanceRow[] = [];
+  let overallBalances: OverallBalanceRow[] = [];
 
   try {
     [locations, balances] = await Promise.all([
       prisma.stockLocation.findMany({
         where: { companyId },
+        select: { id: true, code: true, name: true },
         orderBy: { code: "asc" },
-      }).catch((error: any) => {
-        if (error?.code === 'P2021' || error?.code === 'P2022' || error?.message?.includes('does not exist')) {
+      }).catch((error: unknown) => {
+        if (isMissingSchemaError(error)) {
           return [];
         }
         throw error;
@@ -29,16 +58,16 @@ export default async function InventoryLocationsPage() {
           companyId,
           locationId: { not: null },
         },
-        include: {
-          location: true,
-          item: {
-            include: {
-              brand: true,
-            },
+        select: {
+          locationId: true,
+          qtyOnHand: true,
+          avgCostMinor: true,
+          location: {
+            select: { code: true },
           },
         },
-      }).catch((error: any) => {
-        if (error?.code === 'P2021' || error?.code === 'P2022' || error?.message?.includes('does not exist')) {
+      }).catch((error: unknown) => {
+        if (isMissingSchemaError(error)) {
           return [];
         }
         throw error;
@@ -51,15 +80,19 @@ export default async function InventoryLocationsPage() {
         companyId,
         locationId: null,
       },
-    }).catch((error: any) => {
-      if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+      select: {
+        qtyOnHand: true,
+        avgCostMinor: true,
+      },
+    }).catch((error: unknown) => {
+      if (isMissingSchemaError(error)) {
         return [];
       }
       throw error;
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If tables don't exist, show migration message
-    if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+    if (isMissingSchemaError(error)) {
       locations = [];
       balances = [];
       overallBalances = [];
@@ -91,7 +124,7 @@ export default async function InventoryLocationsPage() {
   const overallTotal = {
     qty: overallBalances.reduce((sum, b) => sum + b.qtyOnHand, 0),
     value: overallBalances.reduce((sum, b) => sum + b.qtyOnHand * (b.avgCostMinor ?? 0), 0),
-    itemCount: overallBalances.filter(b => b.qtyOnHand > 0).length,
+    itemCount: overallBalances.filter((b) => b.qtyOnHand > 0).length,
   };
 
   const needsMigration = locations.length === 0 && balances.length === 0 && overallBalances.length === 0;
@@ -109,7 +142,7 @@ export default async function InventoryLocationsPage() {
             <div className="flex-1">
               <div className="font-medium text-amber-900 mb-1">Database Migration Required</div>
               <div className="text-sm text-amber-700">
-                The inventory tables haven't been created yet. Please run the migration:
+                The inventory tables haven&apos;t been created yet. Please run the migration:
               </div>
               <code className="mt-2 block text-xs bg-amber-100 p-2 rounded">
                 npx prisma migrate dev

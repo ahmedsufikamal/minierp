@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signup } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,10 @@ function SubmitButton() {
 
 export default function AuthSignUpPage() {
   const [state, formAction] = useActionState(signup, initialState);
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite")?.trim() ?? "";
+  const nextPath = searchParams.get("next")?.trim() ?? "";
+  const hasInviteToken = inviteToken.length >= 16;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
@@ -32,16 +37,20 @@ export default function AuthSignUpPage() {
           <div className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <MiniERPLogo size="icon" />
           </div>
-          <CardTitle className="text-2xl">Create your workspace</CardTitle>
-          <CardDescription>Provision your account and initial organization</CardDescription>
+          <CardTitle className="text-2xl">{hasInviteToken ? "Accept invitation" : "Create your workspace"}</CardTitle>
+          <CardDescription>
+            {hasInviteToken ? "Create your account to join the invited organization." : "Provision your account and initial organization"}
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form action={formAction} className="space-y-3">
+            {hasInviteToken ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
+            {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
             <Input name="name" placeholder="Full name" required />
             <Input name="email" type="email" placeholder="you@company.com" required />
-            <Input name="companyName" placeholder="Company name" required />
-            <Input name="companySlug" placeholder="company-slug" />
+            {!hasInviteToken ? <Input name="companyName" placeholder="Company name" required /> : null}
+            {!hasInviteToken ? <Input name="companySlug" placeholder="company-slug" /> : null}
             <Input name="password" type="password" placeholder="Strong password (12+ chars)" minLength={12} required />
             {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
             <SubmitButton />

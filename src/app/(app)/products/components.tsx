@@ -12,6 +12,10 @@ import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
 import type { Product } from "@prisma/client";
 
+export type ProductListRow = Product & {
+  brand?: { name: string } | null;
+};
+
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
@@ -145,7 +149,7 @@ export function ProductList({
   order,
   brands,
 }: {
-  products: Product[];
+  products: ProductListRow[];
   stockByProductId?: Record<string, number>;
   sort?: string;
   order?: "asc" | "desc";

@@ -10,6 +10,12 @@ describe("workflow transitions + permissions", () => {
     expect(hasInventoryPermission(role, inventoryPermissions.documentPost)).toBe(true);
   });
 
+  it("maps OWNER to COMPANY_OWNER and grants settings write", () => {
+    const role = mapUserRoleToInventoryRole("OWNER");
+    expect(role).toBe("COMPANY_OWNER");
+    expect(hasInventoryPermission(role, inventoryPermissions.settingsWrite)).toBe(true);
+  });
+
   it("blocks viewer from posting", () => {
     const role = mapUserRoleToInventoryRole("VIEWER");
     expect(hasInventoryPermission(role, inventoryPermissions.documentPost)).toBe(false);

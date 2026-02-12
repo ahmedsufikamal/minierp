@@ -1,10 +1,12 @@
 import "./globals.css";
 
+import { assertProductionSecurityEnv } from "@/lib/runtime-env";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { resolveTenantThemeByRequest, themeToCssVars } from "@/modules/iam";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  assertProductionSecurityEnv();
   const tenantTheme = await resolveTenantThemeByRequest();
   const style = themeToCssVars(tenantTheme);
 

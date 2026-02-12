@@ -38,7 +38,7 @@ export function inventoryRepo(client: DbClient = prisma) {
         create: { companyId, code, name: code },
         update: {},
       }),
-    createLedger: (data: Prisma.StockLedgerCreateInput) =>
+    createLedger: (data: Prisma.StockLedgerUncheckedCreateInput) =>
       client.stockLedger.create({ data }),
     upsertBalance: (data: Prisma.StockBalanceUpsertArgs) =>
       client.stockBalance.upsert(data),

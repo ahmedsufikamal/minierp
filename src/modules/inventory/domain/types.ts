@@ -34,6 +34,8 @@ export type InventoryRequestContext = {
   companyId: string;
   userId: string;
   role: InventoryRole;
+  iamPermissions?: string[];
+  responseHeaders?: Record<string, string>;
   ipAddress?: string;
   userAgent?: string;
 };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signin, sendMagicLinkAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { MiniERPLogo } from "@/components/minierp-logo";
 
 const initialState = { error: "" };
-const initialMagic = { error: "", ok: false };
+type MagicState = { error: string } | { ok: true };
+const initialMagic: MagicState = { error: "" };
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -26,6 +28,8 @@ function SubmitButton({ label }: { label: string }) {
 export default function AuthSignInPage() {
   const [state, formAction] = useActionState(signin, initialState);
   const [magicState, magicAction] = useActionState(sendMagicLinkAction, initialMagic);
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next")?.trim() ?? "";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
@@ -40,6 +44,7 @@ export default function AuthSignInPage() {
 
         <CardContent className="space-y-5">
           <form action={formAction} className="space-y-3">
+            {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
             <Input name="email" type="email" placeholder="you@company.com" required />
             <Input name="password" type="password" placeholder="Password" required />
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -61,10 +66,10 @@ export default function AuthSignInPage() {
           <div className="rounded-lg border border-border p-3">
             <form action={magicAction} className="space-y-2">
               <Input name="email" type="email" placeholder="Email for magic link" required />
-              <input type="hidden" name="redirectTo" value="/dashboard" />
+              <input type="hidden" name="redirectTo" value={nextPath || "/dashboard"} />
               <SubmitButton label="Send magic link" />
-              {magicState?.error ? <p className="text-sm text-destructive">{magicState.error}</p> : null}
-              {magicState?.ok ? <p className="text-sm text-emerald-600">Magic link sent. Check your inbox.</p> : null}
+              {"error" in magicState && magicState.error ? <p className="text-sm text-destructive">{magicState.error}</p> : null}
+              {"ok" in magicState && magicState.ok ? <p className="text-sm text-emerald-600">Magic link sent. Check your inbox.</p> : null}
             </form>
           </div>
         </CardContent>

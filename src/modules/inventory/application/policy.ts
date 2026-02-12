@@ -54,13 +54,19 @@ export function mapUserRoleToInventoryRole(role: string | null | undefined): Inv
   switch ((role ?? "").toUpperCase()) {
     case "SUPER_ADMIN":
       return "SUPER_ADMIN";
+    case "OWNER":
     case "COMPANY_OWNER":
       return "COMPANY_OWNER";
+    case "COMPANY_SUPER_ADMIN":
+    case "COMPANY_OWNER_ADMIN":
+    case "TENANT_ADMIN":
     case "COMPANY_ADMIN":
     case "ADMIN":
       return "COMPANY_ADMIN";
+    case "MANAGER":
     case "INVENTORY_MANAGER":
       return "INVENTORY_MANAGER";
+    case "MEMBER":
     case "WAREHOUSE_OPERATOR":
       return "WAREHOUSE_OPERATOR";
     case "AUDITOR":

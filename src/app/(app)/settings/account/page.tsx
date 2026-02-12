@@ -1,12 +1,20 @@
 import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
-import { requireAuth } from "@/modules/iam";
+import { requireAuthPage } from "@/modules/iam";
 import { revokeAllSessionsAction, revokeSessionAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default async function AccountSettingsPage() {
-  const principal = await requireAuth();
+  const principal = await requireAuthPage("/settings/account");
   const sessions = await getIdentityProvider().listUserSessions(principal.userId);
+  const submitRevokeAll = async () => {
+    "use server";
+    await revokeAllSessionsAction();
+  };
+  const submitRevokeOne = async (formData: FormData) => {
+    "use server";
+    await revokeSessionAction({}, formData);
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -26,14 +34,14 @@ export default async function AccountSettingsPage() {
       <section className="space-y-3 rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Active sessions</h2>
-          <form action={revokeAllSessionsAction}>
+          <form action={submitRevokeAll}>
             <Button type="submit" variant="destructive">Revoke all sessions</Button>
           </form>
         </div>
 
         <div className="space-y-2">
           {sessions.map((session) => (
-            <form key={session.id} action={revokeSessionAction} className="flex items-center justify-between rounded border p-3">
+            <form key={session.id} action={submitRevokeOne} className="flex items-center justify-between rounded border p-3">
               <input type="hidden" name="sessionId" value={session.id} />
               <div>
                 <p className="text-sm font-medium">{session.userAgent || "Unknown device"}</p>

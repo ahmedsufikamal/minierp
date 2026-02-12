@@ -1,27 +1,22 @@
 import { NextResponse } from "next/server";
+import { ApiKeyAuthError, appendApiKeyCompatibilityHeaders, authenticateApiKeyRequest } from "@/lib/api-key-auth";
 import { prisma } from "@/lib/prisma";
 
-function getApiKey(request: Request): string | null {
-  const auth = request.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  return new URL(request.url).searchParams.get("apiKey");
-}
-
-function isAuthorized(request: Request): boolean {
-  const key = process.env.API_KEY;
-  if (!key) return false;
-  return getApiKey(request) === key;
-}
-
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const auth = await authenticateApiKeyRequest(request, "v1_products_get");
+    const products = await prisma.product.findMany({
+      where: { companyId: auth.companyId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    const response = NextResponse.json({ data: products });
+    appendApiKeyCompatibilityHeaders(response.headers, auth);
+    return response;
+  } catch (error) {
+    if (error instanceof ApiKeyAuthError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+    throw error;
   }
-  const companyId = process.env.API_ORG_ID ?? "default-org";
-  const products = await prisma.product.findMany({
-    where: { companyId },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
-  return NextResponse.json({ data: products });
 }

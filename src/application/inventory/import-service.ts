@@ -1,10 +1,16 @@
 import { computeFileHash, parseExcelFile, parseQty, parseStoreLocations, allocateQtyToLocations } from "@/lib/excel-import";
+import type { Prisma } from "@prisma/client";
 import { normalizeSku } from "@/domain/inventory/sku";
 import { inventoryRepo } from "@/infrastructure/inventory/repository";
 import type { ImportMode, ImportPreview, ImportPreviewResult, ImportExecuteResult } from "./dtos";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_BRAND = "SIEMENS";
+
+function isMissingSchemaError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string };
+  return e?.code === "P2021" || e?.code === "P2022" || Boolean(e?.message?.includes("does not exist"));
+}
 
 export async function previewImport(params: {
   companyId: string;
@@ -21,8 +27,8 @@ export async function previewImport(params: {
   let existingSnapshot = null;
   try {
     existingSnapshot = await repo.findSnapshotByHash(companyId, fileHash);
-  } catch (error: any) {
-    if (error?.code === "P2021" || error?.code === "P2022" || error?.message?.includes("does not exist")) {
+  } catch (error: unknown) {
+    if (isMissingSchemaError(error)) {
       return { ok: false, error: "Database migration required. Please run: npx prisma migrate dev" };
     }
     throw error;
@@ -146,8 +152,8 @@ export async function executeImport(params: {
   let existingSnapshot = null;
   try {
     existingSnapshot = await repo.findSnapshotByHash(companyId, fileHash);
-  } catch (error: any) {
-    if (error?.code === "P2021" || error?.code === "P2022" || error?.message?.includes("does not exist")) {
+  } catch (error: unknown) {
+    if (isMissingSchemaError(error)) {
       return { ok: false, error: "Database migration required. Please run: npx prisma migrate dev" };
     }
     throw error;
@@ -167,8 +173,8 @@ export async function executeImport(params: {
 
   try {
     await prisma.brand.findFirst({ where: { companyId }, take: 1 });
-  } catch (error: any) {
-    if (error?.code === "P2021" || error?.code === "P2022" || error?.message?.includes("does not exist")) {
+  } catch (error: unknown) {
+    if (isMissingSchemaError(error)) {
       return { ok: false, error: "Database migration required. Please run: npx prisma migrate dev" };
     }
     throw error;
@@ -296,32 +302,39 @@ export async function executeImport(params: {
           refInvoice: row.invoiceNum || null,
           refChalan: row.chalanNumber || null,
           notes: row.remarks || refText,
-          meta: { raw: row },
+          meta: { raw: row } as unknown as Prisma.InputJsonValue,
           txnDate: new Date(),
           snapshotId: snapshot.id,
           createdBy: actorId ?? null,
         });
 
-        await txRepo.upsertBalance({
+        const overallBalance = await tx.stockBalance.findFirst({
           where: {
-            companyId_itemId_locationId: {
-              companyId,
-              itemId: product.id,
-              locationId: null,
-            },
-          },
-          create: {
             companyId,
             itemId: product.id,
             locationId: null,
-            qtyOnHand: inventoryQty,
-            avgCostMinor: finalUnitCost,
           },
-          update: {
-            qtyOnHand: inventoryQty,
-            avgCostMinor: finalUnitCost,
-          },
+          select: { id: true },
         });
+        if (overallBalance) {
+          await tx.stockBalance.update({
+            where: { id: overallBalance.id },
+            data: {
+              qtyOnHand: inventoryQty,
+              avgCostMinor: finalUnitCost,
+            },
+          });
+        } else {
+          await tx.stockBalance.create({
+            data: {
+              companyId,
+              itemId: product.id,
+              locationId: null,
+              qtyOnHand: inventoryQty,
+              avgCostMinor: finalUnitCost,
+            },
+          });
+        }
       }
 
       const locationRows = parsed.locations.filter((loc) => loc.newStock === row.mlfb);
@@ -346,7 +359,7 @@ export async function executeImport(params: {
               refInvoice: row.invoiceNum || null,
               refChalan: row.chalanNumber || null,
               notes: row.remarks || refText,
-              meta: { raw: row },
+              meta: { raw: row } as unknown as Prisma.InputJsonValue,
               txnDate: new Date(),
               snapshotId: snapshot.id,
               createdBy: actorId ?? null,

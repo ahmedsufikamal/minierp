@@ -44,7 +44,9 @@ export interface ParsedExcelData {
  * Parse quantity string that may contain "1+1" format
  * Returns the sum of all numbers found
  */
-export function parseQty(qtyStr: string | number | undefined | null): number {
+export function parseQty(qtyStr: unknown): number {
+  if (typeof qtyStr === "boolean" || typeof qtyStr === "object" || typeof qtyStr === "symbol") return 0;
+  if (typeof qtyStr === "function" || typeof qtyStr === "bigint") return 0;
   if (qtyStr == null) return 0;
   if (typeof qtyStr === "number") return Math.round(qtyStr);
   
@@ -69,8 +71,10 @@ export function parseQty(qtyStr: string | number | undefined | null): number {
   return Number.isFinite(num) ? Math.round(num) : 0;
 }
 
-function splitMultiline(value: string | number | undefined | null): string[] {
+function splitMultiline(value: unknown): string[] {
   if (value == null) return [];
+  if (typeof value === "boolean" || typeof value === "object" || typeof value === "symbol") return [];
+  if (typeof value === "function" || typeof value === "bigint") return [];
   return String(value)
     .split(/\r?\n|,|;|\|/g)
     .map((v) => v.trim())
@@ -94,11 +98,11 @@ function parseDateString(value: string): string {
   return isNaN(fallback.getTime()) ? trimmed : fallback.toISOString().slice(0, 10);
 }
 
-export function parseOutDates(value: string | number | undefined | null): string[] {
+export function parseOutDates(value: unknown): string[] {
   return splitMultiline(value).map(parseDateString);
 }
 
-export function parseChalanNumbers(value: string | number | undefined | null): string[] {
+export function parseChalanNumbers(value: unknown): string[] {
   return splitMultiline(value);
 }
 
@@ -283,8 +287,9 @@ export function parseExcelFile(fileBuffer: Buffer): ParsedExcelData {
         const newStock = colMap.newStock >= 0 ? String(values[colMap.newStock] || "").trim() : "";
         if (!newStock) continue;
         
-        const qtyStr = colMap.qty >= 0 ? values[colMap.qty] : undefined;
-        const qty = parseQty(qtyStr);
+        const qtyRaw = colMap.qty >= 0 ? values[colMap.qty] : undefined;
+        const qty = parseQty(qtyRaw);
+        const qtyStr = typeof qtyRaw === "string" || typeof qtyRaw === "number" ? qtyRaw : undefined;
         const storeLocation = colMap.storeLocation >= 0 ? String(values[colMap.storeLocation] || "").trim() : "";
         
         const rowData: LocationRow = {

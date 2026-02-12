@@ -1,7 +1,12 @@
 import { InventoryCustomFieldEntityType } from "@prisma/client";
 import { exportCustomFieldSchema, importCustomFieldSchema } from "@/modules/inventory/application/custom-fields.service";
 import { inventoryPermissions } from "@/modules/inventory/domain/types";
-import { jsonOk, withInventoryAuth } from "@/modules/inventory/interface/http";
+import { jsonOk, parseJson, withInventoryAuth } from "@/modules/inventory/interface/http";
+import { z } from "zod";
+
+const importSchema = z.object({
+  rows: z.array(z.unknown()).default([]),
+});
 
 export async function GET(request: Request) {
   return withInventoryAuth(request, inventoryPermissions.settingsRead, async (ctx) => {
@@ -13,8 +18,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withInventoryAuth(request, inventoryPermissions.settingsWrite, async (ctx) => {
-    const body = (await request.json().catch(() => ({}))) as { rows?: unknown[] };
-    const rows = Array.isArray(body.rows) ? body.rows : [];
-    return jsonOk(await importCustomFieldSchema(ctx, rows));
+    const body = await parseJson(request, importSchema);
+    return jsonOk(await importCustomFieldSchema(ctx, body.rows));
   });
 }

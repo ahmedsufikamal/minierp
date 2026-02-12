@@ -21,6 +21,15 @@ function toCents(input: string | undefined) {
   return Math.round(val * 100);
 }
 
+function isMissingSchemaError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string };
+  return (
+    e?.code === "P2021" ||
+    e?.code === "P2022" ||
+    Boolean(e?.message?.includes("does not exist")) ||
+    (Boolean(e?.message?.includes("column")) && Boolean(e?.message?.includes("brandId")))
+  );
+}
 
 export async function createProduct(formData: FormData) {
   const companyId = await getCompanyIdOrUserId();
@@ -51,8 +60,8 @@ export async function createProduct(formData: FormData) {
           update: {},
         });
         finalBrandId = defaultBrand.id;
-      } catch (error: any) {
-        if (error?.code === 'P2021' || error?.code === 'P2022' || error?.message?.includes('does not exist')) {
+      } catch (error: unknown) {
+        if (isMissingSchemaError(error)) {
           return { ok: false, error: { _form: ["Database migration required. Please run: npx prisma migrate dev"] } };
         }
         throw error;
@@ -70,17 +79,13 @@ export async function createProduct(formData: FormData) {
         priceCents: toCents(price),
       },
     });
-  } catch (e: any) {
-    if (e?.code === 'P2021' || e?.message?.includes('does not exist') || 
-        (e?.message?.includes('column') && e?.message?.includes('brandId'))) {
+  } catch (error: unknown) {
+    if (isMissingSchemaError(error)) {
       return { ok: false, error: { _form: ["Database migration required. Please run: npx prisma migrate dev"] } };
     }
-    if (e?.code === 'P2022' || (e?.message?.includes('column') && e?.message?.includes('brandId'))) {
-      return { ok: false, error: { _form: ["Database migration required. Please run: npx prisma migrate dev"] } };
-    }
-    const conflict = handlePrismaUniqueConflict(e, "sku");
+    const conflict = handlePrismaUniqueConflict(error, "sku");
     if (conflict) return conflict;
-    throw e;
+    throw error;
   }
 
   revalidatePath("/products");
@@ -119,8 +124,8 @@ export async function updateProduct(id: string, formData: FormData) {
           update: {},
         });
         finalBrandId = defaultBrand.id;
-      } catch (error: any) {
-        if (error?.code === 'P2021' || error?.code === 'P2022' || error?.message?.includes('does not exist')) {
+      } catch (error: unknown) {
+        if (isMissingSchemaError(error)) {
           return { ok: false, error: { _form: ["Database migration required. Please run: npx prisma migrate dev"] } };
         }
         throw error;
@@ -138,17 +143,13 @@ export async function updateProduct(id: string, formData: FormData) {
         priceCents: toCents(price),
       },
     });
-  } catch (e: any) {
-    if (e?.code === 'P2021' || e?.message?.includes('does not exist') || 
-        (e?.message?.includes('column') && e?.message?.includes('brandId'))) {
+  } catch (error: unknown) {
+    if (isMissingSchemaError(error)) {
       return { ok: false, error: { _form: ["Database migration required. Please run: npx prisma migrate dev"] } };
     }
-    if (e?.code === 'P2022' || (e?.message?.includes('column') && e?.message?.includes('brandId'))) {
-      return { ok: false, error: { _form: ["Database migration required. Please run: npx prisma migrate dev"] } };
-    }
-    const conflict = handlePrismaUniqueConflict(e, "sku");
+    const conflict = handlePrismaUniqueConflict(error, "sku");
     if (conflict) return conflict;
-    throw e;
+    throw error;
   }
 
   revalidatePath("/products");

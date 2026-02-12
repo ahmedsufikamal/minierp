@@ -1,4 +1,4 @@
-import { InventoryCustomFieldEntityType, type Prisma } from "@prisma/client";
+import { InventoryCustomFieldEntityType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import { validateCustomFieldValue } from "@/modules/inventory/domain/custom-fields";
@@ -168,14 +168,14 @@ export async function setEntityCustomFieldValues(
 
       const normalizedValue = validateCustomFieldValue(def, rawValue);
 
-      if (def.unique && normalizedValue != null) {
+      if (def.unique && normalizedValue !== Prisma.JsonNull) {
         const conflict = await tx.inventoryCustomFieldValue.findFirst({
           where: {
             companyId: ctx.companyId,
             entityType: params.entityType,
             fieldDefinitionId: def.id,
             entityId: { not: params.entityId },
-            value: { equals: normalizedValue as Prisma.InputJsonValue },
+            value: { equals: normalizedValue },
           },
           select: { id: true },
         });

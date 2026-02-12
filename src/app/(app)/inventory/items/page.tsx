@@ -14,21 +14,22 @@ function isMissingSchemaError(error: unknown): boolean {
 export default async function InventoryItemsPage() {
   const companyId = await getCompanyIdOrUserId();
   const user = await getCurrentUser();
-  let needsMigration = false;
 
-  const withMissingSchemaFallback = async <T,>(promise: Promise<T>, fallback: T): Promise<T> => {
+  const withMissingSchemaFallback = async <T,>(
+    promise: Promise<T>,
+    fallback: T,
+  ): Promise<{ value: T; needsMigration: boolean }> => {
     try {
-      return await promise;
+      return { value: await promise, needsMigration: false };
     } catch (error) {
       if (isMissingSchemaError(error)) {
-        needsMigration = true;
-        return fallback;
+        return { value: fallback, needsMigration: true };
       }
       throw error;
     }
   };
 
-  const [items, customDefs, customValues, presets] = await Promise.all([
+  const [itemsResult, customDefsResult, customValuesResult, presetsResult] = await Promise.all([
     withMissingSchemaFallback(
       prisma.product.findMany({
         where: { companyId },
@@ -81,6 +82,15 @@ export default async function InventoryItemsPage() {
       [],
     ),
   ]);
+  const needsMigration =
+    itemsResult.needsMigration ||
+    customDefsResult.needsMigration ||
+    customValuesResult.needsMigration ||
+    presetsResult.needsMigration;
+  const items = itemsResult.value;
+  const customDefs = customDefsResult.value;
+  const customValues = customValuesResult.value;
+  const presets = presetsResult.value;
 
   const customByEntity: Record<string, Record<string, unknown>> = {};
   for (const row of customValues) {

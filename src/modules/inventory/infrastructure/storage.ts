@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { getStorageSigningSecret } from "@/lib/runtime-env";
 
 export type PresignedUpload = {
   url: string;
@@ -22,7 +23,7 @@ function getStorageBaseUrl(): string {
 }
 
 function signedToken(storageKey: string, ttlSeconds: number): string {
-  const secret = process.env.INVENTORY_STORAGE_SIGNING_SECRET || "dev-inventory-storage-secret";
+  const secret = getStorageSigningSecret();
   const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
   const payload = `${storageKey}:${expiresAt}`;
   const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");

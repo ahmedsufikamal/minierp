@@ -53,7 +53,12 @@ export function err(error: unknown): NextResponse {
     );
   }
 
-  const message = error instanceof Error ? error.message : "Unexpected error";
+  const message =
+    process.env.NODE_ENV === "production"
+      ? "Unexpected error"
+      : error instanceof Error
+        ? error.message
+        : "Unexpected error";
   return NextResponse.json(
     {
       ok: false,

@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
-import { createSession, deleteSession } from "@/lib/session";
+import { createSession, deleteSession, syncLegacyFromIamSession } from "@/lib/session";
 import {
   sendMagicLinkSchema,
   mfaEnrollSchema,
@@ -18,6 +18,8 @@ import {
 } from "@/modules/iam/interface/schemas";
 import { requireAuth } from "@/modules/iam";
 import { IamError, isIamError } from "@/modules/iam/domain/errors";
+import { assertRateLimit } from "@/modules/iam/infrastructure/rate-limit";
+import { verifyTurnstileToken } from "@/modules/iam/infrastructure/turnstile";
 
 function isIamV2Enabled(): boolean {
   return process.env.IAM_V2_ENABLED === "1";
@@ -28,6 +30,33 @@ function isSchemaMismatch(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     (error.code === "P2021" || error.code === "P2022")
   );
+}
+
+function safeInt(value: string | undefined, fallback: number, min = 1, max = 86_400): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+async function applyAuthAbuseChecks(input: {
+  scope: string;
+  key: string;
+  ip: string | null;
+  turnstileToken?: string;
+  maxAttempts: number;
+  windowSeconds: number;
+}) {
+  await assertRateLimit({
+    key: `${input.key}:${input.ip ?? "unknown"}`,
+    scope: input.scope,
+    maxAttempts: input.maxAttempts,
+    windowSeconds: input.windowSeconds,
+  });
+
+  await verifyTurnstileToken({
+    token: input.turnstileToken,
+    ip: input.ip,
+  });
 }
 
 function toActionErrorMessage(error: unknown): string {
@@ -82,25 +111,49 @@ function formToObject(formData: FormData): Record<string, unknown> {
   return raw;
 }
 
+function safeNextPath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized.startsWith("/") || normalized.startsWith("//")) return null;
+  return normalized;
+}
+
 export async function signup(prevState: unknown, formData: FormData) {
   const parsed = signUpSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const provider = getIdentityProvider();
-  const ctx = await requestContext();
-  await provider.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    name: parsed.data.name,
-    companyName: parsed.data.companyName,
-    companySlug: parsed.data.companySlug,
-    ip: ctx.ip,
-    userAgent: ctx.userAgent,
-  });
+  try {
+    const provider = getIdentityProvider();
+    const ctx = await requestContext();
+    await applyAuthAbuseChecks({
+      scope: "signup",
+      key: parsed.data.email.trim().toLowerCase(),
+      ip: ctx.ip,
+      turnstileToken: parsed.data.turnstileToken,
+      maxAttempts: safeInt(process.env.IAM_SIGNUP_RATE_LIMIT_MAX_ATTEMPTS, 5, 1, 50),
+      windowSeconds: safeInt(process.env.IAM_SIGNUP_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
 
-  redirect("/dashboard");
+    await provider.signUp({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      name: parsed.data.name,
+      companyName: parsed.data.companyName,
+      companySlug: parsed.data.companySlug,
+      inviteToken: parsed.data.inviteToken,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    if (isIamV2Enabled()) {
+      await syncLegacyFromIamSession();
+    }
+  } catch (error) {
+    return { error: toActionErrorMessage(error) };
+  }
+
+  redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
 export async function signin(prevState: unknown, formData: FormData) {
@@ -111,9 +164,18 @@ export async function signin(prevState: unknown, formData: FormData) {
 
   let mfaRequired = false;
   try {
+    const ctx = await requestContext();
+    await applyAuthAbuseChecks({
+      scope: "signin",
+      key: parsed.data.email.trim().toLowerCase(),
+      ip: ctx.ip,
+      turnstileToken: parsed.data.turnstileToken,
+      maxAttempts: safeInt(process.env.IAM_SIGNIN_RATE_LIMIT_MAX_ATTEMPTS, 10, 1, 100),
+      windowSeconds: safeInt(process.env.IAM_SIGNIN_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+
     if (isIamV2Enabled()) {
       const provider = getIdentityProvider();
-      const ctx = await requestContext();
       const result = await provider.signIn({
         email: parsed.data.email,
         password: parsed.data.password,
@@ -122,6 +184,9 @@ export async function signin(prevState: unknown, formData: FormData) {
         userAgent: ctx.userAgent,
       });
       mfaRequired = Boolean(result.mfaRequired);
+      if (!mfaRequired) {
+        await syncLegacyFromIamSession();
+      }
     } else {
       await legacySignIn({
         email: parsed.data.email,
@@ -133,10 +198,14 @@ export async function signin(prevState: unknown, formData: FormData) {
   }
 
   if (mfaRequired) {
+    const nextPath = safeNextPath(parsed.data.next);
+    if (nextPath) {
+      redirect(`/auth/mfa?required=1&next=${encodeURIComponent(nextPath)}`);
+    }
     redirect("/auth/mfa?required=1");
   }
 
-  redirect("/dashboard");
+  redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
 export async function sendMagicLinkAction(prevState: unknown, formData: FormData) {
@@ -145,11 +214,25 @@ export async function sendMagicLinkAction(prevState: unknown, formData: FormData
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const provider = getIdentityProvider();
-  await provider.sendMagicLink({
-    email: parsed.data.email,
-    redirectTo: parsed.data.redirectTo,
-  });
+  try {
+    const ctx = await requestContext();
+    await applyAuthAbuseChecks({
+      scope: "magic_link_send",
+      key: parsed.data.email.trim().toLowerCase(),
+      ip: ctx.ip,
+      turnstileToken: parsed.data.turnstileToken,
+      maxAttempts: safeInt(process.env.IAM_MAGIC_LINK_RATE_LIMIT_MAX_ATTEMPTS, 6, 1, 50),
+      windowSeconds: safeInt(process.env.IAM_MAGIC_LINK_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+    });
+
+    const provider = getIdentityProvider();
+    await provider.sendMagicLink({
+      email: parsed.data.email,
+      redirectTo: parsed.data.redirectTo,
+    });
+  } catch (error) {
+    return { error: toActionErrorMessage(error) };
+  }
 
   return { ok: true };
 }
@@ -160,9 +243,19 @@ export async function verifyMagicLinkAction(prevState: unknown, formData: FormDa
     return { error: parsed.error.issues[0]?.message ?? "Invalid token" };
   }
 
-  const provider = getIdentityProvider();
   const ctx = await requestContext();
+  await assertRateLimit({
+    key: `verify:${ctx.ip ?? "unknown"}`,
+    scope: "magic_link_verify",
+    maxAttempts: safeInt(process.env.IAM_MAGIC_LINK_VERIFY_RATE_LIMIT_MAX_ATTEMPTS, 20, 1, 200),
+    windowSeconds: safeInt(process.env.IAM_MAGIC_LINK_VERIFY_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
+  });
+
+  const provider = getIdentityProvider();
   await provider.verifyMagicLink({ token: parsed.data.token, ip: ctx.ip, userAgent: ctx.userAgent });
+  if (isIamV2Enabled()) {
+    await syncLegacyFromIamSession();
+  }
   redirect("/dashboard");
 }
 
@@ -172,7 +265,7 @@ export async function enrollMfaAction(prevState: unknown, formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const principal = await requireAuth();
+  const principal = await requireAuth({ allowMfaPending: true });
   const provider = getIdentityProvider();
   const enrolled = await provider.enrollMfa({
     userId: principal.userId,
@@ -188,14 +281,17 @@ export async function verifyMfaAction(prevState: unknown, formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid code" };
   }
 
-  const principal = await requireAuth();
+  const principal = await requireAuth({ allowMfaPending: true });
   const provider = getIdentityProvider();
   await provider.verifyMfa({
     userId: principal.userId,
     code: parsed.data.code,
   });
+  if (isIamV2Enabled()) {
+    await syncLegacyFromIamSession();
+  }
 
-  return { ok: true };
+  redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
 export async function revokeSessionAction(prevState: unknown, formData: FormData) {

@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeSku } from "@/domain/inventory/sku";
 import { exportJobSchema, importJobSchema } from "@/modules/inventory/application/schemas";
@@ -194,10 +195,10 @@ export async function previewImportJob(
       where: { id: job.id },
       data: {
         status: "VALIDATED",
-        summary: {
+        summary: ({
           ...(job.summary as Record<string, unknown> | null),
           ...preview.summary,
-        },
+        } as unknown) as Prisma.InputJsonValue,
       },
     });
   });
@@ -311,28 +312,36 @@ export async function commitImportJob(
         const qty = toInt(row.qty);
         const unitCost = toInt(row.unit_cost_minor || row.unit_cost || "0");
 
-        await tx.inventoryStockBalance.upsert({
+        const existingBalance = await tx.inventoryStockBalance.findFirst({
           where: {
-            companyId_itemId_warehouseId_locationId: {
-              companyId: ctx.companyId,
-              itemId: item.id,
-              warehouseId: warehouse.id,
-              locationId: null,
-            },
-          },
-          create: {
             companyId: ctx.companyId,
             itemId: item.id,
             warehouseId: warehouse.id,
             locationId: null,
-            onHand: qty,
-            avgCostMinor: unitCost,
           },
-          update: {
-            onHand: qty,
-            avgCostMinor: unitCost,
-          },
+          select: { id: true },
         });
+
+        if (existingBalance) {
+          await tx.inventoryStockBalance.update({
+            where: { id: existingBalance.id },
+            data: {
+              onHand: qty,
+              avgCostMinor: unitCost,
+            },
+          });
+        } else {
+          await tx.inventoryStockBalance.create({
+            data: {
+              companyId: ctx.companyId,
+              itemId: item.id,
+              warehouseId: warehouse.id,
+              locationId: null,
+              onHand: qty,
+              avgCostMinor: unitCost,
+            },
+          });
+        }
 
         await tx.inventoryLedgerEntry.create({
           data: {
@@ -380,36 +389,42 @@ export async function commitImportJob(
         });
         if (!item) continue;
 
-        await tx.inventoryReorderRule.upsert({
+        const existingRule = await tx.inventoryReorderRule.findFirst({
           where: {
-            companyId_itemId_warehouseId_locationId: {
+            companyId: ctx.companyId,
+            itemId: item.id,
+            warehouseId: warehouse.id,
+            locationId: null,
+          },
+          select: { id: true },
+        });
+
+        const ruleData = {
+          minQty: toInt(row.min_qty || "0"),
+          maxQty: toInt(row.max_qty || "0"),
+          reorderPoint: toInt(row.reorder_point || "0"),
+          reorderQty: toInt(row.reorder_qty || "0"),
+          leadTimeDays: toInt(row.lead_time_days || "0"),
+          isActive: row.is_active ? row.is_active !== "false" : true,
+        };
+
+        if (existingRule) {
+          await tx.inventoryReorderRule.update({
+            where: { id: existingRule.id },
+            data: ruleData,
+          });
+        } else {
+          await tx.inventoryReorderRule.create({
+            data: {
               companyId: ctx.companyId,
               itemId: item.id,
               warehouseId: warehouse.id,
               locationId: null,
+              createdBy: ctx.userId,
+              ...ruleData,
             },
-          },
-          create: {
-            companyId: ctx.companyId,
-            itemId: item.id,
-            warehouseId: warehouse.id,
-            minQty: toInt(row.min_qty || "0"),
-            maxQty: toInt(row.max_qty || "0"),
-            reorderPoint: toInt(row.reorder_point || "0"),
-            reorderQty: toInt(row.reorder_qty || "0"),
-            leadTimeDays: toInt(row.lead_time_days || "0"),
-            isActive: row.is_active ? row.is_active !== "false" : true,
-            createdBy: ctx.userId,
-          },
-          update: {
-            minQty: toInt(row.min_qty || "0"),
-            maxQty: toInt(row.max_qty || "0"),
-            reorderPoint: toInt(row.reorder_point || "0"),
-            reorderQty: toInt(row.reorder_qty || "0"),
-            leadTimeDays: toInt(row.lead_time_days || "0"),
-            isActive: row.is_active ? row.is_active !== "false" : true,
-          },
-        });
+          });
+        }
 
         processed += 1;
       }
@@ -568,7 +583,7 @@ export async function createExportJob(ctx: InventoryRequestContext, input: unkno
       status: "COMPLETED",
       format: payload.format,
       fileName: payload.fileName,
-      filters: (payload.filters ?? null) as Record<string, unknown> | null,
+      filters: (payload.filters ?? {}) as unknown as Prisma.InputJsonValue,
       outputKey: `${ctx.companyId}/exports/${Date.now()}-${payload.fileName}`,
       createdBy: ctx.userId,
       startedAt: new Date(),

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 /**
  * Returns current stock (quantity on hand) per product for an org.
@@ -7,16 +8,21 @@ import { prisma } from "@/lib/prisma";
 export async function getStockByProduct(
   companyId: string,
 ): Promise<Map<string, number>> {
+  const isUnknownCompanyFieldError = (error: unknown): boolean => {
+    const e = error as { message?: string };
+    return Boolean(e?.message?.includes("Unknown argument `companyId`"));
+  };
+
   let moves;
   try {
     moves = await prisma.inventoryMove.findMany({
       where: { companyId },
       select: { productId: true, type: true, qty: true },
     });
-  } catch (error: any) {
-    if (error?.message?.includes("Unknown argument `companyId`")) {
+  } catch (error: unknown) {
+    if (isUnknownCompanyFieldError(error)) {
       moves = await prisma.inventoryMove.findMany({
-        where: { orgId: companyId },
+        where: { orgId: companyId } as unknown as Prisma.InventoryMoveWhereInput,
         select: { productId: true, type: true, qty: true },
       });
     } else {

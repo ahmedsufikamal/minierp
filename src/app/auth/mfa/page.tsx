@@ -1,17 +1,29 @@
 "use client";
 
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import { enrollMfaAction, verifyMfaAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const initEnroll = { error: "", ok: false as boolean, data: null as null | { otpauthUri: string; recoveryCodes: string[] } };
-const initVerify = { error: "", ok: false as boolean };
+type EnrollState =
+  | { error: string }
+  | {
+      ok: true;
+      data: { secret: string; otpauthUri: string; recoveryCodes: string[] };
+    };
+
+type VerifyState = { error: string } | undefined;
+
+const initEnroll: EnrollState = { error: "" };
+const initVerify: VerifyState = { error: "" };
 
 export default function MfaPage() {
   const [enrollState, enrollAction] = useActionState(enrollMfaAction, initEnroll);
   const [verifyState, verifyAction] = useActionState(verifyMfaAction, initVerify);
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next")?.trim() ?? "";
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
@@ -43,9 +55,9 @@ export default function MfaPage() {
           ) : null}
 
           <form action={verifyAction} className="space-y-2">
+            {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
             <Input name="code" placeholder="123456" required />
             <Button type="submit" className="w-full" variant="outline">Verify MFA code</Button>
-            {verifyState?.ok ? <p className="text-sm text-emerald-600">MFA verified. You can continue.</p> : null}
             {verifyState?.error ? <p className="text-sm text-destructive">{verifyState.error}</p> : null}
           </form>
         </CardContent>

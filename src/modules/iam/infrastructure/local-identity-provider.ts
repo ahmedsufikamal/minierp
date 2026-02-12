@@ -1,12 +1,13 @@
 import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getRequiredAppBaseUrl } from "@/lib/runtime-env";
 import { IamError } from "@/modules/iam/domain/errors";
 import type { IdentityProviderAdapter } from "@/modules/iam/domain/identity-provider";
 import type { PermissionKey } from "@/modules/iam/domain/permissions";
 import { defaultRoleDescriptions, defaultRolePermissions, permissionCatalog } from "@/modules/iam/domain/permissions";
 import { parseMfaPolicy } from "@/modules/iam/application/policy";
-import { getPermissionsForUserCompany, hasPermission } from "@/modules/iam/application/rbac";
+import { hasPermission } from "@/modules/iam/application/rbac";
 import {
   clearSessionCookie,
   createSessionRecord,
@@ -23,6 +24,21 @@ import { buildOtpAuthUri, generateBase32Secret, verifyTotp } from "@/modules/iam
 import { encryptText, hashToken, randomToken } from "@/modules/iam/infrastructure/crypto";
 import { getNotificationService } from "@/modules/iam/infrastructure/notifications";
 import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
+
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("iam_dummy_password", 12);
+
+function safeInt(value: string | undefined, fallback: number, min = 1, max = 86_400): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+function isInviteSignupBridgeEnabled(): boolean {
+  const explicit = process.env.IAM_INVITE_SIGNUP_BRIDGE_ENABLED;
+  if (explicit === "1") return true;
+  if (explicit === "0") return false;
+  return true;
+}
 
 async function ensurePermissionSeed() {
   const keys = Object.keys(permissionCatalog) as PermissionKey[];
@@ -90,6 +106,39 @@ async function getDefaultCompanyForUser(userId: string): Promise<{ companyId: st
   return membership;
 }
 
+async function assertLoginAttemptLimit(email: string, ip?: string | null): Promise<void> {
+  const windowSeconds = safeInt(process.env.IAM_LOGIN_FAILED_WINDOW_SECONDS, 15 * 60, 30, 24 * 60 * 60);
+  const maxFailedByEmail = safeInt(process.env.IAM_LOGIN_MAX_FAILED_EMAIL_ATTEMPTS, 10, 1, 200);
+  const maxFailedByIp = safeInt(process.env.IAM_LOGIN_MAX_FAILED_IP_ATTEMPTS, 30, 1, 500);
+  const since = new Date(Date.now() - windowSeconds * 1000);
+
+  const failedByEmail = await prisma.iamLoginAttempt.count({
+    where: {
+      email,
+      result: "FAILED",
+      createdAt: { gte: since },
+    },
+  });
+
+  if (failedByEmail >= maxFailedByEmail) {
+    throw new IamError("RATE_LIMITED", "Too many failed sign-in attempts. Try again later.");
+  }
+
+  if (ip) {
+    const failedByIp = await prisma.iamLoginAttempt.count({
+      where: {
+        ip,
+        result: "FAILED",
+        createdAt: { gte: since },
+      },
+    });
+
+    if (failedByIp >= maxFailedByIp) {
+      throw new IamError("RATE_LIMITED", "Too many failed sign-in attempts. Try again later.");
+    }
+  }
+}
+
 export class LocalIdentityProvider implements IdentityProviderAdapter {
   async signUp(input: {
     email: string;
@@ -97,6 +146,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     name: string;
     companyName?: string;
     companySlug?: string;
+    inviteToken?: string;
     ip?: string | null;
     userAgent?: string | null;
   }): Promise<{ sessionId: string }> {
@@ -106,23 +156,33 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       throw new IamError("CONFLICT", "Email is already registered");
     }
 
-    const company = await prisma.company.create({
-      data: {
-        name: input.companyName || `${input.name}'s Company`,
-        slug: input.companySlug ?? randomToken(6).toLowerCase(),
-        status: "ACTIVE",
-        allowedAuthMethods: ["PASSWORD", "MAGIC_LINK", "OAUTH_GOOGLE", "OAUTH_MICROSOFT"],
-        mfaPolicy: { mode: "OPTIONAL", enforceForRoles: ["OWNER", "ADMIN"], allowOtpFallback: true },
-        sessionPolicy: {
-          idleTimeoutMinutes: 30,
-          absoluteTimeoutMinutes: 480,
-          rememberMeAbsoluteTimeoutMinutes: 43200,
-          rotateEveryMinutes: 15,
-        },
-        botProtectionPolicy: { turnstileEnabled: false, rateLimitWindowSeconds: 60, rateLimitMaxAttempts: 8 },
-      },
-      select: { id: true },
-    });
+    const useInviteBridge = Boolean(input.inviteToken && isInviteSignupBridgeEnabled());
+    const invitePreview = useInviteBridge ? await this.previewInvite(input.inviteToken as string) : null;
+    if (invitePreview && invitePreview.email !== normalizedEmail) {
+      throw new IamError("FORBIDDEN_EMAIL_MISMATCH", "Invitation email must match the sign-up email");
+    }
+
+    const companyId =
+      invitePreview?.companyId ??
+      (
+        await prisma.company.create({
+          data: {
+            name: input.companyName || `${input.name}'s Company`,
+            slug: input.companySlug ?? randomToken(6).toLowerCase(),
+            status: "ACTIVE",
+            allowedAuthMethods: ["PASSWORD", "MAGIC_LINK", "OAUTH_GOOGLE", "OAUTH_MICROSOFT"],
+            mfaPolicy: { mode: "OPTIONAL", enforceForRoles: ["OWNER", "ADMIN"], allowOtpFallback: true },
+            sessionPolicy: {
+              idleTimeoutMinutes: 30,
+              absoluteTimeoutMinutes: 480,
+              rememberMeAbsoluteTimeoutMinutes: 43200,
+              rotateEveryMinutes: 15,
+            },
+            botProtectionPolicy: { turnstileEnabled: false, rateLimitWindowSeconds: 60, rateLimitMaxAttempts: 8 },
+          },
+          select: { id: true },
+        })
+      ).id;
 
     const passwordHash = await bcrypt.hash(input.password, 12);
     const user = await prisma.user.create({
@@ -130,36 +190,44 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
         email: normalizedEmail,
         passwordHash,
         name: input.name,
-        companyId: company.id,
-        activeCompanyId: company.id,
-        role: "OWNER",
+        companyId,
+        activeCompanyId: companyId,
+        role: invitePreview ? "MEMBER" : "OWNER",
         status: "ACTIVE",
       },
       select: { id: true },
     });
 
-    await ensureCompanyRoles(company.id);
+    await ensureCompanyRoles(companyId);
 
-    const ownerRole = await prisma.iamRole.findUnique({
-      where: { companyId_name: { companyId: company.id, name: "OWNER" } },
-      select: { id: true },
-    });
-
-    await prisma.companyMembership.create({
-      data: {
+    if (invitePreview && input.inviteToken) {
+      await this.claimInvite({
+        token: input.inviteToken,
         userId: user.id,
-        companyId: company.id,
-        role: "OWNER",
-        roleId: ownerRole?.id ?? null,
-        status: "ACTIVE",
-        isDefault: true,
-        joinedAt: new Date(),
-      },
-    });
+        userEmail: normalizedEmail,
+      });
+    } else {
+      const ownerRole = await prisma.iamRole.findUnique({
+        where: { companyId_name: { companyId, name: "OWNER" } },
+        select: { id: true },
+      });
+
+      await prisma.companyMembership.create({
+        data: {
+          userId: user.id,
+          companyId,
+          role: "OWNER",
+          roleId: ownerRole?.id ?? null,
+          status: "ACTIVE",
+          isDefault: true,
+          joinedAt: new Date(),
+        },
+      });
+    }
 
     const created = await createSessionRecord({
       userId: user.id,
-      companyId: company.id,
+      companyId,
       ip: input.ip,
       userAgent: input.userAgent,
       rememberMe: false,
@@ -169,10 +237,16 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
 
     await writeIamAudit({
       action: "AUTH_SIGNUP",
-      companyId: company.id,
+      companyId,
       actorUserId: user.id,
       entityType: "User",
       entityId: user.id,
+      metadata: invitePreview
+        ? {
+            invitationId: invitePreview.invitationId,
+            companyId,
+          }
+        : undefined,
       ip: input.ip,
       userAgent: input.userAgent,
     });
@@ -189,6 +263,8 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     rememberMe?: boolean;
   }): Promise<{ sessionId: string; mfaRequired?: boolean }> {
     const normalizedEmail = input.email.trim().toLowerCase();
+    await assertLoginAttemptLimit(normalizedEmail, input.ip);
+
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
       select: {
@@ -201,6 +277,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     });
 
     if (!user) {
+      await bcrypt.compare(input.password ?? randomToken(16), DUMMY_PASSWORD_HASH);
       await prisma.iamLoginAttempt.create({
         data: {
           email: normalizedEmail,
@@ -214,10 +291,30 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     }
 
     if (user.status !== "ACTIVE") {
+      await prisma.iamLoginAttempt.create({
+        data: {
+          userId: user.id,
+          email: normalizedEmail,
+          result: "FAILED",
+          reasonCode: "ACCOUNT_INACTIVE",
+          ip: input.ip ?? null,
+          userAgent: input.userAgent ?? null,
+        },
+      });
       throw new IamError("FORBIDDEN", "User account is not active");
     }
 
     if (!input.password) {
+      await prisma.iamLoginAttempt.create({
+        data: {
+          userId: user.id,
+          email: normalizedEmail,
+          result: "FAILED",
+          reasonCode: "PASSWORD_MISSING",
+          ip: input.ip ?? null,
+          userAgent: input.userAgent ?? null,
+        },
+      });
       throw new IamError("VALIDATION_ERROR", "Password is required");
     }
 
@@ -258,7 +355,23 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
         where: { userId: user.id, isVerified: true },
       })) > 0;
 
-    const mfaRequired = (mfaPolicy.mode === "REQUIRED_FOR_ALL" || (mfaPolicy.mode === "REQUIRED_FOR_ADMINS" && ["OWNER", "ADMIN"].includes(membership.role))) && !hasMfaFactor;
+    const mfaRequiredByPolicy =
+      mfaPolicy.mode === "REQUIRED_FOR_ALL" ||
+      (mfaPolicy.mode === "REQUIRED_FOR_ADMINS" && ["OWNER", "ADMIN"].includes(membership.role));
+    const mfaRequired = mfaRequiredByPolicy;
+
+    if (mfaRequiredByPolicy && !hasMfaFactor) {
+      await writeIamAudit({
+        action: "AUTH_LOGIN_FAILED",
+        companyId,
+        actorUserId: user.id,
+        entityType: "User",
+        entityId: user.id,
+        after: { reason: "MFA_NOT_ENROLLED" },
+        ip: input.ip,
+        userAgent: input.userAgent,
+      });
+    }
 
     const created = await createSessionRecord({
       userId: user.id,
@@ -315,9 +428,25 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
   }
 
   async revokeSession(sessionId: string, actorUserId?: string): Promise<void> {
+    const session = await prisma.iamSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, userId: true, companyId: true },
+    });
+
+    if (session && actorUserId && session.userId !== actorUserId) {
+      const actor = await prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { platformRole: true },
+      });
+      if (actor?.platformRole !== "SUPER_ADMIN") {
+        throw new IamError("FORBIDDEN", "Not allowed to revoke another user's session");
+      }
+    }
+
     await revokeSessionById(sessionId, "ADMIN_REVOKE");
     await writeIamAudit({
       action: "SESSION_REVOKED",
+      companyId: session?.companyId ?? null,
       actorUserId: actorUserId ?? null,
       entityType: "IamSession",
       entityId: sessionId,
@@ -325,8 +454,20 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
   }
 
   async revokeAllSessionsForUser(userId: string, actorUserId?: string): Promise<void> {
+    if (actorUserId && actorUserId !== userId) {
+      const actor = await prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { platformRole: true },
+      });
+      if (actor?.platformRole !== "SUPER_ADMIN") {
+        throw new IamError("FORBIDDEN", "Not allowed to revoke sessions for another user");
+      }
+    }
+
     await revokeAllSessionsForUser(userId, "USER_REVOKE_ALL");
-    await clearSessionCookie();
+    if (!actorUserId || actorUserId === userId) {
+      await clearSessionCookie();
+    }
     await writeIamAudit({
       action: "SESSION_REVOKE_ALL",
       actorUserId: actorUserId ?? userId,
@@ -558,6 +699,43 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     }));
   }
 
+  async previewInvite(token: string): Promise<{
+    invitationId: string;
+    companyId: string;
+    companyName: string;
+    email: string;
+    expiresAt: Date;
+  }> {
+    const tokenHash = hashToken(token);
+    const invitation = await prisma.iamInvitation.findUnique({
+      where: { tokenHash },
+      select: {
+        id: true,
+        companyId: true,
+        email: true,
+        expiresAt: true,
+        acceptedAt: true,
+        company: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!invitation) throw new IamError("TOKEN_INVALID", "Invite token is invalid");
+    if (invitation.acceptedAt) throw new IamError("TOKEN_INVALID", "Invite already accepted");
+    if (invitation.expiresAt <= new Date()) throw new IamError("TOKEN_EXPIRED", "Invite token expired");
+
+    return {
+      invitationId: invitation.id,
+      companyId: invitation.companyId,
+      companyName: invitation.company.name,
+      email: invitation.email,
+      expiresAt: invitation.expiresAt,
+    };
+  }
+
   async inviteToOrg(input: {
     companyId: string;
     email: string;
@@ -583,7 +761,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       select: { id: true },
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = getRequiredAppBaseUrl();
     const url = new URL("/api/invites/accept", baseUrl);
     url.searchParams.set("token", token);
 
@@ -600,53 +778,81 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       actorUserId: input.createdByUserId,
       entityType: "IamInvitation",
       entityId: invitation.id,
+      metadata: {
+        invitationId: invitation.id,
+        email: input.email.trim().toLowerCase(),
+      },
     });
 
     return { invitationId: invitation.id };
   }
 
-  async acceptInvite(input: { token: string; userId: string }): Promise<void> {
+  async claimInvite(input: { token: string; userId: string; userEmail: string }): Promise<void> {
     const tokenHash = hashToken(input.token);
     const invitation = await prisma.iamInvitation.findUnique({
-      where: { tokenHash },
-      select: { id: true, companyId: true, roleId: true, expiresAt: true, acceptedAt: true },
+      where: { tokenHash }, select: {
+        id: true,
+        companyId: true,
+        roleId: true,
+        email: true,
+        expiresAt: true,
+        acceptedAt: true,
+      },
     });
 
     if (!invitation) throw new IamError("TOKEN_INVALID", "Invite token is invalid");
     if (invitation.acceptedAt) throw new IamError("TOKEN_INVALID", "Invite already accepted");
     if (invitation.expiresAt <= new Date()) throw new IamError("TOKEN_EXPIRED", "Invite token expired");
+    const normalizedEmail = input.userEmail.trim().toLowerCase();
+    if (invitation.email !== normalizedEmail) {
+      throw new IamError("FORBIDDEN_EMAIL_MISMATCH", "Invite token is not issued for this email");
+    }
 
     const role = invitation.roleId
-      ? await prisma.iamRole.findUnique({ where: { id: invitation.roleId }, select: { id: true, name: true } })
+      ? await prisma.iamRole.findUnique({ where: { id: invitation.roleId }, select: { id: true, name: true, companyId: true } })
       : await prisma.iamRole.findUnique({ where: { companyId_name: { companyId: invitation.companyId, name: "MEMBER" } }, select: { id: true, name: true } });
+    if (role && "companyId" in role && role.companyId !== invitation.companyId) {
+      throw new IamError("VALIDATION_ERROR", "Invite role does not belong to this tenant");
+    }
+    const resolvedRoleName = role?.name ?? "MEMBER";
+    const resolvedRoleId = role?.id ?? null;
 
-    await prisma.companyMembership.upsert({
-      where: {
-        userId_companyId: {
+    await prisma.$transaction([
+      prisma.companyMembership.upsert({
+        where: {
+          userId_companyId: {
+            userId: input.userId,
+            companyId: invitation.companyId,
+          },
+        },
+        create: {
           userId: input.userId,
           companyId: invitation.companyId,
+          role: resolvedRoleName,
+          roleId: resolvedRoleId,
+          status: "ACTIVE",
+          joinedAt: new Date(),
         },
-      },
-      create: {
-        userId: input.userId,
-        companyId: invitation.companyId,
-        role: role?.name ?? "MEMBER",
-        roleId: role?.id ?? null,
-        status: "ACTIVE",
-        joinedAt: new Date(),
-      },
-      update: {
-        status: "ACTIVE",
-        role: role?.name ?? "MEMBER",
-        roleId: role?.id ?? null,
-        joinedAt: new Date(),
-      },
-    });
-
-    await prisma.iamInvitation.update({
-      where: { id: invitation.id },
-      data: { acceptedAt: new Date() },
-    });
+        update: {
+          status: "ACTIVE",
+          role: resolvedRoleName,
+          roleId: resolvedRoleId,
+          joinedAt: new Date(),
+        },
+      }),
+      prisma.user.update({
+        where: { id: input.userId },
+        data: {
+          activeCompanyId: invitation.companyId,
+          companyId: invitation.companyId,
+          role: resolvedRoleName,
+        },
+      }),
+      prisma.iamInvitation.update({
+        where: { id: invitation.id },
+        data: { acceptedAt: new Date() },
+      }),
+    ]);
 
     await writeIamAudit({
       action: "INVITE_ACCEPTED",
@@ -654,6 +860,25 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       actorUserId: input.userId,
       entityType: "IamInvitation",
       entityId: invitation.id,
+      metadata: {
+        invitationId: invitation.id,
+        claimedBy: normalizedEmail,
+      },
+    });
+  }
+
+  async acceptInvite(input: { token: string; userId: string }): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { email: true },
+    });
+    if (!user) {
+      throw new IamError("NOT_FOUND", "User not found");
+    }
+    await this.claimInvite({
+      token: input.token,
+      userId: input.userId,
+      userEmail: user.email,
     });
   }
 

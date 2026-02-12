@@ -1,6 +1,28 @@
 import { prisma } from "@/lib/prisma";
 import { requireTenantMembership, requirePermission } from "@/modules/iam";
-import { ok, err } from "@/modules/iam/interface/http";
+import { IamError } from "@/modules/iam/domain/errors";
+import { parseBody, ok, err } from "@/modules/iam/interface/http";
+import { assertSameOrigin } from "@/modules/iam/interface/origin";
+import { policyConfigSchema } from "@/modules/iam/interface/schemas";
+import { z } from "zod";
+
+const updateOrgSchema = z.object({
+  name: z.string().min(2).max(120).optional(),
+  slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
+  logoUrl: z.string().max(1024).optional(),
+  primaryColor: z.string().max(64).optional(),
+  accentColor: z.string().max(64).optional(),
+  fontFamily: z.string().max(160).optional(),
+  cssVars: z.record(z.string(), z.string()).optional(),
+  customCss: z.string().max(20_000).optional(),
+  primaryDomain: z.string().max(255).optional(),
+  allowedDomains: z.array(z.string().max(255)).optional(),
+  domainVerificationStatus: z.enum(["PENDING", "VERIFIED", "FAILED"]).optional(),
+  allowedAuthMethods: policyConfigSchema.shape.allowedAuthMethods.optional(),
+  mfaPolicy: policyConfigSchema.shape.mfaPolicy.optional(),
+  sessionPolicy: policyConfigSchema.shape.sessionPolicy.optional(),
+  botProtectionPolicy: policyConfigSchema.shape.botProtectionPolicy.optional(),
+});
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -8,7 +30,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const { id } = await params;
 
     if (principal.activeCompanyId !== id) {
-      await requirePermission("admin.settings");
+      throw new IamError("FORBIDDEN", "Cross-tenant access blocked");
     }
 
     const company = await prisma.company.findUnique({
@@ -42,34 +64,34 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    assertSameOrigin(request);
     const principal = await requirePermission("admin.settings");
     const { id } = await params;
 
     if (principal.activeCompanyId !== id) {
-      return err(new Error("Cross-tenant update blocked"));
+      throw new IamError("FORBIDDEN", "Cross-tenant update blocked");
     }
 
-    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = await parseBody(request, updateOrgSchema);
 
     const company = await prisma.company.update({
       where: { id },
       data: {
-        name: typeof body.name === "string" ? body.name : undefined,
-        slug: typeof body.slug === "string" ? body.slug : undefined,
-        logoUrl: typeof body.logoUrl === "string" ? body.logoUrl : undefined,
-        primaryColor: typeof body.primaryColor === "string" ? body.primaryColor : undefined,
-        accentColor: typeof body.accentColor === "string" ? body.accentColor : undefined,
-        fontFamily: typeof body.fontFamily === "string" ? body.fontFamily : undefined,
-        cssVars: body.cssVars as object | undefined,
-        customCss: typeof body.customCss === "string" ? body.customCss : undefined,
-        primaryDomain: typeof body.primaryDomain === "string" ? body.primaryDomain : undefined,
-        allowedDomains: body.allowedDomains as object | undefined,
-        domainVerificationStatus:
-          typeof body.domainVerificationStatus === "string" ? (body.domainVerificationStatus as never) : undefined,
-        allowedAuthMethods: body.allowedAuthMethods as object | undefined,
-        mfaPolicy: body.mfaPolicy as object | undefined,
-        sessionPolicy: body.sessionPolicy as object | undefined,
-        botProtectionPolicy: body.botProtectionPolicy as object | undefined,
+        name: body.name,
+        slug: body.slug,
+        logoUrl: body.logoUrl,
+        primaryColor: body.primaryColor,
+        accentColor: body.accentColor,
+        fontFamily: body.fontFamily,
+        cssVars: body.cssVars,
+        customCss: body.customCss,
+        primaryDomain: body.primaryDomain,
+        allowedDomains: body.allowedDomains,
+        domainVerificationStatus: body.domainVerificationStatus,
+        allowedAuthMethods: body.allowedAuthMethods,
+        mfaPolicy: body.mfaPolicy,
+        sessionPolicy: body.sessionPolicy,
+        botProtectionPolicy: body.botProtectionPolicy,
       },
       select: { id: true, name: true, slug: true },
     });
@@ -80,13 +102,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    assertSameOrigin(request);
     const principal = await requirePermission("admin.settings");
     const { id } = await params;
 
     if (principal.activeCompanyId !== id) {
-      return err(new Error("Cross-tenant delete blocked"));
+      throw new IamError("FORBIDDEN", "Cross-tenant delete blocked");
     }
 
     await prisma.company.update({

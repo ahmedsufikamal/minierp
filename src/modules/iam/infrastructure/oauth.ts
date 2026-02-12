@@ -52,7 +52,7 @@ export async function exchangeOAuthCode(input: {
   provider: OAuthProvider;
   code: string;
   redirectUri: string;
-}): Promise<{ providerUserId: string; email: string; name: string }> {
+}): Promise<{ providerUserId: string; email: string; name: string; emailVerified: boolean }> {
   const cfg = getProviderConfig(input.provider);
   const tokenBody = new URLSearchParams({
     client_id: cfg.clientId,
@@ -90,13 +90,16 @@ export async function exchangeOAuthCode(input: {
     const providerUserId = String(profile.sub ?? "");
     const email = String(profile.email ?? "");
     const name = String(profile.name ?? email);
-    if (!providerUserId || !email) throw new IamError("UNAUTHORIZED", "Google profile missing required fields");
-    return { providerUserId, email, name };
+    const emailVerified = profile.email_verified === true || profile.email_verified === "true";
+    if (!providerUserId || !email || !emailVerified) {
+      throw new IamError("UNAUTHORIZED", "Google account email must be verified");
+    }
+    return { providerUserId, email, name, emailVerified };
   }
 
   const providerUserId = String(profile.id ?? "");
   const email = String(profile.mail ?? profile.userPrincipalName ?? "");
   const name = String(profile.displayName ?? email);
   if (!providerUserId || !email) throw new IamError("UNAUTHORIZED", "Microsoft profile missing required fields");
-  return { providerUserId, email, name };
+  return { providerUserId, email, name, emailVerified: true };
 }

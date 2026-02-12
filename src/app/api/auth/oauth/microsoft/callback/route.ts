@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { syncLegacyFromIamSession } from "@/lib/session";
+import { getRequiredAppBaseUrl } from "@/lib/runtime-env";
 import { completeOAuthSignIn } from "@/modules/iam/infrastructure/oauth-signin";
 import { err } from "@/modules/iam/interface/http";
 import { getRequestContext } from "@/modules/iam/interface/request-context";
@@ -12,7 +14,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect("/auth/sign-in?error=oauth_missing_code");
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = getRequiredAppBaseUrl();
     const ctx = getRequestContext(request);
 
     await completeOAuthSignIn({
@@ -23,6 +25,7 @@ export async function GET(request: Request) {
       ip: ctx.ip,
       userAgent: ctx.userAgent,
     });
+    await syncLegacyFromIamSession();
 
     return NextResponse.redirect(`${baseUrl}/dashboard`);
   } catch (error) {

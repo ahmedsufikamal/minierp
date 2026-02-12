@@ -24,14 +24,12 @@ export async function createReorderRule(ctx: InventoryRequestContext, input: unk
     throw new InventoryError("VALIDATION_ERROR", "Invalid reorder rule payload", parsed.error.flatten());
   }
 
-  const existing = await prisma.inventoryReorderRule.findUnique({
+  const existing = await prisma.inventoryReorderRule.findFirst({
     where: {
-      companyId_itemId_warehouseId_locationId: {
-        companyId: ctx.companyId,
-        itemId: parsed.data.itemId,
-        warehouseId: parsed.data.warehouseId,
-        locationId: parsed.data.locationId,
-      },
+      companyId: ctx.companyId,
+      itemId: parsed.data.itemId,
+      warehouseId: parsed.data.warehouseId,
+      locationId: parsed.data.locationId ?? null,
     },
   });
 
@@ -132,14 +130,12 @@ export async function getReorderSuggestions(ctx: InventoryRequestContext) {
   }>;
 
   for (const rule of rules) {
-    const balance = await prisma.inventoryStockBalance.findUnique({
+    const balance = await prisma.inventoryStockBalance.findFirst({
       where: {
-        companyId_itemId_warehouseId_locationId: {
-          companyId: ctx.companyId,
-          itemId: rule.itemId,
-          warehouseId: rule.warehouseId,
-          locationId: rule.locationId,
-        },
+        companyId: ctx.companyId,
+        itemId: rule.itemId,
+        warehouseId: rule.warehouseId,
+        locationId: rule.locationId ?? null,
       },
       select: { onHand: true, reserved: true, incoming: true, outgoing: true },
     });

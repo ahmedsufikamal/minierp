@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/modules/iam";
+import { IamError } from "@/modules/iam/domain/errors";
 import { ok, err } from "@/modules/iam/interface/http";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("admin.roles");
+    const principal = await requirePermission("admin.roles");
     const { id } = await params;
-    void id;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant permissions access blocked");
+    }
 
     const permissions = await prisma.iamPermission.findMany({
       orderBy: [{ module: "asc" }, { key: "asc" }],

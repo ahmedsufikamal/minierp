@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { getSessionCookieDomain } from "@/lib/runtime-env";
 import { hashToken, randomToken } from "@/modules/iam/infrastructure/crypto";
-import { parseSessionPolicy } from "@/modules/iam/application/policy";
+import { parseMfaPolicy, parseSessionPolicy } from "@/modules/iam/application/policy";
 import { getPermissionsForUserCompany } from "@/modules/iam/application/rbac";
 import type { IamPrincipal } from "@/modules/iam/domain/types";
 
@@ -57,18 +58,28 @@ export async function createSessionRecord(input: {
 
 export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
   const cookieStore = await cookies();
+  const domain = getSessionCookieDomain();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     expires: expiresAt,
     path: "/",
+    ...(domain ? { domain } : {}),
   });
 }
 
 export async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  const domain = getSessionCookieDomain();
+  cookieStore.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+    ...(domain ? { domain } : {}),
+  });
 }
 
 export async function verifySessionToken(sessionToken: string): Promise<IamPrincipal | null> {
@@ -85,6 +96,9 @@ export async function verifySessionToken(sessionToken: string): Promise<IamPrinc
       revokedAt: true,
       idleExpiresAt: true,
       expiresAt: true,
+      company: {
+        select: { mfaPolicy: true },
+      },
       user: {
         select: {
           email: true,
@@ -106,6 +120,11 @@ export async function verifySessionToken(sessionToken: string): Promise<IamPrinc
   });
 
   if (!membership || membership.status !== "ACTIVE") return null;
+  const mfaPolicy = parseMfaPolicy(session.company?.mfaPolicy);
+  const mfaRequiredByPolicy =
+    mfaPolicy.mode === "REQUIRED_FOR_ALL" ||
+    (mfaPolicy.mode === "REQUIRED_FOR_ADMINS" && ["OWNER", "ADMIN"].includes(membership.role));
+  const mfaRequired = mfaRequiredByPolicy && !session.stepUpVerifiedAt;
 
   const permissions = await getPermissionsForUserCompany(session.userId, session.companyId);
 
@@ -119,6 +138,7 @@ export async function verifySessionToken(sessionToken: string): Promise<IamPrinc
     permissions,
     sessionId: session.id,
     stepUpVerifiedAt: session.stepUpVerifiedAt,
+    mfaRequired,
   };
 }
 

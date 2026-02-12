@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/modules/iam";
+import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
+import { assertSameOrigin } from "@/modules/iam/interface/origin";
 import { z } from "zod";
 
 const updateMemberSchema = z.object({
@@ -11,8 +13,11 @@ const updateMemberSchema = z.object({
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("admin.members");
+    const principal = await requirePermission("admin.members");
     const { id } = await params;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant member access blocked");
+    }
 
     const members = await prisma.companyMembership.findMany({
       where: { companyId: id },
@@ -43,11 +48,20 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("admin.members");
+    assertSameOrigin(request);
+    const principal = await requirePermission("admin.members");
     const { id } = await params;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant member update blocked");
+    }
     const body = await parseBody(request, updateMemberSchema);
 
-    const role = body.roleId ? await prisma.iamRole.findUnique({ where: { id: body.roleId }, select: { id: true, name: true } }) : null;
+    const role = body.roleId
+      ? await prisma.iamRole.findUnique({ where: { id: body.roleId }, select: { id: true, name: true, companyId: true } })
+      : null;
+    if (role && role.companyId !== id) {
+      throw new IamError("VALIDATION_ERROR", "Role does not belong to the target tenant");
+    }
 
     const updated = await prisma.companyMembership.update({
       where: { userId_companyId: { userId: body.userId, companyId: id } },
@@ -67,8 +81,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("admin.members");
+    assertSameOrigin(request);
+    const principal = await requirePermission("admin.members");
     const { id } = await params;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant member deletion blocked");
+    }
     const body = await parseBody(request, z.object({ userId: z.string().min(1) }));
 
     await prisma.companyMembership.delete({

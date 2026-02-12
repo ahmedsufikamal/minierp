@@ -527,18 +527,17 @@ function mergeWorkflowHistory(
   steps: Prisma.JsonValue | null,
   next: { action: string; status: string; by: string; reason?: string | null },
 ): Prisma.JsonObject {
-  const existing = (steps as { history?: Array<Record<string, unknown>> } | null)?.history ?? [];
+  const history = (steps as { history?: unknown } | null)?.history;
+  const existing = Array.isArray(history) ? (history as Prisma.JsonArray) : [];
+  const nextEntry: Prisma.JsonObject = {
+    action: next.action,
+    status: next.status,
+    by: next.by,
+    reason: next.reason ?? null,
+    at: new Date().toISOString(),
+  };
   return {
-    history: [
-      ...existing,
-      {
-        action: next.action,
-        status: next.status,
-        by: next.by,
-        reason: next.reason ?? null,
-        at: new Date().toISOString(),
-      },
-    ],
+    history: [...existing, nextEntry] as Prisma.JsonArray,
   };
 }
 
@@ -727,14 +726,12 @@ export async function postInventoryDocument(
 
         if (document.documentType === InventoryDocumentType.COUNT && lineMovements.length === 1) {
           const movement = lineMovements[0];
-          const current = await tx.inventoryStockBalance.findUnique({
+          const current = await tx.inventoryStockBalance.findFirst({
             where: {
-              companyId_itemId_warehouseId_locationId: {
-                companyId: ctx.companyId,
-                itemId: movement.itemId,
-                warehouseId: movement.warehouseId,
-                locationId: movement.locationId ?? null,
-              },
+              companyId: ctx.companyId,
+              itemId: movement.itemId,
+              warehouseId: movement.warehouseId,
+              locationId: movement.locationId ?? null,
             },
             select: { onHand: true },
           });
@@ -759,14 +756,17 @@ export async function postInventoryDocument(
           movement.locationId ?? null,
         );
 
-        const existingBalance = await tx.inventoryStockBalance.findUnique({
+        const existingBalance = await tx.inventoryStockBalance.findFirst({
           where: {
-            companyId_itemId_warehouseId_locationId: {
-              companyId: ctx.companyId,
-              itemId: movement.itemId,
-              warehouseId: movement.warehouseId,
-              locationId: movement.locationId ?? null,
-            },
+            companyId: ctx.companyId,
+            itemId: movement.itemId,
+            warehouseId: movement.warehouseId,
+            locationId: movement.locationId ?? null,
+          },
+          select: {
+            id: true,
+            onHand: true,
+            avgCostMinor: true,
           },
         });
 
@@ -808,31 +808,29 @@ export async function postInventoryDocument(
           },
         });
 
-        await tx.inventoryStockBalance.upsert({
-          where: {
-            companyId_itemId_warehouseId_locationId: {
+        if (existingBalance) {
+          await tx.inventoryStockBalance.update({
+            where: { id: existingBalance.id },
+            data: {
+              onHand: nextOnHand,
+              avgCostMinor: nextAvgCost,
+            },
+          });
+        } else {
+          await tx.inventoryStockBalance.create({
+            data: {
               companyId: ctx.companyId,
               itemId: movement.itemId,
               warehouseId: movement.warehouseId,
               locationId: movement.locationId ?? null,
+              onHand: nextOnHand,
+              reserved: 0,
+              incoming: 0,
+              outgoing: 0,
+              avgCostMinor: nextAvgCost,
             },
-          },
-          create: {
-            companyId: ctx.companyId,
-            itemId: movement.itemId,
-            warehouseId: movement.warehouseId,
-            locationId: movement.locationId,
-            onHand: nextOnHand,
-            reserved: 0,
-            incoming: 0,
-            outgoing: 0,
-            avgCostMinor: nextAvgCost,
-          },
-          update: {
-            onHand: nextOnHand,
-            avgCostMinor: nextAvgCost,
-          },
-        });
+          });
+        }
       }
 
       const posted = await tx.inventoryDocument.update({

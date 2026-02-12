@@ -81,7 +81,9 @@ export async function completeOAuthSignIn(input: {
 
   let userId = oauth?.userId;
   if (!userId) {
-    const existing = await prisma.user.findUnique({ where: { email: profile.email }, select: { id: true } });
+    const existing = profile.emailVerified
+      ? await prisma.user.findUnique({ where: { email: profile.email }, select: { id: true } })
+      : null;
     if (existing) {
       userId = existing.id;
     }

@@ -318,7 +318,7 @@ export default function InventoryImportPage() {
                         File Already Imported
                       </div>
                       <div className="text-sm text-blue-700">
-                        This file was previously imported. Use "Force Re-import" to import again.
+                        This file was previously imported. Use &quot;Force Re-import&quot; to import again.
                       </div>
                     </div>
                   </div>

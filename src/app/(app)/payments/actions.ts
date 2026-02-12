@@ -65,7 +65,7 @@ export async function createPayment(formData: FormData): Promise<ActionResult> {
   }
 
   await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.create({
+    await tx.payment.create({
       data: {
         companyId,
         type: type as "INBOUND" | "OUTBOUND",

@@ -130,6 +130,7 @@ export async function receivePurchaseOrderLine(
   });
   if (!line) return failure("Line not found");
   if (!line.productId) return failure("Line has no product to receive");
+  const productId = line.productId;
   const remaining = line.qtyOrdered - line.qtyReceived;
   if (qtyReceived > remaining) return failure(`Max remaining to receive: ${remaining}`);
 
@@ -141,7 +142,7 @@ export async function receivePurchaseOrderLine(
     await tx.inventoryMove.create({
       data: {
         companyId,
-        productId: line.productId,
+        productId,
         type: "IN",
         qty: qtyReceived,
         note: `PO ${line.order.number} received`,

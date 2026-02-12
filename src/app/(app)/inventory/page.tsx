@@ -52,25 +52,35 @@ function isMissingSchemaError(error: unknown): boolean {
 
 export default async function InventoryHomePage() {
   const companyId = await getCompanyIdOrUserId();
-  let needsMigration = false;
-
-  const fallbackCount = (error: unknown) => {
-    if (isMissingSchemaError(error)) {
-      needsMigration = true;
-      return 0;
+  const countWithFallback = async (promise: Promise<number>): Promise<{ count: number; needsMigration: boolean }> => {
+    try {
+      return { count: await promise, needsMigration: false };
+    } catch (error) {
+      if (isMissingSchemaError(error)) {
+        return { count: 0, needsMigration: true };
+      }
+      throw error;
     }
-    throw error;
   };
 
-  const [items, warehouses, docs, openDocs, pendingReorder] = await Promise.all([
-    prisma.product.count({ where: { companyId } }).catch(fallbackCount),
-    prisma.inventoryWarehouse.count({ where: { companyId, isActive: true } }).catch(fallbackCount),
-    prisma.inventoryDocument.count({ where: { companyId } }).catch(fallbackCount),
-    prisma.inventoryDocument
-      .count({ where: { companyId, status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] } } })
-      .catch(fallbackCount),
-    prisma.inventoryReorderRule.count({ where: { companyId, isActive: true } }).catch(fallbackCount),
+  const [itemsResult, warehousesResult, docsResult, openDocsResult, pendingReorderResult] = await Promise.all([
+    countWithFallback(prisma.product.count({ where: { companyId } })),
+    countWithFallback(prisma.inventoryWarehouse.count({ where: { companyId, isActive: true } })),
+    countWithFallback(prisma.inventoryDocument.count({ where: { companyId } })),
+    countWithFallback(prisma.inventoryDocument.count({ where: { companyId, status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] } } })),
+    countWithFallback(prisma.inventoryReorderRule.count({ where: { companyId, isActive: true } })),
   ]);
+  const items = itemsResult.count;
+  const warehouses = warehousesResult.count;
+  const docs = docsResult.count;
+  const openDocs = openDocsResult.count;
+  const pendingReorder = pendingReorderResult.count;
+  const needsMigration =
+    itemsResult.needsMigration ||
+    warehousesResult.needsMigration ||
+    docsResult.needsMigration ||
+    openDocsResult.needsMigration ||
+    pendingReorderResult.needsMigration;
 
   return (
     <div className="space-y-4">

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getRequiredAppBaseUrl } from "@/lib/runtime-env";
 import { IamError } from "@/modules/iam/domain/errors";
 import { hashToken, randomToken } from "@/modules/iam/infrastructure/crypto";
 import { getNotificationService } from "@/modules/iam/infrastructure/notifications";
@@ -26,7 +27,7 @@ export async function sendMagicLink(input: {
     },
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = getRequiredAppBaseUrl();
   const url = new URL("/auth/verify", baseUrl);
   url.searchParams.set("type", "magic-link");
   url.searchParams.set("token", token);

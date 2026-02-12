@@ -8,8 +8,10 @@ export { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
 export { resolveTenantThemeByRequest, themeToCssVars } from "@/modules/iam/infrastructure/theme";
 export {
   requireAuth,
+  requireAuthPage,
   requireTenantMembership,
   requirePermission,
+  requirePermissionPage,
   requirePlatformAdmin,
   requireStepUp,
   canUI,

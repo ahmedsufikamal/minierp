@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 
 export type CustomFieldDefinitionShape = {
@@ -7,6 +7,8 @@ export type CustomFieldDefinitionShape = {
   required: boolean;
   config: Prisma.JsonValue | null;
 };
+
+export type NormalizedCustomFieldValue = Prisma.InputJsonValue | Prisma.JsonNullValueInput;
 
 function normalizeDate(value: unknown, withTime: boolean): string {
   if (!value) throw new InventoryError("VALIDATION_ERROR", "Date value is required");
@@ -17,7 +19,7 @@ function normalizeDate(value: unknown, withTime: boolean): string {
   return withTime ? date.toISOString() : date.toISOString().slice(0, 10);
 }
 
-export function validateCustomFieldValue(def: CustomFieldDefinitionShape, rawValue: unknown): Prisma.InputJsonValue {
+export function validateCustomFieldValue(def: CustomFieldDefinitionShape, rawValue: unknown): NormalizedCustomFieldValue {
   const value = rawValue ?? null;
 
   if (def.required && (value == null || value === "")) {
@@ -25,7 +27,7 @@ export function validateCustomFieldValue(def: CustomFieldDefinitionShape, rawVal
   }
 
   if (value == null || value === "") {
-    return null;
+    return Prisma.JsonNull;
   }
 
   switch (def.fieldType) {

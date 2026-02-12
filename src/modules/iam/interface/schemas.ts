@@ -3,12 +3,21 @@ import { z } from "zod";
 export const signUpSchema = z.object({
   name: z.string().min(2).max(120),
   email: z.string().email(),
-  password: z.string().min(12, "Password must be at least 12 characters"),
+  password: z
+    .string()
+    .min(12, "Password must be at least 12 characters")
+    .max(128, "Password must be at most 128 characters")
+    .regex(/[a-z]/, "Password must include a lowercase letter")
+    .regex(/[A-Z]/, "Password must include an uppercase letter")
+    .regex(/[0-9]/, "Password must include a number")
+    .regex(/[^A-Za-z0-9]/, "Password must include a symbol"),
   companyName: z.string().min(2).max(120).optional(),
   companySlug: z
     .string()
     .regex(/^[a-z0-9-]+$/, "Slug can only include lowercase letters, numbers, and dashes")
     .optional(),
+  inviteToken: z.string().min(16).optional(),
+  next: z.string().optional(),
   turnstileToken: z.string().optional(),
   rememberMe: z.boolean().optional(),
 });
@@ -17,6 +26,7 @@ export const signInSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
   rememberMe: z.boolean().optional(),
+  next: z.string().optional(),
   turnstileToken: z.string().optional(),
 });
 
@@ -49,6 +59,7 @@ export const mfaEnrollSchema = z.object({
 
 export const mfaVerifySchema = z.object({
   code: z.string().min(6).max(10),
+  next: z.string().optional(),
 });
 
 export const createOrgSchema = z.object({
@@ -63,6 +74,14 @@ export const invitePayloadSchema = z.object({
 });
 
 export const acceptInviteSchema = z.object({
+  token: z.string().min(16),
+});
+
+export const previewInviteQuerySchema = z.object({
+  token: z.string().min(16),
+});
+
+export const claimInviteSchema = z.object({
   token: z.string().min(16),
 });
 
@@ -103,5 +122,6 @@ export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type SendMagicLinkInput = z.infer<typeof sendMagicLinkSchema>;
 export type VerifyMagicLinkInput = z.infer<typeof verifyMagicLinkSchema>;
 export type InvitePayload = z.infer<typeof invitePayloadSchema>;
+export type ClaimInviteInput = z.infer<typeof claimInviteSchema>;
 export type RoleUpsertInput = z.infer<typeof roleUpsertSchema>;
 export type PolicyConfigInput = z.infer<typeof policyConfigSchema>;

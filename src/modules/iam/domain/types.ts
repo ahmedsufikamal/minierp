@@ -49,6 +49,7 @@ export interface IamPrincipal {
   permissions: PermissionKey[];
   sessionId: string;
   stepUpVerifiedAt?: Date | null;
+  mfaRequired?: boolean;
 }
 
 export interface TenantTheme {

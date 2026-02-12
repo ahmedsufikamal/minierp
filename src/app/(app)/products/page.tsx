@@ -3,7 +3,7 @@ import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
 import { getStockByProduct } from "@/lib/inventory";
-import { AddProductCard, ProductList } from "./components";
+import { AddProductCard, ProductList, type ProductListRow } from "./components";
 import { PaginationLinks } from "@/components/ui/pagination-links";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,17 @@ import { SearchInput } from "@/components/search-input";
 export const dynamic = "force-dynamic";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
+type BrandOption = { id: string; name: string };
+
+function isMissingSchemaError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string };
+  return e?.code === "P2021" || Boolean(e?.message?.includes("does not exist"));
+}
+
+function isMissingBrandColumnError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string };
+  return e?.code === "P2022" || (Boolean(e?.message?.includes("column")) && Boolean(e?.message?.includes("brandId")));
+}
 
 export default async function ProductsPage(props: PageProps) {
   const companyId = await getCompanyIdOrUserId();
@@ -36,13 +47,15 @@ export default async function ProductsPage(props: PageProps) {
       }
     : { companyId };
 
-  let products: any[] = [], total = 0, brands: any[] = [];
-  let stockMap: Map<string, number>;
+  let products: ProductListRow[] = [];
+  let total = 0;
+  let brands: BrandOption[] = [];
+  let stockMap = new Map<string, number>();
   try {
     const results = await Promise.all([
       (async () => {
         try {
-          return await prisma.product.findMany({
+          return (await prisma.product.findMany({
             where,
             include: {
               brand: true,
@@ -50,17 +63,16 @@ export default async function ProductsPage(props: PageProps) {
             orderBy,
             skip,
             take: limit,
-          });
-        } catch (error: any) {
+          })) as ProductListRow[];
+        } catch (error: unknown) {
           // If brandId column doesn't exist, try without brand relation
-          if (error?.code === 'P2021' || error?.message?.includes('does not exist') || 
-              (error?.message?.includes('column') && error?.message?.includes('brandId'))) {
-            return await prisma.product.findMany({
+          if (isMissingSchemaError(error) || isMissingBrandColumnError(error)) {
+            return (await prisma.product.findMany({
               where,
               orderBy,
               skip,
               take: limit,
-            });
+            })) as ProductListRow[];
           }
           throw error;
         }
@@ -69,12 +81,13 @@ export default async function ProductsPage(props: PageProps) {
       getStockByProduct(companyId).catch(() => new Map()),
       (async () => {
         try {
-          return await prisma.brand.findMany({
+          return (await prisma.brand.findMany({
             where: { companyId },
             orderBy: { name: "asc" },
-          });
-        } catch (error: any) {
-          if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+            select: { id: true, name: true },
+          })) as BrandOption[];
+        } catch (error: unknown) {
+          if (isMissingSchemaError(error)) {
             return [];
           }
           throw error;
@@ -85,8 +98,8 @@ export default async function ProductsPage(props: PageProps) {
     total = results[1];
     stockMap = results[2] as Map<string, number>;
     brands = results[3];
-  } catch (error: any) {
-    if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+  } catch (error: unknown) {
+    if (isMissingSchemaError(error)) {
       products = [];
       total = 0;
       brands = [];

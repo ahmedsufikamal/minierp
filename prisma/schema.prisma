@@ -1381,7 +1381,7 @@ model IamSession {
   sessionTokenHash String                 @unique
   userId           String
   user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId        String
+  companyId        String                 @map("orgId")
   company          Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
   impersonatorUserId String?
   rememberMe       Boolean                @default(false)

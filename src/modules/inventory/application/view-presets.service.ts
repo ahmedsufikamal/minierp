@@ -1,4 +1,5 @@
 import { InventoryPresetScope } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { viewPresetSchema } from "@/modules/inventory/application/schemas";
 import { InventoryError } from "@/modules/inventory/domain/errors";
@@ -38,7 +39,7 @@ export async function createViewPreset(ctx: InventoryRequestContext, input: unkn
       ownerUserId,
       role: data.scope === InventoryPresetScope.ROLE ? data.role : null,
       isDefault: data.isDefault,
-      config: data.config,
+      config: (data.config ?? {}) as unknown as Prisma.InputJsonValue,
     },
   });
 
@@ -78,7 +79,10 @@ export async function updateViewPreset(ctx: InventoryRequestContext, id: string,
     where: { id },
     data: {
       ...parsed.data,
-      config: parsed.data.config,
+      config:
+        parsed.data.config === undefined
+          ? undefined
+          : ((parsed.data.config ?? {}) as unknown as Prisma.InputJsonValue),
       role: parsed.data.scope === InventoryPresetScope.ROLE ? parsed.data.role : parsed.data.role ?? existing.role,
       ownerUserId:
         parsed.data.scope === InventoryPresetScope.USER

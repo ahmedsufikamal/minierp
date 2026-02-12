@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { labelTemplateSchema } from "@/modules/inventory/application/schemas";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
@@ -46,7 +47,7 @@ export async function createLabelTemplate(ctx: InventoryRequestContext, input: u
         widthMm: parsed.data.widthMm,
         heightMm: parsed.data.heightMm,
         isDefault: parsed.data.isDefault,
-        config: parsed.data.config,
+        config: (parsed.data.config ?? {}) as unknown as Prisma.InputJsonValue,
         createdBy: ctx.userId,
       },
     });
@@ -93,7 +94,10 @@ export async function updateLabelTemplate(ctx: InventoryRequestContext, id: stri
       where: { id },
       data: {
         ...parsed.data,
-        config: parsed.data.config,
+        config:
+          parsed.data.config === undefined
+            ? undefined
+            : ((parsed.data.config ?? {}) as unknown as Prisma.InputJsonValue),
       },
     });
   });

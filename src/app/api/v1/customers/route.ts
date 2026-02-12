@@ -1,49 +1,62 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { ApiKeyAuthError, appendApiKeyCompatibilityHeaders, authenticateApiKeyRequest } from "@/lib/api-key-auth";
 import { prisma } from "@/lib/prisma";
 
-function getApiKey(request: Request): string | null {
-  const auth = request.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7);
-  return new URL(request.url).searchParams.get("apiKey");
-}
-
-function isAuthorized(request: Request): boolean {
-  const key = process.env.API_KEY;
-  if (!key) return false;
-  return getApiKey(request) === key;
-}
+const createCustomerSchema = z.object({
+  name: z.string().min(1).max(160),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().max(64).optional().nullable(),
+  address: z.string().max(512).optional().nullable(),
+});
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const auth = await authenticateApiKeyRequest(request, "v1_customers_get");
+    const customers = await prisma.customer.findMany({
+      where: { companyId: auth.companyId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    const response = NextResponse.json({ data: customers });
+    appendApiKeyCompatibilityHeaders(response.headers, auth);
+    return response;
+  } catch (error) {
+    if (error instanceof ApiKeyAuthError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+    throw error;
   }
-  const companyId = process.env.API_ORG_ID ?? "default-org";
-  const customers = await prisma.customer.findMany({
-    where: { companyId },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
-  return NextResponse.json({ data: customers });
 }
 
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const auth = await authenticateApiKeyRequest(request, "v1_customers_post");
+    const payload = createCustomerSchema.safeParse(await request.json().catch(() => ({})));
+    if (!payload.success) {
+      return NextResponse.json(
+        { error: "Invalid payload", code: "VALIDATION_ERROR", details: payload.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const customer = await prisma.customer.create({
+      data: {
+        companyId: auth.companyId,
+        name: payload.data.name,
+        email: payload.data.email ?? null,
+        phone: payload.data.phone ?? null,
+        address: payload.data.address ?? null,
+      },
+    });
+
+    const response = NextResponse.json({ data: customer });
+    appendApiKeyCompatibilityHeaders(response.headers, auth);
+    return response;
+  } catch (error) {
+    if (error instanceof ApiKeyAuthError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
+    throw error;
   }
-  const companyId = process.env.API_ORG_ID ?? "default-org";
-  const body = await request.json();
-  const { name, email, phone, address } = body;
-  if (!name || typeof name !== "string") {
-    return NextResponse.json({ error: "name required" }, { status: 400 });
-  }
-  const customer = await prisma.customer.create({
-    data: {
-      companyId,
-      name,
-      email: email ?? null,
-      phone: phone ?? null,
-      address: address ?? null,
-    },
-  });
-  return NextResponse.json({ data: customer });
 }

@@ -32,9 +32,8 @@ export function Breadcrumbs() {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return null;
 
-  let href = "";
   const items = segments.map((segment, i) => {
-    href += `/${segment}`;
+    const href = `/${segments.slice(0, i + 1).join("/")}`;
     const isLast = i === segments.length - 1;
     const label = labelForSegment(segment);
     return { href, label, isLast };

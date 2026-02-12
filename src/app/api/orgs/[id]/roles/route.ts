@@ -1,12 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/modules/iam";
+import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
+import { assertSameOrigin } from "@/modules/iam/interface/origin";
 import { roleUpsertSchema } from "@/modules/iam/interface/schemas";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("admin.roles");
+    const principal = await requirePermission("admin.roles");
     const { id } = await params;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant role access blocked");
+    }
 
     const roles = await prisma.iamRole.findMany({
       where: { companyId: id },
@@ -30,8 +35,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("admin.roles");
+    assertSameOrigin(request);
+    const principal = await requirePermission("admin.roles");
     const { id } = await params;
+    if (principal.activeCompanyId !== id) {
+      throw new IamError("FORBIDDEN", "Cross-tenant role creation blocked");
+    }
     const body = await parseBody(request, roleUpsertSchema);
 
     const created = await prisma.iamRole.create({

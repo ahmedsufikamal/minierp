@@ -12,7 +12,6 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Button } from "@/components/ui/button";
-import { formatMoney } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Vendor = { id: string; name: string };

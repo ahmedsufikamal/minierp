@@ -9,6 +9,7 @@ export type IamErrorCode =
   | "MFA_REQUIRED"
   | "TOKEN_EXPIRED"
   | "TOKEN_INVALID"
+  | "FORBIDDEN_EMAIL_MISMATCH"
   | "INTERNAL_ERROR";
 
 export class IamError extends Error {
@@ -40,8 +41,10 @@ export class IamError extends Error {
                       ? 428
                       : code === "TOKEN_EXPIRED"
                         ? 410
-                        : code === "TOKEN_INVALID"
+                      : code === "TOKEN_INVALID"
                           ? 400
+                          : code === "FORBIDDEN_EMAIL_MISMATCH"
+                            ? 403
                           : 500;
   }
 }
