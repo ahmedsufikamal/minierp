@@ -19,6 +19,23 @@ function isSchemaMismatch(error: unknown): boolean {
   );
 }
 
+function isMissingRequestScope(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes("outside a request scope") || message.includes("next-dynamic-api-wrong-context");
+}
+
+async function getCookieStore() {
+  try {
+    return await cookies();
+  } catch (error) {
+    if (isMissingRequestScope(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function parseMinutes(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 30;
   return Math.floor(value);
@@ -85,7 +102,8 @@ export async function createSessionRecord(input: {
 }
 
 export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
-  const cookieStore = await cookies();
+  const cookieStore = await getCookieStore();
+  if (!cookieStore) return;
   const domain = getSessionCookieDomain();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
@@ -98,7 +116,8 @@ export async function setSessionCookie(token: string, expiresAt: Date): Promise<
 }
 
 export async function clearSessionCookie(): Promise<void> {
-  const cookieStore = await cookies();
+  const cookieStore = await getCookieStore();
+  if (!cookieStore) return;
   const domain = getSessionCookieDomain();
   cookieStore.set(COOKIE_NAME, "", {
     httpOnly: true,
