@@ -23,6 +23,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "node prisma/seed.mjs",
     "iam:backfill": "node scripts/iam-backfill.mjs",
+    "iam:master-admin:backfill": "node scripts/iam-master-admin-backfill.mjs",
     "iam:worker": "node scripts/iam-worker.mjs",
     "inventory:seed": "node prisma/seed.mjs",
     "typecheck": "tsc -p tsconfig.refactor.json --noEmit",

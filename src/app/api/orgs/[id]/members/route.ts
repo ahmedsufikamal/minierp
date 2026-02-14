@@ -1,4 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import {
+  assertDirectMembershipRemovalAllowed,
+  assertDirectRoleChangeAllowed,
+  assertDirectStatusChangeAllowed,
+} from "@/modules/iam/application/master-admin";
 import { requirePermission, requireStepUp } from "@/modules/iam";
 import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
@@ -56,12 +61,39 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       throw new IamError("FORBIDDEN", "Cross-tenant member update blocked");
     }
     const body = await parseBody(request, updateMemberSchema);
+    const currentMembership = await prisma.companyMembership.findUnique({
+      where: {
+        userId_companyId: {
+          userId: body.userId,
+          companyId: id,
+        },
+      },
+      select: { role: true, status: true },
+    });
+    if (!currentMembership) {
+      throw new IamError("NOT_FOUND", "Membership not found");
+    }
 
     const role = body.roleId
       ? await prisma.iamRole.findUnique({ where: { id: body.roleId }, select: { id: true, name: true, companyId: true } })
       : null;
     if (role && role.companyId !== id) {
       throw new IamError("VALIDATION_ERROR", "Role does not belong to the target tenant");
+    }
+
+    if (role) {
+      assertDirectRoleChangeAllowed({
+        currentRole: currentMembership.role,
+        currentStatus: currentMembership.status,
+        nextRole: role.name,
+      });
+    }
+    if (body.status) {
+      assertDirectStatusChangeAllowed({
+        currentRole: currentMembership.role,
+        currentStatus: currentMembership.status,
+        nextStatus: body.status,
+      });
     }
 
     const updated = await prisma.companyMembership.update({
@@ -89,6 +121,22 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       throw new IamError("FORBIDDEN", "Cross-tenant member deletion blocked");
     }
     const body = await parseBody(request, z.object({ userId: z.string().min(1) }));
+    const membership = await prisma.companyMembership.findUnique({
+      where: {
+        userId_companyId: {
+          userId: body.userId,
+          companyId: id,
+        },
+      },
+      select: { role: true, status: true },
+    });
+    if (!membership) {
+      throw new IamError("NOT_FOUND", "Membership not found");
+    }
+    assertDirectMembershipRemovalAllowed({
+      currentRole: membership.role,
+      currentStatus: membership.status,
+    });
 
     await prisma.companyMembership.delete({
       where: {

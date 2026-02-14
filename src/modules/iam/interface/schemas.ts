@@ -95,6 +95,23 @@ export const roleUpsertSchema = z.object({
   permissionKeys: z.array(z.string().min(3)).default([]),
 });
 
+export const masterAdminTransferSchema = z.object({
+  targetUserId: z.string().min(1),
+});
+
+export const platformRoleUpdateSchema = z.object({
+  platformRole: z.enum(["SUPER_ADMIN", "SUPPORT", "NONE"]),
+});
+
+export const adminTenantCreateSchema = z.object({
+  name: z.string().min(2).max(120),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/, "Slug can only include lowercase letters, numbers, and dashes")
+    .optional(),
+  masterAdminEmail: z.string().email(),
+});
+
 export const policyConfigSchema = z.object({
   allowedAuthMethods: z.array(z.enum(["PASSWORD", "MAGIC_LINK", "OAUTH_GOOGLE", "OAUTH_MICROSOFT", "OTP_EMAIL", "OTP_SMS"])),
   mfaPolicy: z.object({
@@ -194,5 +211,8 @@ export type VerifyMagicLinkInput = z.infer<typeof verifyMagicLinkSchema>;
 export type InvitePayload = z.infer<typeof invitePayloadSchema>;
 export type ClaimInviteInput = z.infer<typeof claimInviteSchema>;
 export type RoleUpsertInput = z.infer<typeof roleUpsertSchema>;
+export type MasterAdminTransferInput = z.infer<typeof masterAdminTransferSchema>;
+export type PlatformRoleUpdateInput = z.infer<typeof platformRoleUpdateSchema>;
+export type AdminTenantCreateInput = z.infer<typeof adminTenantCreateSchema>;
 export type PolicyConfigInput = z.infer<typeof policyConfigSchema>;
 export type AutoJoinRuleInput = z.infer<typeof autoJoinRuleSchema>;

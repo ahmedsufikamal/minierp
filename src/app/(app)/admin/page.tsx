@@ -1,28 +1,45 @@
-import { prisma } from "@/lib/prisma";
-import { getIdentityProvider, requirePlatformAdmin, requireStepUp } from "@/modules/iam";
-import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { getIdentityProvider, requirePlatformAdmin, requirePlatformAdminPage, requireStepUp } from "@/modules/iam";
+import { isPlatformRoleManagementEnabled } from "@/modules/iam/application/feature-flags";
+import { getTenantRoleLabel } from "@/modules/iam/application/master-admin";
+import { createTenantWithMasterAdminInvite, updateUserPlatformRole } from "@/modules/iam/application/platform-admin";
+import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function PlatformAdminPage(props: PageProps) {
-  const admin = await requirePlatformAdmin();
+  const admin = await requirePlatformAdminPage("/admin");
   const searchParams = (await props.searchParams) ?? {};
   const query = String(searchParams.q ?? "").trim();
+  const platformRoleFilter = String(searchParams.platformRole ?? "ALL").toUpperCase();
+  const normalizedPlatformRoleFilter = ["ALL", "SUPER_ADMIN", "SUPPORT", "NONE"].includes(platformRoleFilter)
+    ? platformRoleFilter
+    : "ALL";
+  const userWhere: Prisma.UserWhereInput = {
+    ...(query
+      ? {
+          OR: [
+            { email: { contains: query, mode: "insensitive" } },
+            { id: { contains: query } },
+            { phone: { contains: query } },
+          ],
+        }
+      : {}),
+    ...(normalizedPlatformRoleFilter !== "ALL"
+      ? {
+          platformRole: normalizedPlatformRoleFilter as "SUPER_ADMIN" | "SUPPORT" | "NONE",
+        }
+      : {}),
+  };
+  const platformRoleManagementEnabled = isPlatformRoleManagementEnabled();
 
-  const [users, tenants, audits] = await Promise.all([
+  const [users, tenants, audits, activeSuperAdminCount] = await Promise.all([
     prisma.user.findMany({
-      where: query
-        ? {
-            OR: [
-              { email: { contains: query, mode: "insensitive" } },
-              { id: { contains: query } },
-              { phone: { contains: query } },
-            ],
-          }
-        : undefined,
+      where: userWhere,
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
@@ -59,7 +76,50 @@ export default async function PlatformAdminPage(props: PageProps) {
         createdAt: true,
       },
     }),
+    prisma.user.count({
+      where: {
+        platformRole: "SUPER_ADMIN",
+        status: "ACTIVE",
+      },
+    }),
   ]);
+
+  const createTenantAction = async (formData: FormData) => {
+    "use server";
+    const principal = await requirePlatformAdmin();
+    await requireStepUp();
+    const name = String(formData.get("name") || "").trim();
+    const slug = String(formData.get("slug") || "").trim() || undefined;
+    const masterAdminEmail = String(formData.get("masterAdminEmail") || "").trim().toLowerCase();
+    if (!name || !masterAdminEmail) return;
+
+    await createTenantWithMasterAdminInvite({
+      actorUserId: principal.userId,
+      name,
+      slug,
+      masterAdminEmail,
+    });
+    revalidatePath("/admin");
+  };
+
+  const updatePlatformRoleAction = async (formData: FormData) => {
+    "use server";
+    const principal = await requirePlatformAdmin();
+    await requireStepUp();
+    if (!isPlatformRoleManagementEnabled()) return;
+
+    const targetUserId = String(formData.get("userId") || "");
+    const nextRole = String(formData.get("platformRole") || "");
+    if (!targetUserId || !["SUPER_ADMIN", "SUPPORT", "NONE"].includes(nextRole)) return;
+
+    await updateUserPlatformRole({
+      actorUserId: principal.userId,
+      targetUserId,
+      nextRole: nextRole as "SUPER_ADMIN" | "SUPPORT" | "NONE",
+    });
+    revalidatePath("/admin");
+  };
+
   const disableTenantAction = async (formData: FormData) => {
     "use server";
     const principal = await requirePlatformAdmin();
@@ -191,10 +251,45 @@ export default async function PlatformAdminPage(props: PageProps) {
         <p className="text-sm text-muted-foreground">Global visibility across users, tenants, and IAM security events.</p>
       </div>
 
+      <section className="space-y-2 rounded-lg border p-4">
+        <h2 className="font-medium">Create tenant and invite Master Admin</h2>
+        <form action={createTenantAction} className="grid gap-2 md:grid-cols-[1fr,220px,1fr,auto]">
+          <input
+            name="name"
+            className="h-9 rounded-md border border-border bg-transparent px-3 text-sm"
+            placeholder="Organization name"
+            required
+          />
+          <input
+            name="slug"
+            className="h-9 rounded-md border border-border bg-transparent px-3 text-sm"
+            placeholder="org-slug (optional)"
+          />
+          <input
+            name="masterAdminEmail"
+            type="email"
+            className="h-9 rounded-md border border-border bg-transparent px-3 text-sm"
+            placeholder="master.admin@company.com"
+            required
+          />
+          <button className="h-9 rounded-md border border-border px-3 text-sm">Create tenant</button>
+        </form>
+      </section>
+
       <form className="rounded-lg border p-4" method="get">
         <label className="text-sm font-medium" htmlFor="q">User search</label>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           <input id="q" name="q" defaultValue={query} className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm" placeholder="Email, phone, or ID" />
+          <select
+            name="platformRole"
+            defaultValue={normalizedPlatformRoleFilter}
+            className="h-9 rounded-md border border-border bg-transparent px-3 text-sm"
+          >
+            <option value="ALL">All platform roles</option>
+            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+            <option value="SUPPORT">SUPPORT</option>
+            <option value="NONE">NONE</option>
+          </select>
           <button className="h-9 rounded-md border border-border px-3 text-sm">Search</button>
         </div>
       </form>
@@ -211,10 +306,33 @@ export default async function PlatformAdminPage(props: PageProps) {
               <div className="mt-2 flex flex-wrap gap-1">
                 {user.memberships.map((membership) => (
                   <span key={membership.id} className="rounded bg-muted px-2 py-1 text-xs">
-                    {membership.company.name} ({membership.role})
+                    {membership.company.name} ({getTenantRoleLabel(membership.role)})
                   </span>
                 ))}
               </div>
+              {platformRoleManagementEnabled ? (
+                <form action={updatePlatformRoleAction} className="mt-2 flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="userId" value={user.id} />
+                  <select
+                    name="platformRole"
+                    defaultValue={user.platformRole}
+                    className="h-8 rounded border border-border bg-transparent px-2 text-xs"
+                  >
+                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    <option value="SUPPORT">SUPPORT</option>
+                    <option value="NONE">NONE</option>
+                  </select>
+                  <button
+                    className="rounded border px-2 py-1 text-xs"
+                    disabled={user.platformRole === "SUPER_ADMIN" && activeSuperAdminCount <= 1}
+                  >
+                    Update platform role
+                  </button>
+                  {user.platformRole === "SUPER_ADMIN" && activeSuperAdminCount <= 1 ? (
+                    <span className="text-xs text-muted-foreground">Last active super admin cannot be demoted</span>
+                  ) : null}
+                </form>
+              ) : null}
               <form action={forcePasswordResetAction} className="mt-2 flex flex-wrap items-center gap-2">
                 <input type="hidden" name="userId" value={user.id} />
                 <input

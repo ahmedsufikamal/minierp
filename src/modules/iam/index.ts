@@ -13,6 +13,7 @@ export {
   requirePermission,
   requirePermissionPage,
   requirePlatformAdmin,
+  requirePlatformAdminPage,
   requireStepUp,
   canUI,
   setActiveCompany,

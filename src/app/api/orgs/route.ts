@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/modules/iam";
+import { requireAuth, requirePlatformAdmin } from "@/modules/iam";
+import { isSelfServeOrgCreationEnabled } from "@/modules/iam/application/feature-flags";
 import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
 import { assertSameOrigin } from "@/modules/iam/interface/origin";
@@ -45,7 +46,9 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
-    const principal = await requireAuth();
+    const principal = isSelfServeOrgCreationEnabled()
+      ? await requireAuth()
+      : await requirePlatformAdmin();
     const body = await parseBody(request, createOrgSchema);
 
     let company: { id: string; name: string; slug: string | null };

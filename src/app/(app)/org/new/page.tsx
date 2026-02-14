@@ -1,10 +1,15 @@
 import { createOrgAction } from "@/app/(app)/org/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { requireAuthPage } from "@/modules/iam";
+import { requireAuthPage, requirePlatformAdminPage } from "@/modules/iam";
+import { isSelfServeOrgCreationEnabled } from "@/modules/iam/application/feature-flags";
 
 export default async function NewOrgPage() {
-  await requireAuthPage("/org/new");
+  if (isSelfServeOrgCreationEnabled()) {
+    await requireAuthPage("/org/new");
+  } else {
+    await requirePlatformAdminPage("/org/new");
+  }
 
   const submitCreateOrg = async (formData: FormData) => {
     "use server";

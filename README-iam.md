@@ -54,6 +54,9 @@ Core:
 - `IAM_LEGACY_FALLBACK_SUNSET_DAYS=30` (operational reminder window)
 - `IAM_INVITE_SIGNUP_BRIDGE_ENABLED=1` (invite token sign-up/claim flow)
 - `IAM_INVENTORY_PERMISSION_SYNC_ENABLED=1` (prefer IAM permissions in inventory APIs with compatibility aliases)
+- `IAM_MASTER_ADMIN_ENFORCEMENT=1` (enforce exactly one active `OWNER`/Master Admin per tenant)
+- `IAM_PLATFORM_ROLE_MANAGEMENT=1` (allow Super Admin workflow for platform-role promotion/demotion)
+- `IAM_SELF_SERVE_ORG_CREATION=0` (target-state: tenant creation via Super Admin flows only)
 - `INVENTORY_STORAGE_SIGNING_SECRET` (>=32 chars in production)
 
 OAuth:
@@ -99,6 +102,9 @@ API key transport policy:
 | `IAM_DUAL_WRITE_LEGACY_SESSION` | Write legacy + IAM cookies at auth completion | `1` | `0` |
 | `IAM_INVITE_SIGNUP_BRIDGE_ENABLED` | Invite claim via sign-up bridge | `1` | `1` |
 | `IAM_INVENTORY_PERMISSION_SYNC_ENABLED` | IAM-first inventory permission checks | `1` | `1` |
+| `IAM_MASTER_ADMIN_ENFORCEMENT` | Block direct owner demotion/removal and enforce one active owner | `1` | `1` |
+| `IAM_PLATFORM_ROLE_MANAGEMENT` | Enable Super Admin platform-role management APIs/UI | `1` | `1` |
+| `IAM_SELF_SERVE_ORG_CREATION` | Allow non-super-admin tenant creation flows | `1` | `0` |
 | `API_KEY_QUERY_FALLBACK_ENABLED` | Accept `apiKey` query parameter | `1` | `0` |
 
 ## Local Development
@@ -118,6 +124,7 @@ Apply migrations and seed:
 npm run prisma:migrate:dev -- --name iam_v1
 npm run prisma:seed
 npm run iam:backfill
+npm run iam:master-admin:backfill
 ```
 
 Run web app:
@@ -161,6 +168,7 @@ APIs:
 - `GET/POST /api/orgs`
 - `GET/PATCH/DELETE /api/orgs/{id}`
 - `GET/PUT/DELETE /api/orgs/{id}/members`
+- `POST /api/orgs/{id}/master-admin/transfer`
 - `POST /api/orgs/{id}/invites`
 - `POST/GET /api/invites/accept`
 - `GET /api/invites/preview?token=...`
@@ -181,7 +189,9 @@ APIs:
 - `POST /api/admin/tenants/{id}/disable`
 - `POST /api/admin/tenants/{id}/force-logout`
 - `POST /api/admin/tenants/{id}/force-mfa`
+- `POST /api/admin/tenants`
 - `POST /api/admin/users/{id}/force-password-reset`
+- `PATCH /api/admin/users/{id}/platform-role`
 - `POST /api/admin/impersonation/start`
 - `POST /api/admin/impersonation/stop`
 - `POST /api/orgs/{id}/domains/verification-token`

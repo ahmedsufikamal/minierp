@@ -1,15 +1,18 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCompanyIdOrUserId, getCurrentUser, can } from "@/lib/auth";
+import { authorizeServerActionPermission } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function createBrand(formData: FormData) {
-  const companyId = await getCompanyIdOrUserId();
-  const user = await getCurrentUser();
-  if (!user || !can(user.role, "inventory:write")) {
+  const auth = await authorizeServerActionPermission({
+    iamPermission: "inventory.write",
+    legacyPermission: "inventory:write",
+  });
+  if (!auth.allowed || !auth.context) {
     return;
   }
+  const { companyId } = auth.context;
   const name = String(formData.get("name") || "").trim();
   if (!name) return;
   await prisma.brand.upsert({
@@ -22,11 +25,14 @@ export async function createBrand(formData: FormData) {
 }
 
 export async function deleteBrand(id: string) {
-  const companyId = await getCompanyIdOrUserId();
-  const user = await getCurrentUser();
-  if (!user || !can(user.role, "inventory:write")) {
+  const auth = await authorizeServerActionPermission({
+    iamPermission: "inventory.write",
+    legacyPermission: "inventory:write",
+  });
+  if (!auth.allowed || !auth.context) {
     return;
   }
+  const { companyId } = auth.context;
   await prisma.brand.deleteMany({ where: { id, companyId } });
   revalidatePath("/inventory/brands");
   return;

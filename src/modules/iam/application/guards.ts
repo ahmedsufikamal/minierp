@@ -90,6 +90,17 @@ export async function requirePlatformAdmin(): Promise<IamPrincipal> {
   return principal;
 }
 
+export async function requirePlatformAdminPage(nextPath: string): Promise<IamPrincipal> {
+  try {
+    return await requirePlatformAdmin();
+  } catch (error) {
+    if (isIamError(error) && error.code === "FORBIDDEN") {
+      redirect("/dashboard");
+    }
+    redirectForAuthError(error, nextPath);
+  }
+}
+
 export async function requireStepUp(maxAgeMinutes = 10): Promise<IamPrincipal> {
   const principal = await requireAuth();
   if (!principal.stepUpVerifiedAt) {

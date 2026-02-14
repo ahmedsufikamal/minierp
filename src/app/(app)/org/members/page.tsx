@@ -7,7 +7,9 @@ import {
   removeMemberAction,
   resendInviteAction,
   setMemberStatusAction,
+  transferMasterAdminAction,
 } from "@/app/(app)/org/actions";
+import { MASTER_ADMIN_ROLE_NAME, getTenantRoleLabel } from "@/modules/iam/application/master-admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -72,6 +74,11 @@ export default async function OrgMembersPage() {
     "use server";
     await removeMemberAction(formData);
   };
+  const submitTransferMasterAdmin = async (formData: FormData) => {
+    "use server";
+    await transferMasterAdminAction(formData);
+  };
+  const assignableRoles = roles.filter((role) => role.name !== MASTER_ADMIN_ROLE_NAME);
 
   return (
     <div className="space-y-6">
@@ -83,8 +90,8 @@ export default async function OrgMembersPage() {
       <form action={submitInviteMember} className="grid gap-2 rounded-lg border p-4 md:grid-cols-[1fr,220px,auto]">
         <Input name="email" type="email" placeholder="new.user@company.com" required />
         <select name="roleId" className="h-9 rounded-md border border-border bg-transparent px-3">
-          {roles.map((role) => (
-            <option key={role.id} value={role.id}>{role.name}</option>
+          {assignableRoles.map((role) => (
+            <option key={role.id} value={role.id}>{getTenantRoleLabel(role.name)}</option>
           ))}
         </select>
         <Button type="submit">Send invite</Button>
@@ -101,7 +108,7 @@ export default async function OrgMembersPage() {
                 <div>
                   <p className="text-sm font-medium">{invite.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    Role: {invite.role?.name ?? "MEMBER"} · Expires: {new Date(invite.expiresAt).toLocaleString()}
+                    Role: {getTenantRoleLabel(invite.role?.name ?? "MEMBER")} · Expires: {new Date(invite.expiresAt).toLocaleString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -123,43 +130,70 @@ export default async function OrgMembersPage() {
       <div className="space-y-2">
         {memberships.map((membership) => (
           <div key={membership.id} className="rounded-lg border p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">{membership.user.name}</p>
-                <p className="text-sm text-muted-foreground">{membership.user.email}</p>
-                <p className="text-xs text-muted-foreground">Status: {membership.status}</p>
-              </div>
+            {(() => {
+              const isMasterAdmin = membership.role === MASTER_ADMIN_ROLE_NAME && membership.status === "ACTIVE";
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">
+                      {membership.user.name}
+                      {isMasterAdmin ? (
+                        <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Master Admin</span>
+                      ) : null}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{membership.user.email}</p>
+                    <p className="text-xs text-muted-foreground">Role: {getTenantRoleLabel(membership.role)} · Status: {membership.status}</p>
+                  </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <form action={submitChangeMemberRole} className="flex items-center gap-2">
-                  <input type="hidden" name="companyId" value={membership.companyId} />
-                  <input type="hidden" name="userId" value={membership.userId} />
-                  <select name="roleId" defaultValue={membership.roleId ?? ""} className="h-9 rounded-md border border-border bg-transparent px-3">
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
-                    ))}
-                  </select>
-                  <Button type="submit" variant="outline">Update role</Button>
-                </form>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!isMasterAdmin ? (
+                      <form action={submitChangeMemberRole} className="flex items-center gap-2">
+                        <input type="hidden" name="companyId" value={membership.companyId} />
+                        <input type="hidden" name="userId" value={membership.userId} />
+                        <select name="roleId" defaultValue={membership.roleId ?? ""} className="h-9 rounded-md border border-border bg-transparent px-3">
+                          {assignableRoles.map((role) => (
+                            <option key={role.id} value={role.id}>{getTenantRoleLabel(role.name)}</option>
+                          ))}
+                        </select>
+                        <Button type="submit" variant="outline">Update role</Button>
+                      </form>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Transfer Master Admin before role changes</span>
+                    )}
 
-                <form action={submitSetMemberStatus} className="flex items-center gap-2">
-                  <input type="hidden" name="companyId" value={membership.companyId} />
-                  <input type="hidden" name="userId" value={membership.userId} />
-                  <select name="status" defaultValue={membership.status} className="h-9 rounded-md border border-border bg-transparent px-3">
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                    <option value="INVITED">INVITED</option>
-                  </select>
-                  <Button type="submit" variant="outline">Update status</Button>
-                </form>
+                    <form action={submitSetMemberStatus} className="flex items-center gap-2">
+                      <input type="hidden" name="companyId" value={membership.companyId} />
+                      <input type="hidden" name="userId" value={membership.userId} />
+                      <select
+                        name="status"
+                        defaultValue={membership.status}
+                        className="h-9 rounded-md border border-border bg-transparent px-3"
+                        disabled={isMasterAdmin}
+                      >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="SUSPENDED">SUSPENDED</option>
+                        <option value="INVITED">INVITED</option>
+                      </select>
+                      <Button type="submit" variant="outline" disabled={isMasterAdmin}>Update status</Button>
+                    </form>
 
-                <form action={submitRemoveMember}>
-                  <input type="hidden" name="companyId" value={membership.companyId} />
-                  <input type="hidden" name="userId" value={membership.userId} />
-                  <Button type="submit" variant="outline">Remove</Button>
-                </form>
-              </div>
-            </div>
+                    <form action={submitRemoveMember}>
+                      <input type="hidden" name="companyId" value={membership.companyId} />
+                      <input type="hidden" name="userId" value={membership.userId} />
+                      <Button type="submit" variant="outline" disabled={isMasterAdmin}>Remove</Button>
+                    </form>
+
+                    {!isMasterAdmin && membership.status === "ACTIVE" ? (
+                      <form action={submitTransferMasterAdmin}>
+                        <input type="hidden" name="companyId" value={membership.companyId} />
+                        <input type="hidden" name="targetUserId" value={membership.userId} />
+                        <Button type="submit" variant="outline">Transfer Master Admin</Button>
+                      </form>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>

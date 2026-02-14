@@ -116,6 +116,67 @@ const iamRolePermissionDefaults: Record<string, Set<string>> = {
   AUDITOR: new Set(["inventory.read", "iam.audit.read"]),
 };
 
+export type ServerActionPermissionSpec = {
+  iamPermission: string;
+  legacyPermission: string;
+};
+
+export type ServerActionPermissionContext = {
+  userId: string;
+  companyId: string;
+  role: string;
+  permissions: string[];
+};
+
+export type ServerActionPermissionResult = {
+  allowed: boolean;
+  context: ServerActionPermissionContext | null;
+};
+
+export function hasServerActionPermission(input: {
+  role: string;
+  permissions?: string[] | null;
+  iamPermission: string;
+  legacyPermission: string;
+  iamV2Enabled?: boolean;
+}): boolean {
+  const iamEnabled = input.iamV2Enabled ?? isIamV2Enabled();
+  const granted = Array.isArray(input.permissions) ? input.permissions : [];
+
+  // IAM v2 first: require exact permission match when session permissions are present.
+  if (iamEnabled && granted.length > 0) {
+    return granted.includes(input.iamPermission);
+  }
+
+  // Compatibility fallback: legacy role + permission map.
+  return can(input.role, input.legacyPermission);
+}
+
+export async function authorizeServerActionPermission(
+  spec: ServerActionPermissionSpec,
+): Promise<ServerActionPermissionResult> {
+  const session = await verifySession();
+  if (!session?.userId) {
+    return { allowed: false, context: null };
+  }
+
+  const context: ServerActionPermissionContext = {
+    userId: session.userId,
+    companyId: session.companyId || session.userId,
+    role: session.role ?? "",
+    permissions: Array.isArray(session.permissions) ? session.permissions : [],
+  };
+
+  const allowed = hasServerActionPermission({
+    role: context.role,
+    permissions: context.permissions,
+    iamPermission: spec.iamPermission,
+    legacyPermission: spec.legacyPermission,
+  });
+
+  return { allowed, context };
+}
+
 export function can(role: string, permission: string): boolean {
   if (process.env.IAM_V2_ENABLED === "1") {
     const mapped = legacyToIamPermissionMap[permission];

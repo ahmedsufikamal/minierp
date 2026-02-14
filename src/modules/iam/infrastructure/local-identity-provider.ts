@@ -11,6 +11,8 @@ import {
   assertAuthMethodAllowedForEmail,
   parseMfaPolicy,
 } from "@/modules/iam/application/policy";
+import { isSelfServeOrgCreationEnabled } from "@/modules/iam/application/feature-flags";
+import { assertDirectRoleChangeAllowed } from "@/modules/iam/application/master-admin";
 import { hasPermission } from "@/modules/iam/application/rbac";
 import {
   clearSessionCookie,
@@ -305,6 +307,10 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     }
     if (invitePreview && invitePreview.email !== normalizedEmail) {
       throw new IamError("FORBIDDEN_EMAIL_MISMATCH", "Invitation email must match the sign-up email");
+    }
+
+    if (!invitePreview && !autoJoinMatch && !isSelfServeOrgCreationEnabled()) {
+      throw new IamError("FORBIDDEN", "Self-service organization creation is disabled. Ask a Super Admin for an invite.");
     }
 
     const companyId =
@@ -1457,14 +1463,34 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
   }
 
   async setRole(input: { companyId: string; userId: string; roleId: string }): Promise<void> {
-    const role = await prisma.iamRole.findUnique({
-      where: { id: input.roleId },
-      select: { id: true, name: true, companyId: true },
-    });
+    const [role, membership] = await Promise.all([
+      prisma.iamRole.findUnique({
+        where: { id: input.roleId },
+        select: { id: true, name: true, companyId: true },
+      }),
+      prisma.companyMembership.findUnique({
+        where: {
+          userId_companyId: {
+            userId: input.userId,
+            companyId: input.companyId,
+          },
+        },
+        select: { role: true, status: true },
+      }),
+    ]);
 
     if (!role || role.companyId !== input.companyId) {
       throw new IamError("VALIDATION_ERROR", "Invalid role for tenant");
     }
+    if (!membership) {
+      throw new IamError("NOT_FOUND", "Membership not found");
+    }
+
+    assertDirectRoleChangeAllowed({
+      currentRole: membership.role,
+      currentStatus: membership.status,
+      nextRole: role.name,
+    });
 
     await prisma.companyMembership.update({
       where: {

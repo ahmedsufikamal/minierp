@@ -5,8 +5,17 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requirePermission, requireStepUp, setActiveCompany } from "@/modules/iam";
+import { requireAuth, requirePermission, requirePlatformAdmin, requireStepUp, setActiveCompany } from "@/modules/iam";
 import { ensureDefaultTenantRoles } from "@/modules/iam/application/bootstrap";
+import { isSelfServeOrgCreationEnabled } from "@/modules/iam/application/feature-flags";
+import {
+  MASTER_ADMIN_ROLE_NAME,
+  assertDirectMembershipRemovalAllowed,
+  assertDirectRoleChangeAllowed,
+  assertDirectStatusChangeAllowed,
+  transferMasterAdmin,
+} from "@/modules/iam/application/master-admin";
+import { IamError } from "@/modules/iam/domain/errors";
 import { createOrgSchema, invitePayloadSchema, roleUpsertSchema } from "@/modules/iam/interface/schemas";
 import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
 import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
@@ -32,7 +41,9 @@ export async function switchOrgAction(formData: FormData) {
 }
 
 export async function createOrgAction(formData: FormData) {
-  const principal = await requireAuth();
+  const principal = isSelfServeOrgCreationEnabled()
+    ? await requireAuth()
+    : await requirePlatformAdmin();
   const parsed = createOrgSchema.safeParse({
     name: formData.get("name"),
     slug: formData.get("slug") || undefined,
@@ -223,6 +234,19 @@ export async function inviteMemberAction(formData: FormData) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid invite payload" };
   }
 
+  if (parsed.data.roleId) {
+    const role = await prisma.iamRole.findUnique({
+      where: { id: parsed.data.roleId },
+      select: { id: true, companyId: true, name: true },
+    });
+    if (!role || role.companyId !== principal.activeCompanyId) {
+      return { ok: false, error: "Invalid role for active tenant" };
+    }
+    if (role.name === MASTER_ADMIN_ROLE_NAME) {
+      return { ok: false, error: "Master Admin invitations are not allowed from this page" };
+    }
+  }
+
   await getIdentityProvider().inviteToOrg({
     companyId: principal.activeCompanyId,
     email: parsed.data.email,
@@ -248,7 +272,37 @@ export async function changeMemberRoleAction(formData: FormData) {
     return { ok: false, error: "Cross-tenant role change is not allowed" };
   }
 
-  await getIdentityProvider().setRole({ companyId, userId, roleId });
+  const [membership, role] = await Promise.all([
+    prisma.companyMembership.findUnique({
+      where: { userId_companyId: { userId, companyId } },
+      select: { role: true, status: true },
+    }),
+    prisma.iamRole.findUnique({
+      where: { id: roleId },
+      select: { id: true, companyId: true, name: true },
+    }),
+  ]);
+  if (!membership) {
+    return { ok: false, error: "Membership not found" };
+  }
+  if (!role || role.companyId !== companyId) {
+    return { ok: false, error: "Invalid role for active tenant" };
+  }
+
+  try {
+    assertDirectRoleChangeAllowed({
+      currentRole: membership.role,
+      currentStatus: membership.status,
+      nextRole: role.name,
+    });
+    await getIdentityProvider().setRole({ companyId, userId, roleId });
+  } catch (error) {
+    if (error instanceof IamError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
+  }
+
   revalidatePath("/org/members");
   return { ok: true };
 }
@@ -268,6 +322,27 @@ export async function setMemberStatusAction(formData: FormData) {
   }
   if (!["ACTIVE", "INVITED", "SUSPENDED"].includes(status)) {
     return { ok: false, error: "Invalid status" };
+  }
+
+  const membership = await prisma.companyMembership.findUnique({
+    where: { userId_companyId: { userId, companyId } },
+    select: { role: true, status: true },
+  });
+  if (!membership) {
+    return { ok: false, error: "Membership not found" };
+  }
+
+  try {
+    assertDirectStatusChangeAllowed({
+      currentRole: membership.role,
+      currentStatus: membership.status,
+      nextStatus: status,
+    });
+  } catch (error) {
+    if (error instanceof IamError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
   }
 
   await prisma.companyMembership.update({
@@ -301,6 +376,26 @@ export async function removeMemberAction(formData: FormData) {
     return { ok: false, error: "You cannot remove your own membership from this page" };
   }
 
+  const membership = await prisma.companyMembership.findUnique({
+    where: { userId_companyId: { userId, companyId } },
+    select: { role: true, status: true },
+  });
+  if (!membership) {
+    return { ok: false, error: "Membership not found" };
+  }
+
+  try {
+    assertDirectMembershipRemovalAllowed({
+      currentRole: membership.role,
+      currentStatus: membership.status,
+    });
+  } catch (error) {
+    if (error instanceof IamError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
+  }
+
   await prisma.companyMembership.delete({
     where: {
       userId_companyId: {
@@ -309,6 +404,36 @@ export async function removeMemberAction(formData: FormData) {
       },
     },
   });
+
+  revalidatePath("/org/members");
+  return { ok: true };
+}
+
+export async function transferMasterAdminAction(formData: FormData) {
+  const principal = await requirePermission("admin.members");
+  await requireStepUp();
+  const companyId = String(formData.get("companyId") || "");
+  const targetUserId = String(formData.get("targetUserId") || "");
+
+  if (!companyId || !targetUserId) {
+    return { ok: false, error: "Missing required fields" };
+  }
+  if (companyId !== principal.activeCompanyId) {
+    return { ok: false, error: "Cross-tenant transfer is not allowed" };
+  }
+
+  try {
+    await transferMasterAdmin({
+      companyId,
+      actorUserId: principal.userId,
+      nextOwnerUserId: targetUserId,
+    });
+  } catch (error) {
+    if (error instanceof IamError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
+  }
 
   revalidatePath("/org/members");
   return { ok: true };
@@ -338,6 +463,19 @@ export async function resendInviteAction(formData: FormData) {
   }
   if (invite.acceptedAt) {
     return { ok: false, error: "Invitation already accepted" };
+  }
+
+  if (invite.roleId) {
+    const role = await prisma.iamRole.findUnique({
+      where: { id: invite.roleId },
+      select: { name: true, companyId: true },
+    });
+    if (!role || role.companyId !== invite.companyId) {
+      return { ok: false, error: "Invalid role in invitation" };
+    }
+    if (role.name === MASTER_ADMIN_ROLE_NAME) {
+      return { ok: false, error: "Master Admin invitations are not allowed from this page" };
+    }
   }
 
   await getIdentityProvider().inviteToOrg({

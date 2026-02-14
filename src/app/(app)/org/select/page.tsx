@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuthPage } from "@/modules/iam";
 import { switchOrgAction } from "@/app/(app)/org/actions";
+import { getTenantRoleLabel } from "@/modules/iam/application/master-admin";
 import { Button } from "@/components/ui/button";
 
 export default async function OrgSelectPage() {
@@ -42,7 +43,7 @@ export default async function OrgSelectPage() {
               <div>
                 <p className="font-medium">{membership.company.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  Role: {membership.role} {membership.company.status !== "ACTIVE" ? `(status: ${membership.company.status})` : ""}
+                  Role: {getTenantRoleLabel(membership.role)} {membership.company.status !== "ACTIVE" ? `(status: ${membership.company.status})` : ""}
                 </p>
               </div>
               <Button type="submit" variant={principal.activeCompanyId === membership.companyId ? "secondary" : "default"}>

@@ -1,6 +1,6 @@
 "use server";
 
-import { getCompanyIdOrUserId, getCurrentUser, can } from "@/lib/auth";
+import { authorizeServerActionPermission } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { previewImport, executeImport } from "@/application/inventory/import-service";
 import type { ImportPreview } from "@/application/inventory/dtos";
@@ -11,11 +11,14 @@ import type { ImportPreview } from "@/application/inventory/dtos";
 export async function previewExcelImport(
   formData: FormData
 ): Promise<{ ok: boolean; data?: ImportPreview; error?: string }> {
-  const companyId = await getCompanyIdOrUserId();
-  const user = await getCurrentUser();
-  if (!user || !can(user.role, "inventory:read")) {
+  const auth = await authorizeServerActionPermission({
+    iamPermission: "inventory.import.read",
+    legacyPermission: "inventory:read",
+  });
+  if (!auth.allowed || !auth.context) {
     return { ok: false, error: "Not authorized to preview inventory imports." };
   }
+  const { companyId, userId } = auth.context;
 
   const file = formData.get("file") as File | null;
   const brandOverride = formData.get("brandOverride") as string | null;
@@ -31,7 +34,7 @@ export async function previewExcelImport(
       file,
       brandOverride,
       mode,
-      actorId: user.id,
+      actorId: userId,
     });
     return result.ok ? { ok: true, data: result.data } : { ok: false, error: result.error };
   } catch (error) {
@@ -49,11 +52,14 @@ export async function previewExcelImport(
 export async function executeExcelImport(
   formData: FormData
 ): Promise<{ ok: boolean; error?: string; snapshotId?: string }> {
-  const companyId = await getCompanyIdOrUserId();
-  const user = await getCurrentUser();
-  if (!user || !can(user.role, "inventory:write")) {
+  const auth = await authorizeServerActionPermission({
+    iamPermission: "inventory.import.write",
+    legacyPermission: "inventory:write",
+  });
+  if (!auth.allowed || !auth.context) {
     return { ok: false, error: "Not authorized to execute inventory imports." };
   }
+  const { companyId, userId } = auth.context;
   
   const file = formData.get("file") as File | null;
   const brandOverride = formData.get("brandOverride") as string | null;
@@ -70,7 +76,7 @@ export async function executeExcelImport(
     brandOverride,
     forceReimport,
     mode,
-    actorId: user.id,
+    actorId: userId,
   });
   if (result.ok) {
     revalidatePath("/inventory");

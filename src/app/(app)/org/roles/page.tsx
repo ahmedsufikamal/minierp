@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requirePermissionPage } from "@/modules/iam";
 import { createRoleAction } from "@/app/(app)/org/actions";
+import { MASTER_ADMIN_ROLE_NAME, getTenantRoleLabel } from "@/modules/iam/application/master-admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -43,7 +44,7 @@ export default async function OrgRolesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Roles and permissions</h1>
-        <p className="text-sm text-muted-foreground">Build custom tenant roles and permission matrices.</p>
+        <p className="text-sm text-muted-foreground">Build custom tenant roles. Master Admin is fixed and transferred from members.</p>
       </div>
 
       <form action={submitCreateRole} className="space-y-3 rounded-lg border p-4">
@@ -73,10 +74,18 @@ export default async function OrgRolesPage() {
           <div key={role.id} className="rounded-lg border p-4">
             <div className="mb-2 flex items-center justify-between">
               <div>
-                <p className="font-medium">{role.name}</p>
+                <p className="font-medium">{getTenantRoleLabel(role.name)}</p>
                 {role.description ? <p className="text-xs text-muted-foreground">{role.description}</p> : null}
               </div>
-              {role.isSystem ? <span className="text-xs text-muted-foreground">system</span> : null}
+              <div className="flex items-center gap-2">
+                {role.name === MASTER_ADMIN_ROLE_NAME ? (
+                  <span className="text-xs text-amber-700">fixed master admin</span>
+                ) : null}
+                {role.isSystem ? <span className="text-xs text-muted-foreground">system</span> : null}
+                {role.isSystem ? (
+                  <span className="text-xs text-muted-foreground">immutable</span>
+                ) : null}
+              </div>
             </div>
             <div className="flex flex-wrap gap-1">
               {role.permissions.map((rp) => (

@@ -16,7 +16,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     const body = await parseBody(request, roleUpsertSchema);
 
-    const role = await prisma.iamRole.update({
+    const existing = await prisma.iamRole.findUnique({
+      where: { id: roleId },
+      select: { companyId: true, isSystem: true, name: true },
+    });
+    if (!existing || existing.companyId !== id) {
+      throw new IamError("FORBIDDEN", "Role does not belong to tenant");
+    }
+    if (existing.isSystem) {
+      throw new IamError("VALIDATION_ERROR", "System roles cannot be edited");
+    }
+
+    await prisma.iamRole.update({
       where: { id: roleId },
       data: {
         name: body.name,
@@ -24,10 +35,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
       select: { id: true, companyId: true },
     });
-
-    if (role.companyId !== id) {
-      throw new IamError("FORBIDDEN", "Role does not belong to tenant");
-    }
 
     await prisma.iamRolePermission.deleteMany({ where: { roleId } });
 
