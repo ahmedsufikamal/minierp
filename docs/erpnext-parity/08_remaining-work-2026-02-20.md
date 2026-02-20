@@ -4,26 +4,23 @@ Current parity matrix (`docs/erpnext-parity/00_scope.md`):
 
 - Rows: `92`
 - Done: `3`
-- In Progress: `78`
-- Not Started: `11`
+- In Progress: `81`
+- Not Started: `8`
 
 ## Not started rows (must implement)
 
-1. Accounting Payment Entry (`accounting.payment-entry`)
-2. Accounting Multi-currency (`accounting.currency`)
-3. Accounting Cost center and dimensions (`accounting.dimensions`)
-4. Buying Supplier payments and aging (`buying.ap`)
-5. Selling Dunning and receivables (`selling.ar`)
-6. Projects Project billing (`projects.billing`)
-7. Quality Goal and feedback (`quality.goals`)
-8. Support Knowledge base (`support.knowledge-base`)
-9. No-code Form layout builder (`platform.form-layout`)
-10. No-code Property setter overrides (`platform.field-rules`)
-11. No-code Automation rules runtime (`platform.automation`)
+1. Buying Supplier payments and aging (`buying.ap`)
+2. Selling Dunning and receivables (`selling.ar`)
+3. Projects Project billing (`projects.billing`)
+4. Quality Goal and feedback (`quality.goals`)
+5. Support Knowledge base (`support.knowledge-base`)
+6. No-code Form layout builder (`platform.form-layout`)
+7. No-code Property setter overrides (`platform.field-rules`)
+8. No-code Automation rules runtime (`platform.automation`)
 
 ## In-progress closure blockers
 
-1. Replace module placeholder pages with API-first workbenches (canonical routes already scaffolded).
+1. Replace remaining legacy-wrapped module pages with API-first workbenches (placeholder pages now run API baseline workbench).
 2. Complete TanStack Query adoption in module UIs (client/provider/query-key foundation exists; per-screen query/mutation hooks remain).
 3. Complete policy-grade workflow constraints for selling/buying/manufacturing/support/payroll.
 4. Complete report parity gaps: AP/AR aging, project billing, quality goals, support KB analytics.
@@ -37,6 +34,7 @@ Current parity matrix (`docs/erpnext-parity/00_scope.md`):
 - `npm run typecheck`: passes (`tsconfig.refactor.json`)
 - `npm run lint`: passes
 - `npm run test:unit`: passes
+- `RUN_INTEGRATION_TESTS=1 npm run test:integration`: passes
 - `npm run typecheck:full`: passes
 - `npm run build`: passes
 

@@ -399,7 +399,7 @@ model User {
   emailVerifiedAt       DateTime?
   pendingEmail          String?
   pendingEmailExpiresAt DateTime?
-  uiThemePreference     ThemeMode        @default(SYSTEM)
+  uiThemePreference     ThemeMode       @default(SYSTEM)
   mustResetPassword     Boolean         @default(false)
   platformRole          IamPlatformRole @default(NONE)
   status                IamUserStatus   @default(ACTIVE)
@@ -1196,6 +1196,13 @@ enum PaymentMethod {
   OTHER
 }
 
+enum PaymentEntryStatus {
+  DRAFT
+  SUBMITTED
+  POSTED
+  CANCELLED
+}
+
 model Payment {
   id          String        @id @default(cuid())
   companyId   String        @map("orgId")
@@ -1278,8 +1285,10 @@ model Account {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  lines     JournalLine[]
-  glEntries GLEntry[]
+  lines                  JournalLine[]
+  glEntries              GLEntry[]
+  paymentEntriesPaidFrom PaymentEntry[] @relation("PaymentEntryPaidFrom")
+  paymentEntriesPaidTo   PaymentEntry[] @relation("PaymentEntryPaidTo")
 
   @@unique([companyId, code])
   @@index([companyId, parentId])
@@ -1407,6 +1416,120 @@ model GLEntry {
   @@index([tenantId, companyId, accountId, postingDate])
   @@index([tenantId, companyId, voucherType, voucherId])
   @@index([journalEntryId])
+}
+
+model AccountingExchangeRate {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  companyId     String   @map("orgId")
+  fromCurrency  String
+  toCurrency    String
+  rate          Decimal  @db.Decimal(18, 6)
+  effectiveDate DateTime @db.Date
+  isActive      Boolean  @default(true)
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([companyId, fromCurrency, toCurrency, effectiveDate])
+  @@index([companyId, fromCurrency, toCurrency, effectiveDate])
+  @@index([companyId, isActive, effectiveDate])
+}
+
+model AccountingCostCenter {
+  id        String                 @id @default(cuid())
+  tenantId  String?
+  companyId String                 @map("orgId")
+  code      String
+  name      String
+  parentId  String?
+  parent    AccountingCostCenter?  @relation("AccountingCostCenterTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  AccountingCostCenter[] @relation("AccountingCostCenterTree")
+  isActive  Boolean                @default(true)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  paymentEntries PaymentEntry[]
+
+  @@unique([companyId, code])
+  @@index([companyId, parentId])
+  @@index([companyId, isActive, name])
+}
+
+model AccountingDimension {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  companyId   String   @map("orgId")
+  key         String
+  label       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, key])
+  @@index([companyId, isActive, key])
+}
+
+model PaymentEntry {
+  id                  String                @id @default(cuid())
+  tenantId            String?
+  companyId           String                @map("orgId")
+  number              String
+  status              PaymentEntryStatus    @default(DRAFT)
+  type                PaymentType
+  partyType           String?
+  partyId             String?
+  postingDate         DateTime              @db.Date
+  paidAmountCents     Int
+  receivedAmountCents Int
+  sourceCurrency      String                @default("USD")
+  targetCurrency      String                @default("USD")
+  exchangeRate        Decimal?              @db.Decimal(18, 6)
+  paidFromAccountId   String?
+  paidFromAccount     Account?              @relation("PaymentEntryPaidFrom", fields: [paidFromAccountId], references: [id], onDelete: SetNull)
+  paidToAccountId     String?
+  paidToAccount       Account?              @relation("PaymentEntryPaidTo", fields: [paidToAccountId], references: [id], onDelete: SetNull)
+  costCenterId        String?
+  costCenter          AccountingCostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  dimensions          Json?
+  remarks             String?
+  submittedAt         DateTime?
+  submittedBy         String?
+  postedAt            DateTime?
+  postedBy            String?
+  cancelledAt         DateTime?
+  cancelledBy         String?
+  createdBy           String?
+  updatedBy           String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status, postingDate])
+  @@index([companyId, partyType, partyId])
+  @@index([companyId, costCenterId])
+}
+
+model PaymentAllocation {
+  id                   String       @id @default(cuid())
+  paymentEntryId       String
+  paymentEntry         PaymentEntry @relation(fields: [paymentEntryId], references: [id], onDelete: Cascade)
+  referenceType        String
+  referenceId          String
+  allocatedAmountCents Int
+  currency             String       @default("USD")
+  exchangeRate         Decimal?     @db.Decimal(18, 6)
+  createdAt            DateTime     @default(now())
+
+  @@index([paymentEntryId, referenceType, referenceId])
 }
 
 // CRM Models

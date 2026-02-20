@@ -1,4 +1,10 @@
-import { AccountingPeriodStatus, AccountType, JournalEntryStatus } from "@prisma/client";
+import {
+  AccountingPeriodStatus,
+  AccountType,
+  JournalEntryStatus,
+  PaymentEntryStatus,
+  PaymentType,
+} from "@prisma/client";
 import { z } from "zod";
 
 export const paginationQuerySchema = z.object({
@@ -73,4 +79,82 @@ export const accountingReportQuerySchema = paginationQuerySchema.extend({
   reportKey: z.enum(["trial-balance", "profit-loss", "balance-sheet"]),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
+});
+
+export const paymentAllocationSchema = z.object({
+  referenceType: z.string().trim().min(2).max(60),
+  referenceId: z.string().trim().min(1).max(120),
+  allocatedAmountCents: z.coerce.number().int().positive(),
+  currency: z.string().trim().length(3).default("USD"),
+  exchangeRate: z.coerce.number().positive().optional(),
+});
+
+export const paymentEntryCreateSchema = z.object({
+  number: z.string().trim().min(2).max(40).optional(),
+  type: z.nativeEnum(PaymentType),
+  partyType: z.string().trim().min(2).max(30).optional(),
+  partyId: z.string().trim().min(1).max(120).optional(),
+  postingDate: z.coerce.date().optional(),
+  paidAmountCents: z.coerce.number().int().positive(),
+  receivedAmountCents: z.coerce.number().int().positive().optional(),
+  sourceCurrency: z.string().trim().length(3).default("USD"),
+  targetCurrency: z.string().trim().length(3).default("USD"),
+  exchangeRate: z.coerce.number().positive().optional(),
+  paidFromAccountId: z.string().trim().min(1).optional(),
+  paidToAccountId: z.string().trim().min(1).optional(),
+  costCenterId: z.string().trim().min(1).optional(),
+  dimensions: z.record(z.string(), z.string().trim().min(1)).optional(),
+  remarks: z.string().trim().max(500).optional(),
+  allocations: z.array(paymentAllocationSchema).default([]),
+});
+
+export const paymentEntryListQuerySchema = paginationQuerySchema.extend({
+  status: z.nativeEnum(PaymentEntryStatus).optional(),
+  type: z.nativeEnum(PaymentType).optional(),
+  q: z.string().trim().optional(),
+});
+
+export const paymentEntryActionSchema = z.object({
+  paymentEntryId: z.string().trim().min(1),
+  action: z.enum(["SUBMIT", "POST", "CANCEL"]),
+  postingDate: z.coerce.date().optional(),
+  remarks: z.string().trim().max(500).optional(),
+});
+
+export const exchangeRateCreateSchema = z.object({
+  fromCurrency: z.string().trim().length(3),
+  toCurrency: z.string().trim().length(3),
+  rate: z.coerce.number().positive(),
+  effectiveDate: z.coerce.date(),
+  isActive: z.boolean().optional(),
+});
+
+export const exchangeRateListQuerySchema = z.object({
+  fromCurrency: z.string().trim().length(3).optional(),
+  toCurrency: z.string().trim().length(3).optional(),
+  activeOnly: z.coerce.boolean().optional().default(true),
+});
+
+export const costCenterCreateSchema = z.object({
+  code: z.string().trim().min(2).max(40),
+  name: z.string().trim().min(2).max(160),
+  parentId: z.string().trim().min(1).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const costCenterListQuerySchema = z.object({
+  q: z.string().trim().optional(),
+  includeInactive: z.coerce.boolean().optional().default(false),
+});
+
+export const accountingDimensionCreateSchema = z.object({
+  key: z.string().trim().min(2).max(60),
+  label: z.string().trim().min(2).max(160),
+  description: z.string().trim().max(300).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const accountingDimensionListQuerySchema = z.object({
+  q: z.string().trim().optional(),
+  includeInactive: z.coerce.boolean().optional().default(false),
 });

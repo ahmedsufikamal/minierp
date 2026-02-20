@@ -14,6 +14,13 @@ const permissionAliases: Record<AccountingPermission, string[]> = {
   "accounting.period.read": ["accounting.read", "finance.read"],
   "accounting.period.write": ["accounting.write", "finance.write"],
   "accounting.report.read": ["accounting.read", "finance.read", "platform.reporting.read"],
+  "accounting.payment-entry.read": ["accounting.read", "finance.read"],
+  "accounting.payment-entry.write": ["accounting.write", "finance.write"],
+  "accounting.payment-entry.submit": ["accounting.write", "finance.write"],
+  "accounting.currency.read": ["accounting.read", "finance.read"],
+  "accounting.currency.write": ["accounting.write", "finance.write"],
+  "accounting.dimensions.read": ["accounting.read", "finance.read"],
+  "accounting.dimensions.write": ["accounting.write", "finance.write"],
 };
 
 function hasAccountingPermission(
