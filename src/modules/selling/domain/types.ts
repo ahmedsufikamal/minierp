@@ -5,6 +5,10 @@ export const sellingPermissions = {
   deliveryNoteRead: "selling.delivery-note.read",
   deliveryNoteWrite: "selling.delivery-note.write",
   deliveryNotePost: "selling.delivery-note.post",
+  dunningRead: "selling.dunning.read",
+  dunningWrite: "selling.dunning.write",
+  dunningManage: "selling.dunning.manage",
+  receivableRead: "selling.receivable.read",
 } as const;
 
 export type SellingPermission = (typeof sellingPermissions)[keyof typeof sellingPermissions];

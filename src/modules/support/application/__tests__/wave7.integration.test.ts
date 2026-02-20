@@ -5,6 +5,7 @@ import { createCommunicationWindow } from "@/modules/communication/application/w
 import { applyProjectAction, createProject } from "@/modules/projects/application/projects.service";
 import { applyProjectTaskAction, createProjectTask } from "@/modules/projects/application/tasks.service";
 import { applyTimesheetAction, createTimesheet } from "@/modules/projects/application/timesheets.service";
+import { applyKnowledgeArticleAction, createKnowledgeArticle } from "@/modules/support/application/knowledge-base.service";
 import { createSlaPolicy } from "@/modules/support/application/sla-policies.service";
 import { createSupportQueue } from "@/modules/support/application/queues.service";
 import { applyTicketAction, createTicket } from "@/modules/support/application/tickets.service";
@@ -45,6 +46,9 @@ maybeDescribe("wave7 projects-support-communication-telephony integration", () =
   });
 
   afterAll(async () => {
+    await prisma.knowledgeArticleRevision.deleteMany({ where: { article: { companyId } } });
+    await prisma.knowledgeArticle.deleteMany({ where: { companyId } });
+
     await prisma.callLog.deleteMany({ where: { companyId } });
     await prisma.communicationLog.deleteMany({ where: { companyId } });
     await prisma.communicationWindow.deleteMany({ where: { companyId } });
@@ -162,5 +166,27 @@ maybeDescribe("wave7 projects-support-communication-telephony integration", () =
     const ended = await applyCallLogAction(ctx, call.id, { action: "END", durationSecs: 95 });
     expect(ended.status).toBe("ENDED");
     expect(ended.durationSecs).toBe(95);
+
+    const article = await createKnowledgeArticle(ctx, {
+      slug: `${marker}-kb-article`,
+      title: "Troubleshooting",
+      summary: "Knowledge article summary",
+      content: "Step 1: verify input",
+      changelog: "Initial draft",
+    });
+
+    const review = await applyKnowledgeArticleAction(ctx, article.id, { action: "SUBMIT_REVIEW" });
+    expect(review.status).toBe("REVIEW");
+
+    const published = await applyKnowledgeArticleAction(ctx, article.id, { action: "PUBLISH" });
+    expect(published.status).toBe("PUBLISHED");
+
+    const revised = await applyKnowledgeArticleAction(ctx, article.id, {
+      action: "ADD_REVISION",
+      title: "Troubleshooting v2",
+      content: "Step 1: verify input\\nStep 2: restart worker",
+      changelog: "Expanded workflow",
+    });
+    expect(revised._count.revisions).toBeGreaterThan(1);
   });
 });

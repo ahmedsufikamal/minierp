@@ -14,6 +14,9 @@ const permissionAliases: Record<ProjectsPermission, string[]> = {
   "projects.timesheet.read": ["projects.read", "project.read"],
   "projects.timesheet.write": ["projects.write", "project.write"],
   "projects.timesheet.approve": ["projects.approve", "projects.write"],
+  "projects.billing.read": ["projects.read", "project.read", "accounting.read", "finance.read"],
+  "projects.billing.write": ["projects.write", "project.write", "accounting.write", "finance.write"],
+  "projects.billing.approve": ["projects.approve", "projects.write", "accounting.write", "finance.write"],
 };
 
 function hasPermission(

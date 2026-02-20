@@ -5,7 +5,7 @@ export default function Page() {
     <ModuleWorkbenchPlaceholder
       moduleName="Payables"
       description="AP aging and supplier payment operations."
-      apiHref="/api/v1/accounting/reports"
+      apiHref="/api/v1/buying/supplier-payments"
     />
   );
 }

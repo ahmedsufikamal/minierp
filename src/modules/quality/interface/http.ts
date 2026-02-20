@@ -11,6 +11,9 @@ const permissionAliases: Record<QualityPermission, string[]> = {
   "quality.capa.read": ["quality.read", "manufacturing.read", "buying.read"],
   "quality.capa.write": ["quality.write", "manufacturing.write", "buying.write"],
   "quality.capa.close": ["quality.approve", "quality.write", "manufacturing.approve"],
+  "quality.goal.read": ["quality.read", "manufacturing.read", "buying.read"],
+  "quality.goal.write": ["quality.write", "manufacturing.write", "buying.write"],
+  "quality.goal.manage": ["quality.approve", "quality.write", "manufacturing.approve"],
 };
 
 function hasPermission(

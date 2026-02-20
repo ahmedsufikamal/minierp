@@ -131,34 +131,34 @@ CREATE TYPE "BulkJobStatus" AS ENUM ('DRAFT', 'RUNNING', 'COMPLETED', 'FAILED', 
 CREATE TYPE "UtilityTaskStatus" AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
 -- DropForeignKey
-ALTER TABLE "AccountingPeriod" DROP CONSTRAINT "AccountingPeriod_orgId_fkey";
+ALTER TABLE "AccountingPeriod" DROP CONSTRAINT IF EXISTS "AccountingPeriod_orgId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "AccountingPeriod" DROP CONSTRAINT "AccountingPeriod_tenantId_fkey";
+ALTER TABLE "AccountingPeriod" DROP CONSTRAINT IF EXISTS "AccountingPeriod_tenantId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "FiscalYear" DROP CONSTRAINT "FiscalYear_orgId_fkey";
+ALTER TABLE "FiscalYear" DROP CONSTRAINT IF EXISTS "FiscalYear_orgId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "FiscalYear" DROP CONSTRAINT "FiscalYear_tenantId_fkey";
+ALTER TABLE "FiscalYear" DROP CONSTRAINT IF EXISTS "FiscalYear_tenantId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "GLEntry" DROP CONSTRAINT "GLEntry_orgId_fkey";
+ALTER TABLE "GLEntry" DROP CONSTRAINT IF EXISTS "GLEntry_orgId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "GLEntry" DROP CONSTRAINT "GLEntry_tenantId_fkey";
+ALTER TABLE "GLEntry" DROP CONSTRAINT IF EXISTS "GLEntry_tenantId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "IamOtpChallenge" DROP CONSTRAINT "IamOtpChallenge_orgId_fkey";
+ALTER TABLE "IamOtpChallenge" DROP CONSTRAINT IF EXISTS "IamOtpChallenge_orgId_fkey";
 
 -- DropIndex
-DROP INDEX "Company_domainVerificationToken_idx";
+DROP INDEX IF EXISTS "Company_domainVerificationToken_idx";
 
 -- DropIndex
-DROP INDEX "IamOtpChallenge_orgId_createdAt_idx";
+DROP INDEX IF EXISTS "IamOtpChallenge_orgId_createdAt_idx";
 
 -- DropIndex
-DROP INDEX "User_pendingEmail_idx";
+DROP INDEX IF EXISTS "User_pendingEmail_idx";
 
 -- AlterTable
 ALTER TABLE "Activity" ADD COLUMN     "campaignId" TEXT,
@@ -1834,4 +1834,3 @@ ALTER INDEX "InventoryBatch_orgId_itemId_warehouseId_locationId_batchCode_ke" RE
 
 -- RenameIndex
 ALTER INDEX "PermissionRule_roleProfileId_module_resource_action_scopeLevel_" RENAME TO "PermissionRule_roleProfileId_module_resource_action_scopeLe_key";
-

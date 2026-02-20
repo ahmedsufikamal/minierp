@@ -5,7 +5,7 @@ export default function Page() {
     <ModuleWorkbenchPlaceholder
       moduleName="Quality Goals"
       description="Track quality goals and feedback loops."
-      apiHref="/api/v1/quality/inspections"
+      apiHref="/api/v1/quality/goals"
     />
   );
 }

@@ -1,4 +1,4 @@
-import { QueueStatus, SlaPolicyStatus, TicketPriority, TicketStatus } from "@prisma/client";
+import { KnowledgeArticleStatus, QueueStatus, SlaPolicyStatus, TicketPriority, TicketStatus } from "@prisma/client";
 import { z } from "zod";
 
 const paginationSchema = z.object({
@@ -56,5 +56,27 @@ export const ticketCreateSchema = z.object({
 export const ticketActionSchema = z.object({
   action: z.enum(["ASSIGN", "RESPOND", "RESOLVE", "CLOSE", "REOPEN", "PAUSE", "RESUME"]),
   assignedTo: z.string().trim().max(120).optional().nullable(),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const knowledgeArticleListQuerySchema = paginationSchema.extend({
+  q: z.string().trim().optional(),
+  status: z.nativeEnum(KnowledgeArticleStatus).optional(),
+});
+
+export const knowledgeArticleCreateSchema = z.object({
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9-]+$/),
+  title: z.string().trim().min(1).max(200),
+  summary: z.string().trim().max(1000).optional().nullable(),
+  content: z.string().trim().min(1),
+  changelog: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const knowledgeArticleActionSchema = z.object({
+  action: z.enum(["SUBMIT_REVIEW", "PUBLISH", "ARCHIVE", "REOPEN", "ADD_REVISION"]),
+  title: z.string().trim().min(1).max(200).optional(),
+  summary: z.string().trim().max(1000).optional().nullable(),
+  content: z.string().trim().min(1).optional(),
+  changelog: z.string().trim().max(1000).optional().nullable(),
   note: z.string().trim().max(500).optional().nullable(),
 });

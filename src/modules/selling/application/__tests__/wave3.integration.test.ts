@@ -1,6 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { applyDeliveryNoteAction, createDeliveryNote } from "@/modules/selling/application/delivery-notes.service";
+import {
+  applyDeliveryNoteAction,
+  createDeliveryNote,
+} from "@/modules/selling/application/delivery-notes.service";
+import {
+  applyDunningNoticeAction,
+  createDunningNotice,
+  getReceivablesAging,
+  listDunningNotices,
+} from "@/modules/selling/application/receivables.service";
 import { applySalesOrderAction, createSalesOrder } from "@/modules/selling/application/sales-orders.service";
 import type { PlatformRequestContext } from "@/modules/platform/domain/types";
 
@@ -16,6 +25,7 @@ maybeDescribe("selling wave3 integration", () => {
   let productId = "";
   let customerId = "";
   let warehouseId = "";
+  let salesInvoiceId = "";
 
   const ctx: PlatformRequestContext = {
     requestId: `${marker}-request`,
@@ -86,9 +96,34 @@ maybeDescribe("selling wave3 integration", () => {
         avgCostMinor: 100,
       },
     });
+
+    const invoice = await prisma.salesInvoice.create({
+      data: {
+        companyId,
+        number: `${marker}-SI-001`,
+        customerId,
+        invoiceDate: new Date("2026-01-01"),
+        dueDate: new Date("2026-01-15"),
+        lines: {
+          create: [
+            {
+              productId,
+              description: "Wave3 invoice line",
+              qty: 3,
+              unitPriceCents: 400,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    salesInvoiceId = invoice.id;
   });
 
   afterAll(async () => {
+    await prisma.receivableAgingSnapshot.deleteMany({ where: { companyId } });
+    await prisma.dunningNotice.deleteMany({ where: { companyId } });
+
     await prisma.outboxEvent.deleteMany({ where: { companyId } });
 
     await prisma.inventoryLedgerEntry.deleteMany({ where: { companyId } });
@@ -104,6 +139,10 @@ maybeDescribe("selling wave3 integration", () => {
     await prisma.deliveryNote.deleteMany({ where: { companyId } });
     await prisma.salesOrderLine.deleteMany({ where: { salesOrder: { companyId } } });
     await prisma.salesOrder.deleteMany({ where: { companyId } });
+
+    await prisma.payment.deleteMany({ where: { companyId } });
+    await prisma.salesInvoiceLine.deleteMany({ where: { invoice: { companyId } } });
+    await prisma.salesInvoice.deleteMany({ where: { companyId } });
 
     await prisma.inventoryWarehouse.deleteMany({ where: { companyId } });
     await prisma.customer.deleteMany({ where: { companyId } });
@@ -186,5 +225,65 @@ maybeDescribe("selling wave3 integration", () => {
     });
 
     expect(balance?.onHand).toBe(8);
+  });
+
+  it("creates and manages dunning notices, then snapshots receivables aging", async () => {
+    const notice = await createDunningNotice(ctx, {
+      customerId,
+      salesInvoiceId,
+      issuedOn: new Date("2026-02-01"),
+      dueDate: new Date("2026-02-05"),
+      reminderLevel: 2,
+      notes: "Second reminder",
+    });
+
+    await applyDunningNoticeAction(ctx, notice.id, { action: "SEND" });
+    await applyDunningNoticeAction(ctx, notice.id, { action: "ACKNOWLEDGE" });
+    const resolved = await applyDunningNoticeAction(ctx, notice.id, { action: "RESOLVE" });
+
+    expect(resolved.status).toBe("RESOLVED");
+
+    const listed = await listDunningNotices(ctx, {
+      page: 1,
+      limit: 10,
+      customerId,
+    });
+
+    expect(listed.total).toBeGreaterThanOrEqual(1);
+    expect(listed.rows.some((row) => row.id === notice.id)).toBe(true);
+
+    const aging = await getReceivablesAging(ctx, {
+      asOfDate: new Date("2026-02-10"),
+      customerId,
+      persistSnapshot: true,
+      includeZeroBalance: false,
+    });
+
+    expect(aging.rows.length).toBeGreaterThan(0);
+    expect(aging.summary.totalOutstandingCents).toBeGreaterThan(0);
+
+    const snapshots = await prisma.receivableAgingSnapshot.findMany({
+      where: { companyId, customerId },
+      select: { id: true },
+    });
+    expect(snapshots.length).toBeGreaterThan(0);
+  });
+
+  it("rejects invalid dunning payloads and transitions", async () => {
+    await expect(
+      createDunningNotice(ctx, {
+        customerId,
+        salesInvoiceId: "invalid-invoice-id",
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+
+    const notice = await createDunningNotice(ctx, {
+      customerId,
+      salesInvoiceId,
+    });
+
+    await expect(
+      applyDunningNoticeAction(ctx, notice.id, { action: "ACKNOWLEDGE" }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 });

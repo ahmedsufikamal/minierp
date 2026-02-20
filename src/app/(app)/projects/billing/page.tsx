@@ -5,7 +5,7 @@ export default function Page() {
     <ModuleWorkbenchPlaceholder
       moduleName="Project Billing"
       description="Billable effort and project invoice linkage."
-      apiHref="/api/v1/projects/timesheets"
+      apiHref="/api/v1/projects/billing"
     />
   );
 }

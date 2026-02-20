@@ -9,6 +9,10 @@ export const buyingPermissions = {
   purchaseReceiptRead: "buying.purchase-receipt.read",
   purchaseReceiptWrite: "buying.purchase-receipt.write",
   purchaseReceiptPost: "buying.purchase-receipt.post",
+  supplierPaymentRead: "buying.supplier-payment.read",
+  supplierPaymentWrite: "buying.supplier-payment.write",
+  supplierPaymentPost: "buying.supplier-payment.post",
+  payableRead: "buying.payable.read",
 } as const;
 
 export type BuyingPermission = (typeof buyingPermissions)[keyof typeof buyingPermissions];

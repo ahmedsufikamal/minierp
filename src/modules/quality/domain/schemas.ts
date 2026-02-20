@@ -1,4 +1,4 @@
-import { CapaStatus, QualityInspectionStatus } from "@prisma/client";
+import { CapaStatus, QualityGoalStatus, QualityInspectionStatus } from "@prisma/client";
 import { z } from "zod";
 
 const paginationSchema = z.object({
@@ -48,4 +48,28 @@ export const qualityCapaCreateSchema = z.object({
 export const qualityCapaActionSchema = z.object({
   action: z.enum(["START", "CLOSE", "REOPEN"]),
   note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const qualityGoalListQuerySchema = paginationSchema.extend({
+  q: z.string().trim().optional(),
+  status: z.nativeEnum(QualityGoalStatus).optional(),
+});
+
+export const qualityGoalCreateSchema = z.object({
+  key: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000).optional().nullable(),
+  metric: z.string().trim().min(1).max(120),
+  targetValue: z.coerce.number().nonnegative(),
+  currentValue: z.coerce.number().nonnegative().optional(),
+  startDate: z.coerce.date().optional().nullable(),
+  dueDate: z.coerce.date().optional().nullable(),
+  ownerRef: z.string().trim().max(120).optional().nullable(),
+});
+
+export const qualityGoalActionSchema = z.object({
+  action: z.enum(["ACTIVATE", "ACHIEVE", "CLOSE", "CANCEL", "RESET", "UPDATE_PROGRESS", "LOG_FEEDBACK"]),
+  currentValue: z.coerce.number().nonnegative().optional(),
+  rating: z.coerce.number().int().min(1).max(5).optional(),
+  comments: z.string().trim().max(1000).optional().nullable(),
 });

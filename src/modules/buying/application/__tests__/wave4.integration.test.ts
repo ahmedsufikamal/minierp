@@ -1,9 +1,16 @@
+import { AccountType } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
   applyMaterialRequestAction,
   createMaterialRequest,
 } from "@/modules/buying/application/material-requests.service";
+import {
+  applySupplierPaymentAction,
+  createSupplierPayment,
+  getPayablesAging,
+  listSupplierPayments,
+} from "@/modules/buying/application/payables.service";
 import { applyPurchaseReceiptAction, createPurchaseReceipt } from "@/modules/buying/application/purchase-receipts.service";
 import { applyRfqAction, createRfq } from "@/modules/buying/application/rfqs.service";
 import {
@@ -26,6 +33,9 @@ maybeDescribe("buying wave4 integration", () => {
   let warehouseId = "";
   let purchaseOrderId = "";
   let purchaseOrderLineId = "";
+  let purchaseBillId = "";
+  let paidFromAccountId = "";
+  let paidToAccountId = "";
 
   const ctx: PlatformRequestContext = {
     requestId: `${marker}-request`,
@@ -108,9 +118,85 @@ maybeDescribe("buying wave4 integration", () => {
     });
     purchaseOrderId = po.id;
     purchaseOrderLineId = po.lines[0]!.id;
+
+    const purchaseBill = await prisma.purchaseBill.create({
+      data: {
+        companyId,
+        number: `${marker}-PB-001`,
+        vendorId,
+        billDate: new Date("2026-01-01"),
+        dueDate: new Date("2026-01-31"),
+        lines: {
+          create: [
+            {
+              description: "Wave4 bill line",
+              qty: 5,
+              unitPriceCents: 100,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    purchaseBillId = purchaseBill.id;
+
+    const paidFrom = await prisma.account.create({
+      data: {
+        tenantId,
+        companyId,
+        code: `${marker}-BANK`,
+        name: "Bank",
+        type: AccountType.ASSET,
+      },
+      select: { id: true },
+    });
+    paidFromAccountId = paidFrom.id;
+
+    const paidTo = await prisma.account.create({
+      data: {
+        tenantId,
+        companyId,
+        code: `${marker}-AP`,
+        name: "Accounts Payable",
+        type: AccountType.LIABILITY,
+      },
+      select: { id: true },
+    });
+    paidToAccountId = paidTo.id;
+
+    const fiscalYear = await prisma.fiscalYear.create({
+      data: {
+        tenantId,
+        companyId,
+        name: `${marker}-FY-2026`,
+        startDate: new Date("2026-01-01"),
+        endDate: new Date("2026-12-31"),
+        isDefault: true,
+      },
+      select: { id: true },
+    });
+
+    await prisma.accountingPeriod.create({
+      data: {
+        tenantId,
+        companyId,
+        fiscalYearId: fiscalYear.id,
+        name: `${marker}-P1`,
+        startDate: new Date("2026-01-01"),
+        endDate: new Date("2026-12-31"),
+        status: "OPEN",
+      },
+    });
   });
 
   afterAll(async () => {
+    await prisma.payableAgingSnapshot.deleteMany({ where: { companyId } });
+    await prisma.supplierPaymentAllocation.deleteMany({ where: { supplierPayment: { companyId } } });
+    await prisma.supplierPayment.deleteMany({ where: { companyId } });
+    await prisma.paymentAllocation.deleteMany({ where: { paymentEntry: { companyId } } });
+    await prisma.paymentEntry.deleteMany({ where: { companyId } });
+    await prisma.gLEntry.deleteMany({ where: { companyId } });
+
     await prisma.outboxEvent.deleteMany({ where: { companyId } });
 
     await prisma.inventoryLedgerEntry.deleteMany({ where: { companyId } });
@@ -133,6 +219,11 @@ maybeDescribe("buying wave4 integration", () => {
 
     await prisma.purchaseOrderLine.deleteMany({ where: { order: { companyId } } });
     await prisma.purchaseOrder.deleteMany({ where: { companyId } });
+    await prisma.purchaseBillLine.deleteMany({ where: { bill: { companyId } } });
+    await prisma.purchaseBill.deleteMany({ where: { companyId } });
+    await prisma.accountingPeriod.deleteMany({ where: { companyId } });
+    await prisma.fiscalYear.deleteMany({ where: { companyId } });
+    await prisma.account.deleteMany({ where: { companyId } });
 
     await prisma.inventoryWarehouse.deleteMany({ where: { companyId } });
     await prisma.vendor.deleteMany({ where: { companyId } });
@@ -266,5 +357,81 @@ maybeDescribe("buying wave4 integration", () => {
     await expect(
       applyPurchaseReceiptAction(ctx, invalidReceipt.id, { action: "POST" }),
     ).rejects.toThrow(/exceeds PO tolerance/i);
+  });
+
+  it("creates supplier payments, posts them, and exposes AP aging snapshots", async () => {
+    const payment = await createSupplierPayment(ctx, {
+      vendorId,
+      paymentDate: new Date("2026-02-01"),
+      paidAmountCents: 300,
+      currency: "USD",
+      paidFromAccountId,
+      paidToAccountId,
+      allocations: [
+        {
+          purchaseBillId,
+          allocatedAmountCents: 300,
+        },
+      ],
+    });
+
+    await applySupplierPaymentAction(ctx, payment.id, { action: "SUBMIT" });
+    const posted = await applySupplierPaymentAction(ctx, payment.id, { action: "POST" });
+
+    expect(posted.status).toBe("POSTED");
+    expect(posted.paymentEntryId).toBeTruthy();
+
+    const listed = await listSupplierPayments(ctx, {
+      page: 1,
+      limit: 10,
+      vendorId,
+    });
+    expect(listed.total).toBeGreaterThanOrEqual(1);
+    expect(listed.rows.some((row) => row.id === payment.id)).toBe(true);
+
+    const aging = await getPayablesAging(ctx, {
+      asOfDate: new Date("2026-02-10"),
+      vendorId,
+      persistSnapshot: true,
+      includeZeroBalance: false,
+    });
+
+    expect(aging.rows.length).toBeGreaterThan(0);
+    expect(aging.summary.totalOutstandingCents).toBeGreaterThanOrEqual(0);
+
+    const snapshots = await prisma.payableAgingSnapshot.findMany({
+      where: { companyId, vendorId },
+      select: { id: true },
+    });
+    expect(snapshots.length).toBeGreaterThan(0);
+  });
+
+  it("rejects invalid supplier payment payloads and posting without accounts", async () => {
+    await expect(
+      createSupplierPayment(ctx, {
+        vendorId,
+        paidAmountCents: 100,
+        currency: "USD",
+        allocations: [
+          {
+            purchaseBillId,
+            allocatedAmountCents: 120,
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+
+    const noAccounts = await createSupplierPayment(ctx, {
+      vendorId,
+      paidAmountCents: 50,
+      currency: "USD",
+      allocations: [],
+    });
+
+    await applySupplierPaymentAction(ctx, noAccounts.id, { action: "SUBMIT" });
+
+    await expect(
+      applySupplierPaymentAction(ctx, noAccounts.id, { action: "POST" }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 });

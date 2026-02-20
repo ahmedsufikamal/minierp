@@ -12,6 +12,9 @@ const permissionAliases: Record<SupportPermission, string[]> = {
   "support.ticket.read": ["support.read", "service-desk.read"],
   "support.ticket.write": ["support.write", "service-desk.write"],
   "support.ticket.manage": ["support.approve", "support.write", "service-desk.manage"],
+  "support.knowledge-base.read": ["support.read", "service-desk.read", "knowledge.read"],
+  "support.knowledge-base.write": ["support.write", "service-desk.write", "knowledge.write"],
+  "support.knowledge-base.manage": ["support.approve", "support.write", "service-desk.manage", "knowledge.manage"],
 };
 
 function hasPermission(

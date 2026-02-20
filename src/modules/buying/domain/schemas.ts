@@ -2,6 +2,7 @@ import {
   MaterialRequestStatus,
   PurchaseReceiptStatus,
   RequestForQuotationStatus,
+  SupplierPaymentStatus,
   SupplierQuotationStatus,
 } from "@prisma/client";
 import { z } from "zod";
@@ -130,4 +131,40 @@ export const purchaseReceiptActionSchema = z.object({
   action: z.enum(["SUBMIT", "APPROVE", "POST", "CANCEL"]),
   idempotencyKey: z.string().trim().optional(),
   reason: z.string().trim().optional().nullable(),
+});
+
+export const supplierPaymentListQuerySchema = paginationSchema.extend({
+  q: z.string().trim().optional(),
+  status: z.nativeEnum(SupplierPaymentStatus).optional(),
+  vendorId: z.string().trim().optional(),
+});
+
+export const supplierPaymentAllocationSchema = z.object({
+  purchaseBillId: z.string().trim().optional().nullable(),
+  allocatedAmountCents: z.number().int().positive(),
+  notes: z.string().trim().max(500).optional().nullable(),
+});
+
+export const supplierPaymentCreateSchema = z.object({
+  number: z.string().trim().min(1).optional(),
+  vendorId: z.string().trim().min(1),
+  paymentDate: z.coerce.date().optional(),
+  paidAmountCents: z.number().int().positive(),
+  currency: z.string().trim().min(3).max(3).default("USD"),
+  paidFromAccountId: z.string().trim().optional().nullable(),
+  paidToAccountId: z.string().trim().optional().nullable(),
+  remarks: z.string().trim().max(2000).optional().nullable(),
+  allocations: z.array(supplierPaymentAllocationSchema).default([]),
+});
+
+export const supplierPaymentActionSchema = z.object({
+  action: z.enum(["SUBMIT", "POST", "CANCEL"]),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const payablesAgingQuerySchema = z.object({
+  asOfDate: z.coerce.date().optional(),
+  vendorId: z.string().trim().optional(),
+  includeZeroBalance: z.coerce.boolean().default(false),
+  persistSnapshot: z.coerce.boolean().default(false),
 });

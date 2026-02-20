@@ -47,6 +47,14 @@ enum DeliveryNoteStatus {
   CANCELLED
 }
 
+enum DunningNoticeStatus {
+  DRAFT
+  SENT
+  ACKNOWLEDGED
+  RESOLVED
+  CANCELLED
+}
+
 enum MaterialRequestStatus {
   DRAFT
   SUBMITTED
@@ -380,6 +388,27 @@ enum AutomationActionType {
   CALL_WEBHOOK
 }
 
+enum FormLayoutVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PropertyOverrideTarget {
+  FIELD
+  FORM
+  LIST
+  ACTION
+}
+
+enum AutomationRuleRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
 enum ThemeMode {
   LIGHT
   DARK
@@ -438,20 +467,22 @@ model Customer {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
-  invoices       SalesInvoice[]
-  quotes         Quote[]
-  salesOrders    SalesOrder[]
-  deliveryNotes  DeliveryNote[]
-  contacts       Contact[]
-  opportunities  Opportunity[]
-  activities     Activity[]
-  tasks          Task[]
-  convertedLeads Lead[]             @relation("CustomerConvertedLeads")
-  projects       Project[]
-  tickets        Ticket[]
-  communications CommunicationLog[]
-  calls          CallLog[]
-  posSales       PosSale[]
+  invoices                 SalesInvoice[]
+  quotes                   Quote[]
+  salesOrders              SalesOrder[]
+  deliveryNotes            DeliveryNote[]
+  contacts                 Contact[]
+  opportunities            Opportunity[]
+  activities               Activity[]
+  tasks                    Task[]
+  convertedLeads           Lead[]                    @relation("CustomerConvertedLeads")
+  projects                 Project[]
+  tickets                  Ticket[]
+  communications           CommunicationLog[]
+  calls                    CallLog[]
+  posSales                 PosSale[]
+  dunningNotices           DunningNotice[]
+  receivableAgingSnapshots ReceivableAgingSnapshot[]
 
   @@index([companyId, territoryId])
   @@index([companyId, customerGroupId])
@@ -480,6 +511,8 @@ model Vendor {
   reorderRules               InventoryReorderRule[]
   subcontractingOrders       SubcontractingOrder[]
   subcontractingReceipts     SubcontractingReceipt[]
+  supplierPayments           SupplierPayment[]
+  payableAgingSnapshots      PayableAgingSnapshot[]
 
   @@index([companyId, territoryId])
   @@index([companyId, supplierGroupId])
@@ -773,11 +806,14 @@ model SalesInvoice {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  lines              SalesInvoiceLine[]
-  convertedFromQuote Quote?
-  payments           Payment[]
-  timesheets         Timesheet[]
-  posSale            PosSale?
+  lines                    SalesInvoiceLine[]
+  convertedFromQuote       Quote?
+  payments                 Payment[]
+  timesheets               Timesheet[]
+  posSale                  PosSale?
+  dunningNotices           DunningNotice[]
+  receivableAgingSnapshots ReceivableAgingSnapshot[]
+  projectBillingEntries    ProjectBillingEntry[]
 
   @@unique([companyId, number])
 }
@@ -936,6 +972,57 @@ model SalesInvoiceLine {
   description    String
   qty            Int
   unitPriceCents Int
+}
+
+model DunningNotice {
+  id             String              @id @default(cuid())
+  tenantId       String?
+  companyId      String              @map("orgId")
+  number         String
+  customerId     String
+  customer       Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  salesInvoiceId String?
+  salesInvoice   SalesInvoice?       @relation(fields: [salesInvoiceId], references: [id], onDelete: SetNull)
+  status         DunningNoticeStatus @default(DRAFT)
+  issuedOn       DateTime            @default(now()) @db.Date
+  dueDate        DateTime?           @db.Date
+  reminderLevel  Int                 @default(1)
+  notes          String?
+  sentAt         DateTime?
+  resolvedAt     DateTime?
+  cancelledAt    DateTime?
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([companyId, number])
+  @@index([companyId, status, issuedOn])
+  @@index([companyId, customerId, status])
+  @@index([companyId, salesInvoiceId])
+}
+
+model ReceivableAgingSnapshot {
+  id                    String        @id @default(cuid())
+  tenantId              String?
+  companyId             String        @map("orgId")
+  customerId            String
+  customer              Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  salesInvoiceId        String?
+  salesInvoice          SalesInvoice? @relation(fields: [salesInvoiceId], references: [id], onDelete: SetNull)
+  asOfDate              DateTime      @db.Date
+  currency              String        @default("USD")
+  bucketCurrentCents    Int           @default(0)
+  bucket1To30Cents      Int           @default(0)
+  bucket31To60Cents     Int           @default(0)
+  bucket61To90Cents     Int           @default(0)
+  bucketOver90Cents     Int           @default(0)
+  totalOutstandingCents Int           @default(0)
+  createdBy             String?
+  createdAt             DateTime      @default(now())
+
+  @@index([companyId, asOfDate, customerId])
+  @@index([companyId, salesInvoiceId, asOfDate])
 }
 
 model PurchaseOrder {
@@ -1178,8 +1265,10 @@ model PurchaseBill {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  lines    PurchaseBillLine[]
-  payments Payment[]
+  lines                      PurchaseBillLine[]
+  payments                   Payment[]
+  supplierPaymentAllocations SupplierPaymentAllocation[]
+  payableAgingSnapshots      PayableAgingSnapshot[]
 
   @@unique([companyId, number])
 }
@@ -1197,6 +1286,13 @@ enum PaymentMethod {
 }
 
 enum PaymentEntryStatus {
+  DRAFT
+  SUBMITTED
+  POSTED
+  CANCELLED
+}
+
+enum SupplierPaymentStatus {
   DRAFT
   SUBMITTED
   POSTED
@@ -1285,10 +1381,12 @@ model Account {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  lines                  JournalLine[]
-  glEntries              GLEntry[]
-  paymentEntriesPaidFrom PaymentEntry[] @relation("PaymentEntryPaidFrom")
-  paymentEntriesPaidTo   PaymentEntry[] @relation("PaymentEntryPaidTo")
+  lines                    JournalLine[]
+  glEntries                GLEntry[]
+  paymentEntriesPaidFrom   PaymentEntry[]    @relation("PaymentEntryPaidFrom")
+  paymentEntriesPaidTo     PaymentEntry[]    @relation("PaymentEntryPaidTo")
+  supplierPaymentsPaidFrom SupplierPayment[] @relation("SupplierPaymentPaidFrom")
+  supplierPaymentsPaidTo   SupplierPayment[] @relation("SupplierPaymentPaidTo")
 
   @@unique([companyId, code])
   @@index([companyId, parentId])
@@ -1510,7 +1608,8 @@ model PaymentEntry {
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 
-  allocations PaymentAllocation[]
+  allocations      PaymentAllocation[]
+  supplierPayments SupplierPayment[]
 
   @@unique([companyId, number])
   @@index([companyId, status, postingDate])
@@ -1530,6 +1629,80 @@ model PaymentAllocation {
   createdAt            DateTime     @default(now())
 
   @@index([paymentEntryId, referenceType, referenceId])
+}
+
+model SupplierPayment {
+  id                String                @id @default(cuid())
+  tenantId          String?
+  companyId         String                @map("orgId")
+  number            String
+  vendorId          String
+  vendor            Vendor                @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  status            SupplierPaymentStatus @default(DRAFT)
+  paymentDate       DateTime              @default(now()) @db.Date
+  paidAmountCents   Int
+  currency          String                @default("USD")
+  paidFromAccountId String?
+  paidFromAccount   Account?              @relation("SupplierPaymentPaidFrom", fields: [paidFromAccountId], references: [id], onDelete: SetNull)
+  paidToAccountId   String?
+  paidToAccount     Account?              @relation("SupplierPaymentPaidTo", fields: [paidToAccountId], references: [id], onDelete: SetNull)
+  paymentEntryId    String?
+  paymentEntry      PaymentEntry?         @relation(fields: [paymentEntryId], references: [id], onDelete: SetNull)
+  remarks           String?
+  submittedAt       DateTime?
+  postedAt          DateTime?
+  cancelledAt       DateTime?
+  createdBy         String?
+  updatedBy         String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  allocations SupplierPaymentAllocation[]
+  snapshots   PayableAgingSnapshot[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status, paymentDate])
+  @@index([companyId, vendorId, status])
+  @@index([companyId, paymentEntryId])
+  @@index([companyId, paidFromAccountId, paidToAccountId])
+}
+
+model SupplierPaymentAllocation {
+  id                   String          @id @default(cuid())
+  supplierPaymentId    String
+  supplierPayment      SupplierPayment @relation(fields: [supplierPaymentId], references: [id], onDelete: Cascade)
+  purchaseBillId       String?
+  purchaseBill         PurchaseBill?   @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
+  allocatedAmountCents Int
+  notes                String?
+  createdAt            DateTime        @default(now())
+
+  @@index([supplierPaymentId, purchaseBillId])
+}
+
+model PayableAgingSnapshot {
+  id                    String           @id @default(cuid())
+  tenantId              String?
+  companyId             String           @map("orgId")
+  vendorId              String
+  vendor                Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  purchaseBillId        String?
+  purchaseBill          PurchaseBill?    @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
+  supplierPaymentId     String?
+  supplierPayment       SupplierPayment? @relation(fields: [supplierPaymentId], references: [id], onDelete: SetNull)
+  asOfDate              DateTime         @db.Date
+  currency              String           @default("USD")
+  bucketCurrentCents    Int              @default(0)
+  bucket1To30Cents      Int              @default(0)
+  bucket31To60Cents     Int              @default(0)
+  bucket61To90Cents     Int              @default(0)
+  bucketOver90Cents     Int              @default(0)
+  totalOutstandingCents Int              @default(0)
+  createdBy             String?
+  createdAt             DateTime         @default(now())
+
+  @@index([companyId, asOfDate, vendorId])
+  @@index([companyId, purchaseBillId, asOfDate])
 }
 
 // CRM Models
@@ -1772,6 +1945,14 @@ enum CapaStatus {
   OPEN
   IN_PROGRESS
   CLOSED
+}
+
+enum QualityGoalStatus {
+  DRAFT
+  ACTIVE
+  ACHIEVED
+  CLOSED
+  CANCELLED
 }
 
 model Workstation {
@@ -2053,6 +2234,46 @@ model QualityCapa {
   @@index([companyId, inspectionId])
 }
 
+model QualityGoal {
+  id           String            @id @default(cuid())
+  tenantId     String?
+  companyId    String            @map("orgId")
+  key          String
+  name         String
+  description  String?
+  metric       String
+  targetValue  Decimal           @db.Decimal(18, 6)
+  currentValue Decimal           @default(0) @db.Decimal(18, 6)
+  status       QualityGoalStatus @default(DRAFT)
+  startDate    DateTime?         @db.Date
+  dueDate      DateTime?         @db.Date
+  ownerRef     String?
+  createdBy    String?
+  updatedBy    String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  feedbacks QualityFeedback[]
+
+  @@unique([companyId, key])
+  @@index([companyId, status, dueDate])
+}
+
+model QualityFeedback {
+  id         String      @id @default(cuid())
+  tenantId   String?
+  companyId  String      @map("orgId")
+  goalId     String
+  goal       QualityGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  feedbackBy String?
+  feedbackOn DateTime    @default(now()) @db.Date
+  rating     Int?
+  comments   String?
+  createdAt  DateTime    @default(now())
+
+  @@index([companyId, goalId, feedbackOn])
+}
+
 enum ProjectStatus {
   DRAFT
   ACTIVE
@@ -2075,9 +2296,23 @@ enum TimesheetStatus {
   REJECTED
 }
 
+enum ProjectBillingStatus {
+  DRAFT
+  READY
+  INVOICED
+  CANCELLED
+}
+
 enum QueueStatus {
   ACTIVE
   INACTIVE
+}
+
+enum KnowledgeArticleStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
 }
 
 enum TicketStatus {
@@ -2150,9 +2385,10 @@ model Project {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  tasks      ProjectTask[]
-  timesheets Timesheet[]
-  tickets    Ticket[]
+  tasks          ProjectTask[]
+  timesheets     Timesheet[]
+  tickets        Ticket[]
+  billingEntries ProjectBillingEntry[]
 
   @@unique([companyId, code])
   @@index([companyId, status, startDate])
@@ -2204,9 +2440,40 @@ model Timesheet {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
+  billingEntries ProjectBillingEntry[]
+
   @@index([companyId, projectId, workDate])
   @@index([companyId, status, workDate])
   @@index([companyId, salesInvoiceId])
+}
+
+model ProjectBillingEntry {
+  id              String               @id @default(cuid())
+  tenantId        String?
+  companyId       String               @map("orgId")
+  number          String
+  status          ProjectBillingStatus @default(DRAFT)
+  projectId       String
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timesheetId     String?
+  timesheet       Timesheet?           @relation(fields: [timesheetId], references: [id], onDelete: SetNull)
+  salesInvoiceId  String?
+  salesInvoice    SalesInvoice?        @relation(fields: [salesInvoiceId], references: [id], onDelete: SetNull)
+  billableMinutes Int                  @default(0)
+  billAmountCents Int                  @default(0)
+  currency        String               @default("USD")
+  notes           String?
+  readyAt         DateTime?
+  invoicedAt      DateTime?
+  cancelledAt     DateTime?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([companyId, number])
+  @@index([companyId, status, projectId])
+  @@index([companyId, timesheetId])
 }
 
 model SupportQueue {
@@ -2303,6 +2570,43 @@ model TicketEvent {
   createdAt DateTime @default(now())
 
   @@index([ticketId, createdAt])
+}
+
+model KnowledgeArticle {
+  id                String                 @id @default(cuid())
+  tenantId          String?
+  companyId         String                 @map("orgId")
+  slug              String
+  title             String
+  summary           String?
+  status            KnowledgeArticleStatus @default(DRAFT)
+  currentRevisionId String?
+  publishedAt       DateTime?
+  archivedAt        DateTime?
+  createdBy         String?
+  updatedBy         String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  revisions KnowledgeArticleRevision[]
+
+  @@unique([companyId, slug])
+  @@index([companyId, status, updatedAt])
+}
+
+model KnowledgeArticleRevision {
+  id         String           @id @default(cuid())
+  articleId  String
+  article    KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  revisionNo Int
+  title      String
+  content    String
+  changelog  String?
+  createdBy  String?
+  createdAt  DateTime         @default(now())
+
+  @@unique([articleId, revisionNo])
+  @@index([articleId, createdAt])
 }
 
 model CommunicationWindow {
@@ -3670,7 +3974,45 @@ model FormLayout {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  versions FormLayoutVersion[]
+
   @@index([tenantId, companyId, entityType, isActive])
+}
+
+model FormLayoutVersion {
+  id           String                  @id @default(cuid())
+  formLayoutId String
+  formLayout   FormLayout              @relation(fields: [formLayoutId], references: [id], onDelete: Cascade)
+  version      Int
+  status       FormLayoutVersionStatus @default(DRAFT)
+  layout       Json
+  publishedAt  DateTime?
+  archivedAt   DateTime?
+  createdBy    String?
+  createdAt    DateTime                @default(now())
+
+  @@unique([formLayoutId, version])
+  @@index([formLayoutId, status, createdAt])
+}
+
+model PropertyOverrideRule {
+  id         String                 @id @default(cuid())
+  tenantId   String
+  companyId  String?
+  entityType String
+  target     PropertyOverrideTarget
+  key        String
+  label      String?
+  config     Json
+  priority   Int                    @default(0)
+  isActive   Boolean                @default(true)
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  @@unique([tenantId, companyId, entityType, target, key])
+  @@index([tenantId, companyId, entityType, target, isActive, priority])
 }
 
 model ValidationRule {
@@ -3729,7 +4071,34 @@ model AutomationRule {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
+  runs AutomationRuleRun[]
+
   @@index([tenantId, companyId, entityType, trigger, isActive])
+}
+
+model AutomationRuleRun {
+  id               String                  @id @default(cuid())
+  automationRuleId String?
+  automationRule   AutomationRule?         @relation(fields: [automationRuleId], references: [id], onDelete: SetNull)
+  tenantId         String
+  companyId        String?
+  entityType       String
+  entityId         String?
+  trigger          AutomationTrigger
+  status           AutomationRuleRunStatus @default(QUEUED)
+  attempt          Int                     @default(1)
+  idempotencyKey   String?
+  input            Json?
+  output           Json?
+  errorMessage     String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdBy        String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([tenantId, companyId, status, createdAt])
+  @@index([tenantId, companyId, entityType, entityId, createdAt])
 }
 
 model InventoryCompanySetting {

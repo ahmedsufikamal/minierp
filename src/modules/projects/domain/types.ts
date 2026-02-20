@@ -8,6 +8,9 @@ export const projectsPermissions = {
   timesheetRead: "projects.timesheet.read",
   timesheetWrite: "projects.timesheet.write",
   timesheetApprove: "projects.timesheet.approve",
+  billingRead: "projects.billing.read",
+  billingWrite: "projects.billing.write",
+  billingApprove: "projects.billing.approve",
 } as const;
 
 export type ProjectsPermission = (typeof projectsPermissions)[keyof typeof projectsPermissions];

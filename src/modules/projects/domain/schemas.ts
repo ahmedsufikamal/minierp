@@ -1,4 +1,10 @@
-import { ProjectStatus, ProjectTaskStatus, TaskPriority, TimesheetStatus } from "@prisma/client";
+import {
+  ProjectBillingStatus,
+  ProjectStatus,
+  ProjectTaskStatus,
+  TaskPriority,
+  TimesheetStatus,
+} from "@prisma/client";
 import { z } from "zod";
 
 const paginationSchema = z.object({
@@ -67,5 +73,29 @@ export const timesheetCreateSchema = z.object({
 
 export const timesheetActionSchema = z.object({
   action: z.enum(["SUBMIT", "APPROVE", "REJECT", "RESET"]),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const projectBillingListQuerySchema = paginationSchema.extend({
+  q: z.string().trim().optional(),
+  status: z.nativeEnum(ProjectBillingStatus).optional(),
+  projectId: z.string().trim().optional(),
+  timesheetId: z.string().trim().optional(),
+});
+
+export const projectBillingCreateSchema = z.object({
+  number: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1),
+  timesheetId: z.string().trim().optional().nullable(),
+  salesInvoiceId: z.string().trim().optional().nullable(),
+  billableMinutes: z.number().int().min(0).optional(),
+  billAmountCents: z.number().int().min(0),
+  currency: z.string().trim().length(3).default("USD"),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const projectBillingActionSchema = z.object({
+  action: z.enum(["MARK_READY", "MARK_INVOICED", "CANCEL", "RESET"]),
+  salesInvoiceId: z.string().trim().optional().nullable(),
   note: z.string().trim().max(500).optional().nullable(),
 });

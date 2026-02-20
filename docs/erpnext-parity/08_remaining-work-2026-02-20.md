@@ -4,26 +4,19 @@ Current parity matrix (`docs/erpnext-parity/00_scope.md`):
 
 - Rows: `92`
 - Done: `3`
-- In Progress: `81`
-- Not Started: `8`
+- In Progress: `89`
+- Not Started: `0`
 
 ## Not started rows (must implement)
 
-1. Buying Supplier payments and aging (`buying.ap`)
-2. Selling Dunning and receivables (`selling.ar`)
-3. Projects Project billing (`projects.billing`)
-4. Quality Goal and feedback (`quality.goals`)
-5. Support Knowledge base (`support.knowledge-base`)
-6. No-code Form layout builder (`platform.form-layout`)
-7. No-code Property setter overrides (`platform.field-rules`)
-8. No-code Automation rules runtime (`platform.automation`)
+1. None. All previously not-started rows were moved to `[-] In Progress` in this pass.
 
 ## In-progress closure blockers
 
 1. Replace remaining legacy-wrapped module pages with API-first workbenches (placeholder pages now run API baseline workbench).
 2. Complete TanStack Query adoption in module UIs (client/provider/query-key foundation exists; per-screen query/mutation hooks remain).
 3. Complete policy-grade workflow constraints for selling/buying/manufacturing/support/payroll.
-4. Complete report parity gaps: AP/AR aging, project billing, quality goals, support KB analytics.
+4. Expand deep report/analytics parity beyond baseline endpoints (AP/AR drilldowns, support KB analytics, project billing profitability).
 5. Increase module test density to target baseline (3 happy + 2 negative + pagination/index checks).
 6. Add explicit RBAC + row-scope negative-path tests per module route/API pair.
 7. Close immutable/audit verification for posting-critical document chains.

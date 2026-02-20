@@ -15,6 +15,10 @@ const permissionAliases: Record<BuyingPermission, string[]> = {
   "buying.purchase-receipt.read": ["buying.read", "procurement.read", "inventory.read"],
   "buying.purchase-receipt.write": ["buying.write", "procurement.write", "inventory.write"],
   "buying.purchase-receipt.post": ["buying.approve", "procurement.approve", "inventory.approve", "inventory.write"],
+  "buying.supplier-payment.read": ["buying.read", "procurement.read", "accounting.read", "finance.read"],
+  "buying.supplier-payment.write": ["buying.write", "procurement.write", "accounting.write", "finance.write"],
+  "buying.supplier-payment.post": ["buying.approve", "procurement.approve", "accounting.write", "finance.write"],
+  "buying.payable.read": ["buying.read", "procurement.read", "accounting.read", "finance.read"],
 };
 
 function hasBuyingPermission(

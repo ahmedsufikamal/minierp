@@ -5,7 +5,7 @@ export default function Page() {
     <ModuleWorkbenchPlaceholder
       moduleName="Receivables"
       description="AR tracking, aging views, and dunning workflows."
-      apiHref="/api/v1/accounting/reports"
+      apiHref="/api/v1/selling/dunning"
     />
   );
 }

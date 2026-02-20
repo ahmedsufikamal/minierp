@@ -14,7 +14,7 @@ import { ContactsTab } from "./contacts";
 import { DealsTab } from "./deals";
 import { InvoicesTab } from "./invoices";
 
-export default async function CustomerDetailPage({ params }: { params: { id: string } }) {
+export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const companyId = await getCompanyIdOrUserId();
   const { id } = await params;
 

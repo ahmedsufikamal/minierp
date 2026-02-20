@@ -1,12 +1,15 @@
 import { z } from "zod";
 import {
   AutomationActionType,
+  AutomationRuleRunStatus,
   AutomationTrigger,
   CustomFieldDataType,
+  FormLayoutVersionStatus,
   NumberSeriesResetPolicy,
   PlatformPermissionEffect,
   PlatformScopeLevel,
   PlatformWorkflowDefinitionStatus,
+  PropertyOverrideTarget,
   ReportScheduleFrequency,
   ReportSourceType,
 } from "@prisma/client";
@@ -227,6 +230,78 @@ export const automationRuleSchema = z.object({
   actionConfig: z.record(z.string(), z.any()),
   runAsRole: z.string().trim().max(80).optional(),
   isActive: z.boolean().optional(),
+});
+
+const customizationListBaseSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
+  q: z.string().trim().optional(),
+  entityType: z.string().trim().optional(),
+  includeInactive: z.coerce.boolean().default(false),
+});
+
+export const formLayoutListQuerySchema = customizationListBaseSchema.extend({
+  status: z.nativeEnum(FormLayoutVersionStatus).optional(),
+});
+
+export const formLayoutActionSchema = z.object({
+  action: z.enum(["PUBLISH", "ARCHIVE", "ROLLBACK"]),
+  version: z.coerce.number().int().min(1).optional(),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const propertyOverrideRuleSchema = z.object({
+  companyId: z.string().trim().optional(),
+  entityType: z.string().trim().min(1).max(120),
+  target: z.nativeEnum(PropertyOverrideTarget),
+  key: z.string().trim().min(1).max(120),
+  label: z.string().trim().max(160).optional().nullable(),
+  config: z.record(z.string(), z.any()),
+  priority: z.coerce.number().int().min(0).default(0),
+  isActive: z.boolean().optional(),
+});
+
+export const propertyOverrideRuleListQuerySchema = customizationListBaseSchema.extend({
+  target: z.nativeEnum(PropertyOverrideTarget).optional(),
+});
+
+export const propertyOverrideRuleActionSchema = z.object({
+  action: z.enum(["ACTIVATE", "DEACTIVATE"]),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const automationRuleListQuerySchema = customizationListBaseSchema.extend({
+  trigger: z.nativeEnum(AutomationTrigger).optional(),
+  actionType: z.nativeEnum(AutomationActionType).optional(),
+});
+
+export const automationRuleActionSchema = z.object({
+  action: z.enum(["ACTIVATE", "DEACTIVATE", "RUN"]),
+  trigger: z.nativeEnum(AutomationTrigger).optional(),
+  entityId: z.string().trim().optional().nullable(),
+  idempotencyKey: z.string().trim().max(160).optional().nullable(),
+  input: z.record(z.string(), z.any()).optional(),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const automationRunListQuerySchema = customizationListBaseSchema.extend({
+  status: z.nativeEnum(AutomationRuleRunStatus).optional(),
+  automationRuleId: z.string().trim().optional(),
+  trigger: z.nativeEnum(AutomationTrigger).optional(),
+  entityId: z.string().trim().optional(),
+});
+
+export const automationRunCreateSchema = z.object({
+  automationRuleId: z.string().trim().optional().nullable(),
+  entityType: z.string().trim().min(1).max(120),
+  entityId: z.string().trim().optional().nullable(),
+  trigger: z.nativeEnum(AutomationTrigger),
+  idempotencyKey: z.string().trim().max(160).optional().nullable(),
+  input: z.record(z.string(), z.any()).optional(),
+});
+
+export const customizationRuntimeQuerySchema = z.object({
+  entityType: z.string().trim().min(1).max(120),
 });
 
 export const setupMasterListQuerySchema = z.object({

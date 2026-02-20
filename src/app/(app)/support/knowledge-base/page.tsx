@@ -5,7 +5,7 @@ export default function Page() {
     <ModuleWorkbenchPlaceholder
       moduleName="Knowledge Base"
       description="Knowledge authoring and retrieval workflows."
-      apiHref="/api/v1/support/tickets"
+      apiHref="/api/v1/support/knowledge-base"
     />
   );
 }

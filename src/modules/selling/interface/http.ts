@@ -11,6 +11,10 @@ const permissionAliases: Record<SellingPermission, string[]> = {
   "selling.delivery-note.read": ["selling.read", "sales.read", "inventory.read"],
   "selling.delivery-note.write": ["selling.write", "sales.write", "inventory.write"],
   "selling.delivery-note.post": ["selling.approve", "sales.approve", "inventory.approve", "inventory.write"],
+  "selling.dunning.read": ["selling.read", "sales.read", "accounting.read", "finance.read"],
+  "selling.dunning.write": ["selling.write", "sales.write", "accounting.write", "finance.write"],
+  "selling.dunning.manage": ["selling.approve", "sales.approve", "accounting.write", "finance.write"],
+  "selling.receivable.read": ["selling.read", "sales.read", "accounting.read", "finance.read"],
 };
 
 function hasSellingPermission(

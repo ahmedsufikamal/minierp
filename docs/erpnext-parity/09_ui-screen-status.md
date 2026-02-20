@@ -32,7 +32,7 @@ Status legend:
 | `/selling/sales-orders` | `baseline` | `/api/v1/selling/sales-orders` | API workbench baseline |
 | `/selling/delivery-notes` | `baseline` | `/api/v1/selling/delivery-notes` | API workbench baseline |
 | `/selling/sales-invoices` | `legacy` | wrapper | Wrapper to existing invoices page |
-| `/selling/receivables` | `baseline` | `/api/v1/accounting/reports` | Uses accounting reports endpoint until AR aging API lands |
+| `/selling/receivables` | `baseline` | `/api/v1/selling/dunning` | Dunning list/create/actions baseline; aging report at `/api/v1/selling/receivables-aging` |
 | `/crm/leads` | `baseline` | `/api/v1/crm/leads` | API workbench baseline |
 | `/crm/opportunities` | `baseline` | `/api/v1/crm/opportunities` | API workbench baseline |
 | `/crm/pipeline` | `baseline` | `/api/v1/crm/opportunities` | Drag/drop parity pending |
@@ -45,7 +45,7 @@ Status legend:
 | `/buying/purchase-orders` | `legacy` | wrapper | Wrapper to existing purchase-orders page |
 | `/buying/purchase-receipts` | `baseline` | `/api/v1/buying/purchase-receipts` | API workbench baseline |
 | `/buying/purchase-invoices` | `legacy` | wrapper | Wrapper to existing bills page |
-| `/buying/payables` | `baseline` | `/api/v1/accounting/reports` | Uses accounting reports endpoint until AP aging API lands |
+| `/buying/payables` | `baseline` | `/api/v1/buying/supplier-payments` | Supplier-payment list/create/actions baseline; aging report at `/api/v1/buying/payables-aging` |
 | `/manufacturing/boms` | `baseline` | `/api/v1/manufacturing/boms` | API workbench baseline |
 | `/manufacturing/routings` | `baseline` | `/api/v1/manufacturing/routings` | API workbench baseline |
 | `/manufacturing/work-orders` | `baseline` | `/api/v1/manufacturing/work-orders` | API workbench baseline |
@@ -54,15 +54,15 @@ Status legend:
 | `/subcontracting/receipts` | `baseline` | `/api/v1/subcontracting/receipts` | API workbench baseline |
 | `/quality/inspections` | `baseline` | `/api/v1/quality/inspections` | API workbench baseline |
 | `/quality/capas` | `baseline` | `/api/v1/quality/capas` | API workbench baseline |
-| `/quality/goals` | `baseline` | `/api/v1/quality/goals` | Not-started parity row closure pending |
+| `/quality/goals` | `baseline` | `/api/v1/quality/goals` | API workbench baseline with goal lifecycle actions |
 | `/projects/projects` | `baseline` | `/api/v1/projects/projects` | API workbench baseline |
 | `/projects/tasks` | `baseline` | `/api/v1/projects/tasks` | API workbench baseline |
 | `/projects/timesheets` | `baseline` | `/api/v1/projects/timesheets` | API workbench baseline |
-| `/projects/billing` | `baseline` | `/api/v1/projects/billing` | Not-started parity row closure pending |
+| `/projects/billing` | `baseline` | `/api/v1/projects/billing` | API workbench baseline with billing lifecycle actions |
 | `/support/queues` | `baseline` | `/api/v1/support/queues` | API workbench baseline |
 | `/support/slas` | `baseline` | `/api/v1/support/sla-policies` | API workbench baseline |
 | `/support/tickets` | `baseline` | `/api/v1/support/tickets` | API workbench baseline |
-| `/support/knowledge-base` | `baseline` | `/api/v1/support/knowledge-base` | Not-started parity row closure pending |
+| `/support/knowledge-base` | `baseline` | `/api/v1/support/knowledge-base` | API workbench baseline with article lifecycle actions |
 | `/communication/windows` | `baseline` | `/api/v1/communication/windows` | API workbench baseline |
 | `/communication/logs` | `baseline` | `/api/v1/communication/logs` | API workbench baseline |
 | `/telephony/call-logs` | `baseline` | `/api/v1/telephony/call-logs` | API workbench baseline |
@@ -96,9 +96,10 @@ Status legend:
 | `/utilities/tasks` | `baseline` | `/api/v1/utilities/tasks` | API workbench baseline |
 | `/utilities/admin-tools` | `baseline` | `/api/v1/utilities/tasks` | Admin tooling deep UX pending |
 | `/platform/customization/custom-fields` | `baseline` | `/api/v1/platform/customization/custom-fields` | API workbench baseline |
-| `/platform/customization/form-layouts` | `baseline` | `/api/v1/platform/customization/form-layouts` | No-code runtime closure pending |
+| `/platform/customization/form-layouts` | `baseline` | `/api/v1/platform/customization/form-layouts` | API workbench baseline with publish/archive/rollback actions |
+| `/platform/customization/field-rules` | `baseline` | `/api/v1/platform/customization/field-rules` | API workbench baseline with activate/deactivate actions |
 | `/platform/customization/validation-rules` | `baseline` | `/api/v1/platform/customization/validation-rules` | API workbench baseline |
-| `/platform/customization/automation-rules` | `baseline` | `/api/v1/platform/customization/automation-rules` | No-code runtime closure pending |
+| `/platform/customization/automation-rules` | `baseline` | `/api/v1/platform/customization/automation-rules` | API workbench baseline with rule actions; runtime at `/api/v1/platform/customization/runtime` and runs at `/api/v1/platform/customization/automation-runs` |
 | `/platform/customization/print-templates` | `baseline` | `/api/v1/platform/customization/print-templates` | API workbench baseline |
 
 ## Baseline completion definition

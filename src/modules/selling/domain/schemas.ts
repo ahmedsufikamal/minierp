@@ -1,4 +1,4 @@
-import { DeliveryNoteStatus, SalesOrderStatus } from "@prisma/client";
+import { DeliveryNoteStatus, DunningNoticeStatus, SalesOrderStatus } from "@prisma/client";
 import { z } from "zod";
 
 const paginationSchema = z.object({
@@ -71,4 +71,33 @@ export const deliveryNoteActionSchema = z.object({
   action: z.enum(["SUBMIT", "APPROVE", "POST", "CANCEL"]),
   idempotencyKey: z.string().trim().optional(),
   reason: z.string().trim().optional().nullable(),
+});
+
+export const dunningNoticeListQuerySchema = paginationSchema.extend({
+  q: z.string().trim().optional(),
+  status: z.nativeEnum(DunningNoticeStatus).optional(),
+  customerId: z.string().trim().optional(),
+  salesInvoiceId: z.string().trim().optional(),
+});
+
+export const dunningNoticeCreateSchema = z.object({
+  number: z.string().trim().min(1).optional(),
+  customerId: z.string().trim().min(1),
+  salesInvoiceId: z.string().trim().optional().nullable(),
+  issuedOn: z.coerce.date().optional(),
+  dueDate: z.coerce.date().optional().nullable(),
+  reminderLevel: z.number().int().min(1).max(10).optional(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const dunningNoticeActionSchema = z.object({
+  action: z.enum(["SEND", "ACKNOWLEDGE", "RESOLVE", "CANCEL", "RESET"]),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+
+export const receivablesAgingQuerySchema = z.object({
+  asOfDate: z.coerce.date().optional(),
+  customerId: z.string().trim().optional(),
+  includeZeroBalance: z.coerce.boolean().default(false),
+  persistSnapshot: z.coerce.boolean().default(false),
 });

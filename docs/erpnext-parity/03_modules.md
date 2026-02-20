@@ -36,6 +36,7 @@ Legacy non-namespaced routes are migration redirects and should not be treated a
 - Routes/screens:
   - Existing: `/vendors`, `/purchase-orders`, `/bills`
   - Existing API: `/api/v1/buying/material-requests`, `/api/v1/buying/rfqs`, `/api/v1/buying/supplier-quotations`, `/api/v1/buying/purchase-receipts`
+  - Existing API: `/api/v1/buying/supplier-payments`, `/api/v1/buying/payables-aging`
 - Workflows:
   - supplier -> material request -> PO -> receipt -> purchase invoice -> payment
 - Reports:
@@ -51,7 +52,7 @@ Legacy non-namespaced routes are migration redirects and should not be treated a
 
 - Routes/screens:
   - Existing: `/customers`, `/quotes`, `/invoices`, `/payments`
-  - Existing API: `/api/v1/selling/sales-orders`, `/api/v1/selling/delivery-notes`
+  - Existing API: `/api/v1/selling/sales-orders`, `/api/v1/selling/delivery-notes`, `/api/v1/selling/dunning`, `/api/v1/selling/receivables-aging`
 - Workflows:
   - lead/opportunity -> quotation -> sales order -> delivery -> invoice -> payment
 - Reports:
@@ -128,7 +129,7 @@ Legacy non-namespaced routes are migration redirects and should not be treated a
 ## Projects
 
 - Routes/screens:
-  - Existing API: `/api/v1/projects/projects`, `/api/v1/projects/tasks`, `/api/v1/projects/timesheets`
+  - Existing API: `/api/v1/projects/projects`, `/api/v1/projects/tasks`, `/api/v1/projects/timesheets`, `/api/v1/projects/billing`
 - Workflows:
   - project -> tasks -> timesheet -> billing linkage
 - Reports:
@@ -174,7 +175,7 @@ Legacy non-namespaced routes are migration redirects and should not be treated a
 ## Quality
 
 - Routes/screens:
-  - Existing API: `/api/v1/quality/inspections`, `/api/v1/quality/capas`
+  - Existing API: `/api/v1/quality/inspections`, `/api/v1/quality/capas`, `/api/v1/quality/goals`
 - Workflows:
   - inbound/production inspection with pass/fail and CAPA linkage
 - Reports:
@@ -189,7 +190,7 @@ Legacy non-namespaced routes are migration redirects and should not be treated a
 ## Support
 
 - Routes/screens:
-  - Existing API: `/api/v1/support/queues`, `/api/v1/support/sla-policies`, `/api/v1/support/tickets`
+  - Existing API: `/api/v1/support/queues`, `/api/v1/support/sla-policies`, `/api/v1/support/tickets`, `/api/v1/support/knowledge-base`
   - Existing API: `/api/v1/communication/windows`, `/api/v1/communication/logs`, `/api/v1/telephony/call-logs`
 - Workflows:
   - ticket create -> assign -> SLA monitor -> resolve/close
@@ -237,14 +238,16 @@ Legacy non-namespaced routes are migration redirects and should not be treated a
 ## No-code customization
 
 - Routes/screens:
-  - Existing: inventory settings custom fields/workflows/labels
-  - Planned: `/customization/fields`, `/customization/forms`, `/customization/workflows`, `/customization/print`, `/customization/automation`
+  - Existing API: `/api/v1/platform/customization/custom-fields`, `/api/v1/platform/customization/form-layouts`
+  - Existing API: `/api/v1/platform/customization/field-rules`, `/api/v1/platform/customization/validation-rules`
+  - Existing API: `/api/v1/platform/customization/automation-rules`, `/api/v1/platform/customization/automation-runs`, `/api/v1/platform/customization/runtime`
+  - Existing API: `/api/v1/platform/customization/print-templates`
 - Workflows:
   - metadata authoring -> publish -> runtime rendering/enforcement
 - Reports:
   - metadata usage and automation execution logs
 - Integrations:
-  - PDF render hook, event bus triggers
+  - PDF render hook, event bus triggers, allowlisted outbound webhook executor
 - Acceptance tests:
   - custom field renders and persists on standard entity
   - invalid metadata rejected at publish
