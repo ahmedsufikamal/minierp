@@ -228,3 +228,35 @@ export const automationRuleSchema = z.object({
   runAsRole: z.string().trim().max(80).optional(),
   isActive: z.boolean().optional(),
 });
+
+export const setupMasterListQuerySchema = z.object({
+  q: z.string().trim().optional(),
+  includeInactive: z.coerce.boolean().default(false),
+});
+
+const setupMasterBaseSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  isActive: z.boolean().optional(),
+});
+
+export const setupItemGroupSchema = setupMasterBaseSchema.extend({
+  parentId: z.string().trim().optional().nullable(),
+  isGroup: z.boolean().optional(),
+});
+
+export const setupUomSchema = setupMasterBaseSchema.extend({
+  symbol: z.string().trim().max(20).optional().nullable(),
+  mustBeWholeNumber: z.boolean().optional(),
+});
+
+export const setupTerritorySchema = setupMasterBaseSchema.extend({
+  parentId: z.string().trim().optional().nullable(),
+});
+
+export const setupCustomerGroupSchema = setupMasterBaseSchema.extend({
+  parentId: z.string().trim().optional().nullable(),
+});
+
+export const setupSupplierGroupSchema = setupMasterBaseSchema.extend({
+  parentId: z.string().trim().optional().nullable(),
+});

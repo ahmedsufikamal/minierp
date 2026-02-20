@@ -29,6 +29,8 @@ export const itemUpsertSchema = z.object({
   brandId: z.string().min(1),
   categoryId: z.string().optional().nullable(),
   subCategoryId: z.string().optional().nullable(),
+  itemGroupId: z.string().optional().nullable(),
+  uomId: z.string().optional().nullable(),
   uom: z.string().default("pcs"),
   unitCostMinor: z.number().int().nonnegative().default(0),
   priceCents: z.number().int().nonnegative().default(0),

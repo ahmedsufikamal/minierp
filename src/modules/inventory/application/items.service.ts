@@ -19,6 +19,46 @@ function pagination(page: number, limit: number) {
   };
 }
 
+async function resolveSetupRefs(
+  ctx: InventoryRequestContext,
+  input: { itemGroupId?: string | null; uomId?: string | null },
+): Promise<{ itemGroupId: string | null; uomId: string | null; uomName?: string }> {
+  let itemGroupId: string | null = input.itemGroupId ?? null;
+  let uomId: string | null = input.uomId ?? null;
+  let uomName: string | undefined;
+
+  if (input.itemGroupId) {
+    const group = await prisma.setupItemGroup.findFirst({
+      where: {
+        id: input.itemGroupId,
+        companyId: ctx.companyId,
+      },
+      select: { id: true },
+    });
+    if (!group) {
+      throw new InventoryError("VALIDATION_ERROR", "Invalid itemGroupId for this company");
+    }
+    itemGroupId = group.id;
+  }
+
+  if (input.uomId) {
+    const uom = await prisma.setupUom.findFirst({
+      where: {
+        id: input.uomId,
+        companyId: ctx.companyId,
+      },
+      select: { id: true, name: true },
+    });
+    if (!uom) {
+      throw new InventoryError("VALIDATION_ERROR", "Invalid uomId for this company");
+    }
+    uomId = uom.id;
+    uomName = uom.name;
+  }
+
+  return { itemGroupId, uomId, uomName };
+}
+
 export async function listInventoryItems(ctx: InventoryRequestContext, input: unknown) {
   const parsed = itemListQuerySchema.safeParse(input);
   if (!parsed.success) {
@@ -48,6 +88,8 @@ export async function listInventoryItems(ctx: InventoryRequestContext, input: un
         brand: { select: { id: true, name: true } },
         category: { select: { id: true, name: true } },
         subCategory: { select: { id: true, name: true } },
+        itemGroup: { select: { id: true, name: true } },
+        uomRef: { select: { id: true, name: true, symbol: true } },
         inventoryItemIdentifiers: {
           orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
         },
@@ -84,6 +126,8 @@ export async function getInventoryItemById(ctx: InventoryRequestContext, itemId:
       brand: true,
       category: true,
       subCategory: true,
+      itemGroup: true,
+      uomRef: true,
       inventoryItemIdentifiers: true,
       inventoryStockBalances: {
         include: {
@@ -124,6 +168,10 @@ export async function createInventoryItem(ctx: InventoryRequestContext, input: u
 
   const data = parsed.data;
   await ensureBrand(ctx, data.brandId);
+  const setupRefs = await resolveSetupRefs(ctx, {
+    itemGroupId: data.itemGroupId,
+    uomId: data.uomId,
+  });
 
   const normalizedSku = normalizeSku(data.sku);
 
@@ -154,7 +202,9 @@ export async function createInventoryItem(ctx: InventoryRequestContext, input: u
         description: data.description,
         categoryId: data.categoryId,
         subCategoryId: data.subCategoryId,
-        uom: data.uom,
+        itemGroupId: setupRefs.itemGroupId,
+        uomId: setupRefs.uomId,
+        uom: setupRefs.uomName ?? data.uom,
         unitCostMinor: data.unitCostMinor,
         priceCents: data.priceCents,
         trackSerial: data.trackSerial,
@@ -232,6 +282,10 @@ export async function updateInventoryItem(ctx: InventoryRequestContext, itemId: 
   if (data.brandId) {
     await ensureBrand(ctx, data.brandId);
   }
+  const setupRefs = await resolveSetupRefs(ctx, {
+    itemGroupId: data.itemGroupId,
+    uomId: data.uomId,
+  });
 
   const normalizedSku = data.sku ? normalizeSku(data.sku) : undefined;
   if (normalizedSku && (data.brandId || existing.brandId)) {
@@ -261,7 +315,9 @@ export async function updateInventoryItem(ctx: InventoryRequestContext, itemId: 
         brandId: data.brandId,
         categoryId: data.categoryId,
         subCategoryId: data.subCategoryId,
-        uom: data.uom,
+        itemGroupId: data.itemGroupId === undefined ? undefined : setupRefs.itemGroupId,
+        uomId: data.uomId === undefined ? undefined : setupRefs.uomId,
+        uom: setupRefs.uomName ?? data.uom,
         unitCostMinor: data.unitCostMinor,
         priceCents: data.priceCents,
         trackSerial: data.trackSerial,
