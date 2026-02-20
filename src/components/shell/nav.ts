@@ -68,9 +68,10 @@ export const navGroups: NavGroup[] = [
   {
     title: "Accounting",
     items: [
-      { href: "/accounting", label: "Chart of Accounts", icon: BookOpen },
-      { href: "/accounting", label: "Journal Entries", icon: FileText },
-      { href: "/accounting", label: "Ledger", icon: BarChart3 },
+      { href: "/accounting/coa", label: "Chart of Accounts", icon: BookOpen },
+      { href: "/accounting/journal-entries", label: "Journal Entries", icon: FileText },
+      { href: "/accounting/gl", label: "Ledger", icon: BarChart3 },
+      { href: "/accounting/periods", label: "Fiscal Periods", icon: Activity },
     ],
   },
   {

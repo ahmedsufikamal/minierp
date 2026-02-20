@@ -1,6 +1,7 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
+import Link from "next/link";
 import {
   NewAccountCard,
   NewJournalEntryCard,
@@ -30,6 +31,21 @@ export default async function AccountingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Accounting" subtitle="Chart of accounts + simple double-entry journal." />
+
+      <div className="flex flex-wrap gap-2 text-sm">
+        <Link href="/accounting/coa" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+          COA
+        </Link>
+        <Link href="/accounting/journal-entries" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+          Journal Entries
+        </Link>
+        <Link href="/accounting/gl" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+          General Ledger
+        </Link>
+        <Link href="/accounting/periods" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+          Fiscal Periods
+        </Link>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-4">

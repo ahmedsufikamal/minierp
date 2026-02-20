@@ -11,14 +11,14 @@ Compliance note:
 
 | ERPNext Module | ERPNext Feature | Source Link | miniERP Equivalent | Status | Notes |
 |---|---|---|---|---|---|
-| Accounting | Chart of Accounts tree | https://docs.frappe.io/erpnext/user/manual/en/chart-of-accounts | `accounting.coa` (`Account` + hierarchy extension) | `[ ] Not Started` | Existing `Account` is flat; tree required |
-| Accounting | Journal Entry | https://docs.frappe.io/erpnext/user/manual/en/accounts/journal-entry | `accounting.journal-entry` (`JournalEntry`,`JournalLine`) | `[ ] Not Started` | Balance invariant + workflow needed |
-| Accounting | General Ledger | https://docs.frappe.io/erpnext/user/manual/en/accounts/general-ledger | `accounting.gl` (`GLEntry` planned) | `[ ] Not Started` | Immutable posting required |
+| Accounting | Chart of Accounts tree | https://docs.frappe.io/erpnext/user/manual/en/chart-of-accounts | `accounting.coa` (`Account` + hierarchy extension) | `[-] In Progress` | Account hierarchy + root type baseline landed |
+| Accounting | Journal Entry | https://docs.frappe.io/erpnext/user/manual/en/accounts/journal-entry | `accounting.journal-entry` (`JournalEntry`,`JournalLine`) | `[-] In Progress` | Balanced submit/post baseline landed |
+| Accounting | General Ledger | https://docs.frappe.io/erpnext/user/manual/en/accounts/general-ledger | `accounting.gl` (`GLEntry`) | `[-] In Progress` | Append-only GL posting landed for journal entries |
 | Accounting | Payment Entry | https://docs.frappe.io/erpnext/user/manual/en/accounts/payment-entry | `accounting.payment-entry` (`Payment`) | `[ ] Not Started` | Allocation and reconciliation pending |
-| Accounting | Fiscal Year and Period Closing | https://docs.frappe.io/erpnext/user/manual/en/accounts/fiscal-year | `accounting.period-close` | `[ ] Not Started` | Closed-period validation pending |
-| Accounting | Trial Balance report | https://docs.frappe.io/erpnext/user/manual/en/accounts/trial-balance | `reports.trial-balance` | `[ ] Not Started` | Reporting engine dependency |
-| Accounting | Profit and Loss report | https://docs.frappe.io/erpnext/user/manual/en/accounts/profit-and-loss-statement | `reports.pnl` | `[ ] Not Started` | Requires periodized GL |
-| Accounting | Balance Sheet report | https://docs.frappe.io/erpnext/user/manual/en/accounts/balance-sheet | `reports.balance-sheet` | `[ ] Not Started` | Requires retained earnings logic |
+| Accounting | Fiscal Year and Period Closing | https://docs.frappe.io/erpnext/user/manual/en/accounts/fiscal-year | `accounting.period-close` | `[-] In Progress` | Fiscal year/period models and close validation landed |
+| Accounting | Trial Balance report | https://docs.frappe.io/erpnext/user/manual/en/accounts/trial-balance | `reports.trial-balance` | `[-] In Progress` | Adapter-backed report endpoint landed |
+| Accounting | Profit and Loss report | https://docs.frappe.io/erpnext/user/manual/en/accounts/profit-and-loss-statement | `reports.pnl` | `[-] In Progress` | Adapter-backed report endpoint landed |
+| Accounting | Balance Sheet report | https://docs.frappe.io/erpnext/user/manual/en/accounts/balance-sheet | `reports.balance-sheet` | `[-] In Progress` | Adapter-backed report endpoint landed |
 | Accounting | Multi-currency | https://docs.frappe.io/erpnext/user/manual/en/accounts/multi-currency-accounting | `accounting.currency` | `[ ] Not Started` | Phase 3 depth |
 | Accounting | Cost center and dimensions | https://docs.frappe.io/erpnext/user/manual/en/accounts/cost-center | `accounting.dimensions` | `[ ] Not Started` | Scope rules tie-in |
 | Buying | Supplier master | https://docs.frappe.io/erpnext/user/manual/en/buying/supplier | `buying.suppliers` (`Vendor`) | `[-] In Progress` | Basic vendor exists |
@@ -90,8 +90,8 @@ Compliance note:
 | Platform | Multi-tenancy architecture | https://docs.frappe.io/framework/user/en/bench/guides/setup-multitenancy | `platform.tenancy` (`Tenant`,`TenantDomain`) | `[-] In Progress` | Company currently tenant boundary |
 | Platform | Role-based permissions | https://docs.frappe.io/erpnext/user/manual/en/setting-up/users-and-permissions/role-based-permissions | `platform.rbac` (`RoleProfile`,`PermissionRule`) | `[-] In Progress` | Scope-level rules pending |
 | Platform | Audit trail | https://docs.frappe.io/erpnext/user/manual/en/using-erpnext/audit-trail | `platform.audit` (`AuditEvent`) | `[-] In Progress` | Unified event model pending |
-| Platform | Numbering series | https://docs.frappe.io/erpnext/user/manual/en/setting-up/settings/naming-series | `platform.number-series` | `[ ] Not Started` | Central allocator pending |
-| Platform | Script reports and query reports | https://docs.frappe.io/erpnext/user/manual/en/desk/reports/query-report | `platform.reporting` | `[ ] Not Started` | Safe query layer pending |
+| Platform | Numbering series | https://docs.frappe.io/erpnext/user/manual/en/setting-up/settings/naming-series | `platform.number-series` | `[-] In Progress` | Allocator landed; module rollout in progress |
+| Platform | Script reports and query reports | https://docs.frappe.io/erpnext/user/manual/en/desk/reports/query-report | `platform.reporting` | `[-] In Progress` | Safe adapter report layer landed |
 
 ## Module completion rule
 A module may only be marked `[x] Done` when:

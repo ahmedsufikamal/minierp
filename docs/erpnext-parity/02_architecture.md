@@ -22,6 +22,11 @@
 - Domain/application/interface/infrastructure split in `src/modules/inventory/*`.
 - Includes inventory workflows, custom fields, label templates, import/export jobs, audit log, and posting.
 
+### Platform + accounting baseline (as of 2026-02-20)
+- Platform primitives are present under `src/modules/platform/*` with API routes under `src/app/api/v1/platform/*`.
+- Accounting Wave 1 scaffold now exists under `src/modules/accounting/*` with API routes under `src/app/api/v1/accounting/*`.
+- Accounting schema now includes fiscal years/periods, GL entries, account hierarchy fields, and journal posting metadata.
+
 ### Queue/jobs
 - BullMQ optional runtime with inline fallback.
 - Worker entrypoint for IAM exists (`scripts/iam-worker.mjs`).

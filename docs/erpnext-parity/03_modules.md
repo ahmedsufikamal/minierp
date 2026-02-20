@@ -9,19 +9,21 @@ Each module section defines:
 
 ## Accounting
 - Routes/screens:
-  - Existing: `/accounting`
-  - Planned: `/accounting/coa`, `/accounting/journal-entries`, `/accounting/period-close`
+  - Existing: `/accounting`, `/accounting/coa`, `/accounting/journal-entries`, `/accounting/gl`, `/accounting/periods`
+  - API: `/api/v1/accounting/accounts`, `/api/v1/accounting/journal-entries`, `/api/v1/accounting/gl`, `/api/v1/accounting/fiscal-years`, `/api/v1/accounting/periods`, `/api/v1/accounting/reports`
 - Workflows:
-  - draft journal -> approve -> post
+  - draft journal -> submit/post (balanced lines only)
   - sales/purchase invoice posting -> GL
   - period close/open controls
 - Reports:
   - trial balance, P&L, balance sheet, GL detail
 - Integrations:
-  - bank import (phase 3), webhook on posted entry
+  - immutable ledger event stream + outbox on posted journal
+  - bank import (phase 3)
 - Acceptance tests:
   - balanced journal posts successfully
   - posting in closed period fails
+  - unbalanced journal is rejected
   - unauthorized user cannot post
 
 ## Buying (Procurement)

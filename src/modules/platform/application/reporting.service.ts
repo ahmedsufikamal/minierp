@@ -2,6 +2,7 @@ import { ReportSourceType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PlatformError } from "@/modules/platform/domain/errors";
 import type { PlatformRequestContext } from "@/modules/platform/domain/types";
+import { runAccountingAdapterReport } from "@/modules/accounting/application/reporting.service";
 
 type ReportFilters = {
   fromDate?: string;
@@ -337,10 +338,15 @@ async function runAdapterReport(
       return { rows, total };
     }
 
+    case "accounting.trial-balance":
+    case "accounting.profit-loss":
+    case "accounting.balance-sheet":
+      return runAccountingAdapterReport(ctx, input);
+
     default:
       throw new PlatformError(
         "VALIDATION_ERROR",
-        `Unsupported report source '${input.sourceRef}'. Allowed sources: sales.invoices, buying.bills, inventory.documents, inventory.ledger, platform.audit`,
+        `Unsupported report source '${input.sourceRef}'. Allowed sources: sales.invoices, buying.bills, inventory.documents, inventory.ledger, platform.audit, accounting.trial-balance, accounting.profit-loss, accounting.balance-sheet`,
       );
   }
 }

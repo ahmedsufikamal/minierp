@@ -43,6 +43,23 @@ Returns up to 100 products for the configured org.
 
 **Response:** `{ "data": [ { "id", "orgId", "sku", "name", "unit", "priceCents", ... }, ... ] }`
 
+### Accounting MVP (Phase 2 Wave 1)
+
+These endpoints use session auth + IAM permissions (`finance.*` compatibility is supported):
+
+- `GET /api/v1/accounting/accounts`
+- `POST /api/v1/accounting/accounts`
+- `GET /api/v1/accounting/journal-entries`
+- `POST /api/v1/accounting/journal-entries`
+- `PATCH /api/v1/accounting/journal-entries` (submit/post)
+- `GET /api/v1/accounting/gl`
+- `GET /api/v1/accounting/fiscal-years`
+- `POST /api/v1/accounting/fiscal-years`
+- `GET /api/v1/accounting/periods`
+- `POST /api/v1/accounting/periods`
+- `PATCH /api/v1/accounting/periods` (open/close)
+- `GET /api/v1/accounting/reports?reportKey=trial-balance|profit-loss|balance-sheet`
+
 ## Errors
 
 - `401 Unauthorized` – missing or invalid API key.

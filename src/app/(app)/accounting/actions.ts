@@ -20,6 +20,10 @@ function toCents(input: string | undefined | null) {
 
 export async function createAccount(formData: FormData) {
   const companyId = await getCompanyIdOrUserId();
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { tenantId: true },
+  });
 
   const parsed = AccountSchema.safeParse({
     code: formData.get("code"),
@@ -33,7 +37,15 @@ export async function createAccount(formData: FormData) {
 
   try {
     await prisma.account.create({
-      data: { companyId, ...parsed.data },
+      data: {
+        companyId,
+        tenantId: company?.tenantId ?? null,
+        code: parsed.data.code,
+        name: parsed.data.name,
+        type: parsed.data.type,
+        rootType: parsed.data.type,
+        isGroup: false,
+      },
     });
   } catch (e) {
     const conflict = handlePrismaUniqueConflict(e, "code");
@@ -56,6 +68,10 @@ const EntrySchema = z.object({
 
 export async function createJournalEntry(formData: FormData) {
   const companyId = await getCompanyIdOrUserId();
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { tenantId: true },
+  });
 
   const parsed = EntrySchema.safeParse({
     date: formData.get("date"),
@@ -76,17 +92,22 @@ export async function createJournalEntry(formData: FormData) {
 
   await prisma.journalEntry.create({
     data: {
+      tenantId: company?.tenantId ?? null,
       companyId,
       date,
       memo: parsed.data.memo || null,
+      totalDebitCents: amountCents,
+      totalCreditCents: amountCents,
       lines: {
         create: [
           {
+            lineNo: 1,
             accountId: parsed.data.debitAccountId,
             debitCents: amountCents,
             creditCents: 0,
           },
           {
+            lineNo: 2,
             accountId: parsed.data.creditAccountId,
             debitCents: 0,
             creditCents: amountCents,

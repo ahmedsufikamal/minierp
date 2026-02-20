@@ -74,6 +74,17 @@ enum AccountType {
   EXPENSE
 }
 
+enum AccountingPeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum JournalEntryStatus {
+  DRAFT
+  SUBMITTED
+  CANCELLED
+}
+
 enum InventoryCustomFieldEntityType {
   ITEM
   WAREHOUSE
@@ -667,35 +678,145 @@ model InventoryMove {
 model Account {
   id        String      @id @default(cuid())
   companyId String      @map("orgId")
+  tenantId  String?
   code      String
   name      String
   type      AccountType
+  parentId  String?
+  parent    Account?    @relation("AccountTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Account[]   @relation("AccountTree")
+  isGroup   Boolean     @default(false)
+  rootType  AccountType?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  lines JournalLine[]
+  lines     JournalLine[]
+  glEntries GLEntry[]
 
   @@unique([companyId, code])
+  @@index([companyId, parentId])
+  @@index([companyId, rootType])
 }
 
 model JournalEntry {
-  id        String   @id @default(cuid())
-  companyId String   @map("orgId")
-  date      DateTime @default(now())
-  memo      String?
-  createdAt DateTime @default(now())
+  id               String            @id @default(cuid())
+  tenantId         String?
+  companyId        String            @map("orgId")
+  number           String?
+  status           JournalEntryStatus @default(DRAFT)
+  date             DateTime          @default(now())
+  postingDate      DateTime?         @db.Date
+  fiscalYearId     String?
+  fiscalYear       FiscalYear?       @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
+  accountingPeriodId String?
+  accountingPeriod AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
+  memo             String?
+  submittedAt      DateTime?
+  submittedBy      String?
+  postedAt         DateTime?
+  postedBy         String?
+  cancelledAt      DateTime?
+  cancelledBy      String?
+  totalDebitCents  Int               @default(0)
+  totalCreditCents Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  lines JournalLine[]
+  lines     JournalLine[]
+  glEntries GLEntry[]
+
+  @@unique([companyId, number])
+  @@index([companyId, date])
+  @@index([tenantId, companyId, status, date])
 }
 
 model JournalLine {
   id          String       @id @default(cuid())
   entryId     String
   entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  lineNo      Int          @default(1)
   accountId   String
   account     Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  description String?
   debitCents  Int          @default(0)
   creditCents Int          @default(0)
+
+  @@index([entryId, lineNo])
+}
+
+model FiscalYear {
+  id         String   @id @default(cuid())
+  tenantId   String
+  companyId  String   @map("orgId")
+  name       String
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  isClosed   Boolean  @default(false)
+  isDefault  Boolean  @default(false)
+  createdBy  String?
+  closedBy   String?
+  closedAt   DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  periods        AccountingPeriod[]
+  journalEntries JournalEntry[]
+  glEntries      GLEntry[]
+
+  @@unique([tenantId, companyId, name])
+  @@index([tenantId, companyId, startDate, endDate])
+}
+
+model AccountingPeriod {
+  id         String                @id @default(cuid())
+  tenantId   String
+  companyId  String                @map("orgId")
+  fiscalYearId String
+  fiscalYear FiscalYear            @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  name       String
+  startDate  DateTime              @db.Date
+  endDate    DateTime              @db.Date
+  status     AccountingPeriodStatus @default(OPEN)
+  isYearEnd  Boolean               @default(false)
+  closedBy   String?
+  closedAt   DateTime?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  journalEntries JournalEntry[]
+  glEntries      GLEntry[]
+
+  @@unique([tenantId, companyId, fiscalYearId, name])
+  @@index([tenantId, companyId, status, startDate, endDate])
+}
+
+model GLEntry {
+  id               String            @id @default(cuid())
+  tenantId         String
+  companyId        String            @map("orgId")
+  postingDate      DateTime          @db.Date
+  accountId        String
+  account          Account           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  journalEntryId   String?
+  journalEntry     JournalEntry?     @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  fiscalYearId     String?
+  fiscalYear       FiscalYear?       @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
+  accountingPeriodId String?
+  accountingPeriod AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
+  debitCents       Int               @default(0)
+  creditCents      Int               @default(0)
+  currency         String            @default("USD")
+  voucherType      String?
+  voucherId        String?
+  remarks          String?
+  metadata         Json?
+  createdBy        String?
+  createdAt        DateTime          @default(now())
+
+  @@index([tenantId, companyId, postingDate])
+  @@index([tenantId, companyId, accountId, postingDate])
+  @@index([tenantId, companyId, voucherType, voucherId])
+  @@index([journalEntryId])
 }
 
 // CRM Models

@@ -82,6 +82,14 @@ function defaultPlatformWorkflow() {
   };
 }
 
+function monthStartUtc(year, monthIndex) {
+  return new Date(Date.UTC(year, monthIndex, 1));
+}
+
+function monthEndUtc(year, monthIndex) {
+  return new Date(Date.UTC(year, monthIndex + 1, 0));
+}
+
 const permissionCatalog = [
   { key: "inventory.read", module: "inventory", description: "Read inventory entities" },
   { key: "inventory.write", module: "inventory", description: "Create/update inventory entities" },
@@ -107,6 +115,15 @@ const permissionCatalog = [
   { key: "sales.write", module: "sales", description: "Write sales entities" },
   { key: "finance.read", module: "finance", description: "Read finance entities" },
   { key: "finance.write", module: "finance", description: "Write finance entities" },
+  { key: "accounting.account.read", module: "accounting", description: "Read chart of accounts" },
+  { key: "accounting.account.write", module: "accounting", description: "Manage chart of accounts" },
+  { key: "accounting.journal.read", module: "accounting", description: "Read journal entries" },
+  { key: "accounting.journal.write", module: "accounting", description: "Create draft journal entries" },
+  { key: "accounting.journal.submit", module: "accounting", description: "Submit and post journal entries" },
+  { key: "accounting.gl.read", module: "accounting", description: "Read general ledger entries" },
+  { key: "accounting.period.read", module: "accounting", description: "Read fiscal years and periods" },
+  { key: "accounting.period.write", module: "accounting", description: "Manage fiscal years and periods" },
+  { key: "accounting.report.read", module: "accounting", description: "Read accounting reports" },
   { key: "admin.members", module: "admin", description: "Manage organization members" },
   { key: "admin.roles", module: "admin", description: "Manage organization roles" },
   { key: "admin.settings", module: "admin", description: "Manage organization settings" },
@@ -151,6 +168,11 @@ const roleSeeds = [
       "sales.read",
       "sales.write",
       "finance.read",
+      "accounting.account.read",
+      "accounting.journal.read",
+      "accounting.gl.read",
+      "accounting.period.read",
+      "accounting.report.read",
       "platform.workflow.read",
       "platform.reporting.read",
     ],
@@ -183,10 +205,67 @@ const roleSeeds = [
     ],
   },
   { name: "SALES_MANAGER", isDefault: false, isSystem: true, permissionKeys: ["sales.read", "sales.write", "inventory.read", "inventory.item.read", "inventory.document.read", "finance.read"] },
-  { name: "FINANCE_MANAGER", isDefault: false, isSystem: true, permissionKeys: ["finance.read", "finance.write", "sales.read", "inventory.read", "inventory.ledger.read", "inventory.export.read", "platform.reporting.read"] },
+  {
+    name: "FINANCE_MANAGER",
+    isDefault: false,
+    isSystem: true,
+    permissionKeys: [
+      "finance.read",
+      "finance.write",
+      "accounting.account.read",
+      "accounting.account.write",
+      "accounting.journal.read",
+      "accounting.journal.write",
+      "accounting.journal.submit",
+      "accounting.gl.read",
+      "accounting.period.read",
+      "accounting.period.write",
+      "accounting.report.read",
+      "sales.read",
+      "inventory.read",
+      "inventory.ledger.read",
+      "inventory.export.read",
+      "platform.reporting.read",
+    ],
+  },
   { name: "PROCUREMENT_MANAGER", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "inventory.write", "inventory.item.read", "inventory.item.write", "inventory.document.read", "inventory.document.write", "inventory.settings.read", "finance.read", "platform.reporting.read"] },
-  { name: "MEMBER", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "inventory.item.read", "inventory.document.read", "sales.read", "finance.read", "platform.reporting.read"] },
-  { name: "VIEWER", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "inventory.item.read", "inventory.document.read", "inventory.ledger.read", "sales.read", "finance.read", "platform.reporting.read"] },
+  {
+    name: "MEMBER",
+    isDefault: false,
+    isSystem: true,
+    permissionKeys: [
+      "inventory.read",
+      "inventory.item.read",
+      "inventory.document.read",
+      "sales.read",
+      "finance.read",
+      "accounting.account.read",
+      "accounting.journal.read",
+      "accounting.gl.read",
+      "accounting.period.read",
+      "accounting.report.read",
+      "platform.reporting.read",
+    ],
+  },
+  {
+    name: "VIEWER",
+    isDefault: false,
+    isSystem: true,
+    permissionKeys: [
+      "inventory.read",
+      "inventory.item.read",
+      "inventory.document.read",
+      "inventory.ledger.read",
+      "sales.read",
+      "finance.read",
+      "accounting.account.read",
+      "accounting.journal.read",
+      "accounting.gl.read",
+      "accounting.period.read",
+      "accounting.report.read",
+      "platform.reporting.read",
+    ],
+  },
   { name: "AUDITOR", isDefault: false, isSystem: true, permissionKeys: ["inventory.read", "inventory.item.read", "inventory.document.read", "inventory.ledger.read", "inventory.export.read", "sales.read", "finance.read", "iam.audit.read", "platform.audit.read", "platform.ledger.read", "platform.reporting.read"] },
 ];
 
@@ -549,6 +628,237 @@ async function ensureCompanyBase({ companyId, companyName, tenantId, primaryDoma
     },
   });
 
+  const now = new Date();
+  const fiscalYearNumber = now.getUTCFullYear();
+  const fiscalYearName = `FY${fiscalYearNumber}`;
+  const fiscalYearStart = new Date(Date.UTC(fiscalYearNumber, 0, 1));
+  const fiscalYearEnd = new Date(Date.UTC(fiscalYearNumber, 11, 31));
+
+  const fiscalYear = await prisma.fiscalYear.upsert({
+    where: {
+      tenantId_companyId_name: {
+        tenantId,
+        companyId,
+        name: fiscalYearName,
+      },
+    },
+    create: {
+      tenantId,
+      companyId,
+      name: fiscalYearName,
+      startDate: fiscalYearStart,
+      endDate: fiscalYearEnd,
+      isClosed: false,
+      isDefault: true,
+      createdBy: createdByUserId ?? null,
+    },
+    update: {
+      startDate: fiscalYearStart,
+      endDate: fiscalYearEnd,
+      isClosed: false,
+      isDefault: true,
+    },
+  });
+
+  for (let month = 0; month < 12; month += 1) {
+    const periodName = `${fiscalYearName}-${String(month + 1).padStart(2, "0")}`;
+    await prisma.accountingPeriod.upsert({
+      where: {
+        tenantId_companyId_fiscalYearId_name: {
+          tenantId,
+          companyId,
+          fiscalYearId: fiscalYear.id,
+          name: periodName,
+        },
+      },
+      create: {
+        tenantId,
+        companyId,
+        fiscalYearId: fiscalYear.id,
+        name: periodName,
+        startDate: monthStartUtc(fiscalYearNumber, month),
+        endDate: monthEndUtc(fiscalYearNumber, month),
+        status: "OPEN",
+        isYearEnd: month === 11,
+      },
+      update: {
+        startDate: monthStartUtc(fiscalYearNumber, month),
+        endDate: monthEndUtc(fiscalYearNumber, month),
+        status: "OPEN",
+        isYearEnd: month === 11,
+      },
+    });
+  }
+
+  const accountCatalog = [
+    { code: "1000", name: "Assets", type: "ASSET", rootType: "ASSET", isGroup: true, parentCode: null },
+    { code: "1100", name: "Cash", type: "ASSET", rootType: "ASSET", isGroup: false, parentCode: "1000" },
+    { code: "2000", name: "Liabilities", type: "LIABILITY", rootType: "LIABILITY", isGroup: true, parentCode: null },
+    { code: "2100", name: "Accounts Payable", type: "LIABILITY", rootType: "LIABILITY", isGroup: false, parentCode: "2000" },
+    { code: "3000", name: "Equity", type: "EQUITY", rootType: "EQUITY", isGroup: true, parentCode: null },
+    { code: "3100", name: "Retained Earnings", type: "EQUITY", rootType: "EQUITY", isGroup: false, parentCode: "3000" },
+    { code: "4000", name: "Income", type: "INCOME", rootType: "INCOME", isGroup: true, parentCode: null },
+    { code: "4100", name: "Sales", type: "INCOME", rootType: "INCOME", isGroup: false, parentCode: "4000" },
+    { code: "5000", name: "Expenses", type: "EXPENSE", rootType: "EXPENSE", isGroup: true, parentCode: null },
+    { code: "5100", name: "Cost of Goods Sold", type: "EXPENSE", rootType: "EXPENSE", isGroup: false, parentCode: "5000" },
+  ];
+
+  const accountByCode = new Map();
+  for (const row of accountCatalog) {
+    const account = await prisma.account.upsert({
+      where: {
+        companyId_code: {
+          companyId,
+          code: row.code,
+        },
+      },
+      create: {
+        companyId,
+        tenantId,
+        code: row.code,
+        name: row.name,
+        type: row.type,
+        rootType: row.rootType,
+        isGroup: row.isGroup,
+      },
+      update: {
+        tenantId,
+        name: row.name,
+        type: row.type,
+        rootType: row.rootType,
+        isGroup: row.isGroup,
+      },
+    });
+    accountByCode.set(row.code, account);
+  }
+
+  for (const row of accountCatalog) {
+    if (!row.parentCode) continue;
+    const account = accountByCode.get(row.code);
+    const parent = accountByCode.get(row.parentCode);
+    if (!account || !parent) continue;
+    await prisma.account.update({
+      where: { id: account.id },
+      data: { parentId: parent.id },
+    });
+  }
+
+  const currentPeriod = await prisma.accountingPeriod.findFirst({
+    where: {
+      tenantId,
+      companyId,
+      fiscalYearId: fiscalYear.id,
+      startDate: { lte: now },
+      endDate: { gte: now },
+    },
+    select: { id: true },
+  });
+
+  const openingEntry = await prisma.journalEntry.upsert({
+    where: {
+      companyId_number: {
+        companyId,
+        number: `JE-${companyId}-0001`,
+      },
+    },
+    create: {
+      tenantId,
+      companyId,
+      number: `JE-${companyId}-0001`,
+      status: "SUBMITTED",
+      date: now,
+      postingDate: now,
+      fiscalYearId: fiscalYear.id,
+      accountingPeriodId: currentPeriod?.id ?? null,
+      memo: `Seed opening journal for ${companyName}`,
+      submittedAt: now,
+      submittedBy: createdByUserId ?? null,
+      postedAt: now,
+      postedBy: createdByUserId ?? null,
+      totalDebitCents: 100000,
+      totalCreditCents: 100000,
+    },
+    update: {
+      tenantId,
+      status: "SUBMITTED",
+      date: now,
+      postingDate: now,
+      fiscalYearId: fiscalYear.id,
+      accountingPeriodId: currentPeriod?.id ?? null,
+      memo: `Seed opening journal for ${companyName}`,
+      submittedAt: now,
+      submittedBy: createdByUserId ?? null,
+      postedAt: now,
+      postedBy: createdByUserId ?? null,
+      totalDebitCents: 100000,
+      totalCreditCents: 100000,
+    },
+  });
+
+  await prisma.journalLine.deleteMany({ where: { entryId: openingEntry.id } });
+  const cash = accountByCode.get("1100");
+  const equity = accountByCode.get("3100");
+  if (cash && equity) {
+    await prisma.journalLine.createMany({
+      data: [
+        {
+          entryId: openingEntry.id,
+          lineNo: 1,
+          accountId: cash.id,
+          description: "Opening cash balance",
+          debitCents: 100000,
+          creditCents: 0,
+        },
+        {
+          entryId: openingEntry.id,
+          lineNo: 2,
+          accountId: equity.id,
+          description: "Opening equity",
+          debitCents: 0,
+          creditCents: 100000,
+        },
+      ],
+    });
+
+    await prisma.gLEntry.deleteMany({ where: { journalEntryId: openingEntry.id } });
+    await prisma.gLEntry.createMany({
+      data: [
+        {
+          tenantId,
+          companyId,
+          postingDate: now,
+          accountId: cash.id,
+          journalEntryId: openingEntry.id,
+          fiscalYearId: fiscalYear.id,
+          accountingPeriodId: currentPeriod?.id ?? null,
+          debitCents: 100000,
+          creditCents: 0,
+          currency: "USD",
+          voucherType: "JOURNAL_ENTRY",
+          voucherId: openingEntry.id,
+          remarks: openingEntry.memo,
+          createdBy: createdByUserId ?? null,
+        },
+        {
+          tenantId,
+          companyId,
+          postingDate: now,
+          accountId: equity.id,
+          journalEntryId: openingEntry.id,
+          fiscalYearId: fiscalYear.id,
+          accountingPeriodId: currentPeriod?.id ?? null,
+          debitCents: 0,
+          creditCents: 100000,
+          currency: "USD",
+          voucherType: "JOURNAL_ENTRY",
+          voucherId: openingEntry.id,
+          remarks: openingEntry.memo,
+          createdBy: createdByUserId ?? null,
+        },
+      ],
+    });
+  }
+
   await prisma.company.update({
     where: { id: companyId },
     data: {
@@ -656,19 +966,6 @@ async function ensureCompanyBase({ companyId, companyName, tenantId, primaryDoma
       },
     },
     update: {},
-  });
-
-  await prisma.journalEntry.create({
-    data: {
-      companyId,
-      date: new Date(),
-      memo: `Seed opening journal for ${companyName}`,
-      lines: {
-        create: [],
-      },
-    },
-  }).catch(() => {
-    // Journal lines are optional in current schema constraints; skip duplicate issue across repeated seeds.
   });
 
   return {
@@ -1009,6 +1306,35 @@ async function main() {
       tenantId_companyId_key: {
         tenantId: tenant.id,
         companyId: PRIMARY_COMPANY_ID,
+        key: "JE",
+      },
+    },
+    create: {
+      tenantId: tenant.id,
+      companyId: PRIMARY_COMPANY_ID,
+      key: "JE",
+      name: "Journal Entry Series",
+      pattern: "JE-{FY}-{COMP}-{####}",
+      resetPolicy: "FISCAL_YEAR",
+      startAt: 1,
+      padding: 4,
+      isActive: true,
+    },
+    update: {
+      name: "Journal Entry Series",
+      pattern: "JE-{FY}-{COMP}-{####}",
+      resetPolicy: "FISCAL_YEAR",
+      startAt: 1,
+      padding: 4,
+      isActive: true,
+    },
+  });
+
+  await prisma.numberSeries.upsert({
+    where: {
+      tenantId_companyId_key: {
+        tenantId: tenant.id,
+        companyId: PRIMARY_COMPANY_ID,
         key: "PINV",
       },
     },
@@ -1057,6 +1383,96 @@ async function main() {
       name: "Sales Invoice Register",
       sourceType: "ADAPTER",
       sourceRef: "sales.invoices",
+      isSystem: true,
+      isActive: true,
+      updatedBy: ownerUser.id,
+    },
+  });
+
+  await prisma.reportDefinition.upsert({
+    where: {
+      tenantId_companyId_key: {
+        tenantId: tenant.id,
+        companyId: PRIMARY_COMPANY_ID,
+        key: "accounting_trial_balance",
+      },
+    },
+    create: {
+      tenantId: tenant.id,
+      companyId: PRIMARY_COMPANY_ID,
+      key: "accounting_trial_balance",
+      name: "Trial Balance",
+      sourceType: "ADAPTER",
+      sourceRef: "accounting.trial-balance",
+      isSystem: true,
+      isActive: true,
+      createdBy: ownerUser.id,
+      updatedBy: ownerUser.id,
+    },
+    update: {
+      name: "Trial Balance",
+      sourceType: "ADAPTER",
+      sourceRef: "accounting.trial-balance",
+      isSystem: true,
+      isActive: true,
+      updatedBy: ownerUser.id,
+    },
+  });
+
+  await prisma.reportDefinition.upsert({
+    where: {
+      tenantId_companyId_key: {
+        tenantId: tenant.id,
+        companyId: PRIMARY_COMPANY_ID,
+        key: "accounting_profit_loss",
+      },
+    },
+    create: {
+      tenantId: tenant.id,
+      companyId: PRIMARY_COMPANY_ID,
+      key: "accounting_profit_loss",
+      name: "Profit and Loss",
+      sourceType: "ADAPTER",
+      sourceRef: "accounting.profit-loss",
+      isSystem: true,
+      isActive: true,
+      createdBy: ownerUser.id,
+      updatedBy: ownerUser.id,
+    },
+    update: {
+      name: "Profit and Loss",
+      sourceType: "ADAPTER",
+      sourceRef: "accounting.profit-loss",
+      isSystem: true,
+      isActive: true,
+      updatedBy: ownerUser.id,
+    },
+  });
+
+  await prisma.reportDefinition.upsert({
+    where: {
+      tenantId_companyId_key: {
+        tenantId: tenant.id,
+        companyId: PRIMARY_COMPANY_ID,
+        key: "accounting_balance_sheet",
+      },
+    },
+    create: {
+      tenantId: tenant.id,
+      companyId: PRIMARY_COMPANY_ID,
+      key: "accounting_balance_sheet",
+      name: "Balance Sheet",
+      sourceType: "ADAPTER",
+      sourceRef: "accounting.balance-sheet",
+      isSystem: true,
+      isActive: true,
+      createdBy: ownerUser.id,
+      updatedBy: ownerUser.id,
+    },
+    update: {
+      name: "Balance Sheet",
+      sourceType: "ADAPTER",
+      sourceRef: "accounting.balance-sheet",
       isSystem: true,
       isActive: true,
       updatedBy: ownerUser.id,

@@ -26,9 +26,10 @@
   - Scope filters by tenant/company/branch/warehouse/project dimensions.
 
 ### Accounting and controls
-- `Account` (existing; to evolve to hierarchical COA)
-- `JournalEntry`, `JournalLine` (existing)
-- `GLEntry` (planned)
+- `Account` (hierarchical COA baseline with `parentId`, `isGroup`, `rootType`)
+- `FiscalYear`, `AccountingPeriod`
+- `JournalEntry`, `JournalLine` (posting metadata + status)
+- `GLEntry` (append-only posting rows)
 - `AuditEvent`
 - `ImmutableLedgerEvent`
 - `OutboxEvent`

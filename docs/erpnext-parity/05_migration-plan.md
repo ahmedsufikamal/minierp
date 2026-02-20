@@ -42,18 +42,32 @@
 | E8 | Phase 1 verification suite (unit/integration/e2e/security checks) | Codex | E2-E8 | 3d | Required Phase 1 tests pass |
 
 ## Phase 0 guardrails checklist
-- [ ] Lint/test/format scripts documented and verified.
-- [ ] Unit, integration, e2e scaffolding documented and runnable.
-- [ ] Seed data includes tenant + two companies and role profiles.
-- [ ] CI mapping documented in architecture doc.
+- [x] Lint/test/format scripts documented and verified.
+- [x] Unit, integration, e2e scaffolding documented and runnable.
+- [x] Seed data includes tenant + two companies and role profiles.
+- [x] CI mapping documented in architecture doc.
 
 ## Phase 1 done checklist
-- [ ] Tenancy and domain resolver in place.
-- [ ] RBAC and row-scope engine implemented.
-- [ ] Generic workflow engine available and inventory adapter landed.
-- [ ] Unified audit and immutable ledger events live.
-- [ ] Numbering series service live.
-- [ ] Reporting engine baseline live.
+- [x] Tenancy and domain resolver in place.
+- [x] RBAC and row-scope engine implemented.
+- [x] Generic workflow engine available and inventory adapter landed.
+- [x] Unified audit and immutable ledger events live.
+- [x] Numbering series service live.
+- [x] Reporting engine baseline live.
+
+## Phase 2 wave status
+- [x] Wave 0 closeout (platform verification + docs sync)
+- [-] Wave 1 accounting MVP (schema/services/APIs/minimal routes/tests)
+- [ ] Wave 2 stock MVP completion alignment
+- [ ] Wave 3 sales chain MVP
+- [ ] Wave 4 procurement chain MVP
+- [ ] Wave 5 CRM MVP
+- [ ] Wave 6 projects MVP
+- [ ] Wave 7 support MVP
+- [ ] Wave 8 HR & payroll MVP
+- [ ] Wave 9 assets MVP
+- [ ] Wave 10 POS MVP
+- [ ] Wave 11 quality MVP
 
 ## Required acceptance test pack
 
