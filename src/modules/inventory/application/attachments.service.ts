@@ -68,8 +68,8 @@ export async function finalizeAttachmentUpload(ctx: InventoryRequestContext, inp
     throw new InventoryError("CONFLICT", "storageKey mismatch for attachment finalize");
   }
 
-  const updated = await prisma.inventoryAttachment.update({
-    where: { id: attachment.id },
+  const writeResult = await prisma.inventoryAttachment.updateMany({
+    where: { id: attachment.id, companyId: ctx.companyId },
     data: {
       uploadedAt: new Date(),
       scanStatus: "NOT_SCANNED",
@@ -79,6 +79,19 @@ export async function finalizeAttachmentUpload(ctx: InventoryRequestContext, inp
       },
     },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Attachment not found");
+  }
+
+  const updated = await prisma.inventoryAttachment.findFirst({
+    where: {
+      id: attachment.id,
+      companyId: ctx.companyId,
+    },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Attachment not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "ATTACHMENT_UPLOADED",

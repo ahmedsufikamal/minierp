@@ -1,13 +1,13 @@
 import { InventoryCustomFieldEntityType } from "@prisma/client";
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
-import { getCompanyIdOrUserId } from "@/lib/auth";
+import { getInventoryCompanyScopeId } from "@/modules/inventory/interface/company-scope";
 import { InventorySettingsClient } from "./settings-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventorySettingsPage() {
-  const companyId = await getCompanyIdOrUserId();
+  const companyId = await getInventoryCompanyScopeId();
 
   const [fields, workflows, labelTemplates] = await Promise.all([
     prisma.inventoryCustomFieldDefinition.findMany({
@@ -34,6 +34,26 @@ export default async function InventorySettingsPage() {
       orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
     }),
   ]);
+
+  const companySetting =
+    (await prisma.inventoryCompanySetting.findUnique({
+      where: { companyId },
+      select: {
+        costingMethod: true,
+        preventNegativeStock: true,
+        allowNegativeOverride: true,
+        trackByLocation: true,
+        baseCurrency: true,
+      },
+    })) ?? {
+      costingMethod: "AVG",
+      preventNegativeStock: true,
+      allowNegativeOverride: false,
+      trackByLocation: false,
+      baseCurrency: "BDT",
+    };
+
+  const valuationMethod = companySetting.costingMethod === "FIFO" ? "FIFO" : "MOVING_AVERAGE";
 
   return (
     <div className="space-y-4">
@@ -67,6 +87,13 @@ export default async function InventorySettingsPage() {
           paperType: template.paperType,
           isDefault: template.isDefault,
         }))}
+        companySettings={{
+          valuationMethod,
+          preventNegativeStock: companySetting.preventNegativeStock,
+          allowNegativeOverride: companySetting.allowNegativeOverride,
+          trackByLocation: companySetting.trackByLocation,
+          baseCurrency: companySetting.baseCurrency,
+        }}
       />
     </div>
   );

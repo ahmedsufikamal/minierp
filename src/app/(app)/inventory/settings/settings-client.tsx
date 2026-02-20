@@ -30,6 +30,14 @@ type LabelTemplate = {
   isDefault: boolean;
 };
 
+type CompanySettings = {
+  valuationMethod: "MOVING_AVERAGE" | "FIFO";
+  preventNegativeStock: boolean;
+  allowNegativeOverride: boolean;
+  trackByLocation: boolean;
+  baseCurrency: string;
+};
+
 function prettyJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
@@ -38,12 +46,14 @@ export function InventorySettingsClient({
   fields,
   workflows,
   labelTemplates,
+  companySettings,
 }: {
   fields: Field[];
   workflows: Workflow[];
   labelTemplates: LabelTemplate[];
+  companySettings: CompanySettings;
 }) {
-  const [tab, setTab] = useState<"fields" | "workflow" | "labels">("fields");
+  const [tab, setTab] = useState<"company" | "fields" | "workflow" | "labels">("company");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -154,9 +164,40 @@ export function InventorySettingsClient({
     window.location.reload();
   };
 
+  const saveCompanySettings = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    const form = new FormData(event.currentTarget);
+
+    const response = await fetch("/api/v1/inventory/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        valuationMethod: String(form.get("valuationMethod") || "MOVING_AVERAGE"),
+        preventNegativeStock: form.get("preventNegativeStock") === "on",
+        allowNegativeOverride: form.get("allowNegativeOverride") === "on",
+        trackByLocation: form.get("trackByLocation") === "on",
+        baseCurrency: String(form.get("baseCurrency") || "BDT"),
+      }),
+    });
+
+    const body = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: { message?: string } };
+    if (!response.ok || !body.ok) {
+      setMessage(body.error?.message || "Failed to save inventory settings");
+      setBusy(false);
+      return;
+    }
+
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
+        <Button variant={tab === "company" ? "default" : "outline"} size="sm" onClick={() => setTab("company")}>
+          Company
+        </Button>
         <Button variant={tab === "fields" ? "default" : "outline"} size="sm" onClick={() => setTab("fields")}>
           Custom Fields
         </Button>
@@ -169,6 +210,57 @@ export function InventorySettingsClient({
       </div>
 
       {message && <p className="text-sm text-destructive">{message}</p>}
+
+      {tab === "company" && (
+        <div className="space-y-3">
+          <form onSubmit={saveCompanySettings} className="surface-1 grid gap-3 p-4 sm:grid-cols-2">
+            <label className="text-sm">
+              Valuation method
+              <select
+                name="valuationMethod"
+                defaultValue={companySettings.valuationMethod}
+                className="focus-ring mt-1 h-9 w-full rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm"
+              >
+                <option value="MOVING_AVERAGE">MOVING_AVERAGE</option>
+                <option value="FIFO">FIFO</option>
+              </select>
+            </label>
+
+            <label className="text-sm">
+              Base currency
+              <input
+                name="baseCurrency"
+                maxLength={3}
+                defaultValue={companySettings.baseCurrency}
+                className="focus-ring mt-1 h-9 w-full rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm uppercase"
+              />
+            </label>
+
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input name="preventNegativeStock" type="checkbox" defaultChecked={companySettings.preventNegativeStock} />
+              Prevent negative stock
+            </label>
+
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                name="allowNegativeOverride"
+                type="checkbox"
+                defaultChecked={companySettings.allowNegativeOverride}
+              />
+              Allow override by authorized users
+            </label>
+
+            <label className="inline-flex items-center gap-2 text-sm sm:col-span-2">
+              <input name="trackByLocation" type="checkbox" defaultChecked={companySettings.trackByLocation} />
+              Track stock by location
+            </label>
+
+            <Button type="submit" className="sm:col-span-2" disabled={busy}>
+              {busy ? "Saving..." : "Save Inventory Settings"}
+            </Button>
+          </form>
+        </div>
+      )}
 
       {tab === "fields" && (
         <div className="space-y-3">

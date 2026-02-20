@@ -69,10 +69,20 @@ export async function updateReorderRule(ctx: InventoryRequestContext, ruleId: st
     throw new InventoryError("NOT_FOUND", "Reorder rule not found");
   }
 
-  const updated = await prisma.inventoryReorderRule.update({
-    where: { id: ruleId },
+  const writeResult = await prisma.inventoryReorderRule.updateMany({
+    where: { id: ruleId, companyId: ctx.companyId },
     data: parsed.data,
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Reorder rule not found");
+  }
+
+  const updated = await prisma.inventoryReorderRule.findFirst({
+    where: { id: ruleId, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Reorder rule not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "REORDER_RULE_UPDATED",
@@ -94,7 +104,12 @@ export async function deleteReorderRule(ctx: InventoryRequestContext, ruleId: st
     throw new InventoryError("NOT_FOUND", "Reorder rule not found");
   }
 
-  await prisma.inventoryReorderRule.delete({ where: { id: ruleId } });
+  const deleteResult = await prisma.inventoryReorderRule.deleteMany({
+    where: { id: ruleId, companyId: ctx.companyId },
+  });
+  if (deleteResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Reorder rule not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "REORDER_RULE_DELETED",

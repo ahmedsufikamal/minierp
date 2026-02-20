@@ -1,0 +1,37 @@
+
+> minierp-clerk-nextjs@0.3.0 postinstall
+> npm run prisma:generate
+
+
+> minierp-clerk-nextjs@0.3.0 prisma:generate
+> prisma generate
+
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 1.66s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+
+added 711 packages, and audited 712 packages in 1m
+
+203 packages are looking for funding
+  run `npm fund` for details
+
+22 vulnerabilities (6 moderate, 16 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.

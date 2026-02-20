@@ -1,0 +1,19 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    95    0    95    0     0    476      0 --:--:-- --:--:-- --:--:--   477
+HTTP/1.1 401 Unauthorized
+Content-Security-Policy: default-src 'self'; base-uri 'self'; font-src 'self' data: https:; img-src 'self' data: blob: https:; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: ws: wss:; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+Strict-Transport-Security: max-age=0
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+x-request-id: 032e82de-28cd-4343-bbb1-adca54ced781
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Fri, 20 Feb 2026 18:26:32 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"ok":false,"error":{"code":"UNAUTHORIZED","message":"Authentication required","details":null}}

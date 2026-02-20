@@ -1,0 +1,15 @@
+
+> minierp-clerk-nextjs@0.3.0 dev
+> next dev --port 3103
+
+▲ Next.js 16.1.4 (Turbopack)
+- Local:         http://localhost:3103
+- Network:       http://192.168.68.101:3103
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 2.5s
+ GET /api/v1/inventory/items?limit=1 401 in 2.5s (compile: 988ms, proxy.ts: 1519ms, render: 16ms)
+ GET /api/v1/inventory/warehouses?limit=1 401 in 148ms (compile: 139ms, proxy.ts: 5ms, render: 4ms)
+ GET /api/v1/inventory/ledger?limit=1 401 in 196ms (compile: 187ms, proxy.ts: 4ms, render: 5ms)
+[?25h

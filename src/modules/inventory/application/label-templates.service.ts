@@ -90,8 +90,8 @@ export async function updateLabelTemplate(ctx: InventoryRequestContext, id: stri
       });
     }
 
-    return tx.inventoryLabelTemplate.update({
-      where: { id },
+    const writeResult = await tx.inventoryLabelTemplate.updateMany({
+      where: { id, companyId: ctx.companyId },
       data: {
         ...parsed.data,
         config:
@@ -100,6 +100,18 @@ export async function updateLabelTemplate(ctx: InventoryRequestContext, id: stri
             : ((parsed.data.config ?? {}) as unknown as Prisma.InputJsonValue),
       },
     });
+    if (writeResult.count === 0) {
+      throw new InventoryError("NOT_FOUND", "Label template not found");
+    }
+
+    const updated = await tx.inventoryLabelTemplate.findFirst({
+      where: { id, companyId: ctx.companyId },
+    });
+    if (!updated) {
+      throw new InventoryError("NOT_FOUND", "Label template not found");
+    }
+
+    return updated;
   });
 
   await writeInventoryAudit(ctx, {
@@ -119,7 +131,12 @@ export async function deleteLabelTemplate(ctx: InventoryRequestContext, id: stri
     throw new InventoryError("NOT_FOUND", "Label template not found");
   }
 
-  await prisma.inventoryLabelTemplate.delete({ where: { id } });
+  const deleteResult = await prisma.inventoryLabelTemplate.deleteMany({
+    where: { id, companyId: ctx.companyId },
+  });
+  if (deleteResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Label template not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "LABEL_TEMPLATE_DELETED",

@@ -6,15 +6,19 @@ Axum + SQLx service scaffold for the miniERP strangler migration.
 
 ```bash
 cd apps/api-rust
-RUST_API_BIND=127.0.0.1:4000 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/minierp cargo run
+RUST_API_BIND=127.0.0.1:4000 \
+RUST_TRUSTED_PROXY_SECRET=replace-with-32-plus-char-secret \
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/minierp \
+cargo run
 ```
 
 ## Endpoints
 
 - `GET /api/health`
 - `GET /api/v1/ping`
-- `GET /docs` (Swagger UI)
-- `GET /openapi.json`
+- `GET /api/v1/inventory/items`
+- `POST /api/v1/inventory/items`
+- `GET /api/v1/inventory/items/:item_id`
 
 ## Notes
 

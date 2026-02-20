@@ -68,10 +68,20 @@ export async function updateWarehouse(ctx: InventoryRequestContext, warehouseId:
     throw new InventoryError("NOT_FOUND", "Warehouse not found");
   }
 
-  const updated = await prisma.inventoryWarehouse.update({
-    where: { id: warehouseId },
+  const writeResult = await prisma.inventoryWarehouse.updateMany({
+    where: { id: warehouseId, companyId: ctx.companyId },
     data: parsed.data,
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Warehouse not found");
+  }
+
+  const updated = await prisma.inventoryWarehouse.findFirst({
+    where: { id: warehouseId, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Warehouse not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "WAREHOUSE_UPDATED",
@@ -147,13 +157,23 @@ export async function updateWarehouseLocation(ctx: InventoryRequestContext, loca
     throw new InventoryError("NOT_FOUND", "Location not found");
   }
 
-  const updated = await prisma.inventoryWarehouseLocation.update({
-    where: { id: locationId },
+  const writeResult = await prisma.inventoryWarehouseLocation.updateMany({
+    where: { id: locationId, companyId: ctx.companyId },
     data: {
       ...parsed.data,
       path: parsed.data.path === undefined ? undefined : parsed.data.path,
     },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Location not found");
+  }
+
+  const updated = await prisma.inventoryWarehouseLocation.findFirst({
+    where: { id: locationId, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Location not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "LOCATION_UPDATED",
@@ -174,10 +194,20 @@ export async function archiveWarehouse(ctx: InventoryRequestContext, warehouseId
     throw new InventoryError("NOT_FOUND", "Warehouse not found");
   }
 
-  const updated = await prisma.inventoryWarehouse.update({
-    where: { id: warehouseId },
+  const writeResult = await prisma.inventoryWarehouse.updateMany({
+    where: { id: warehouseId, companyId: ctx.companyId },
     data: { isActive: false },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Warehouse not found");
+  }
+
+  const updated = await prisma.inventoryWarehouse.findFirst({
+    where: { id: warehouseId, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Warehouse not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "WAREHOUSE_ARCHIVED",
@@ -198,10 +228,20 @@ export async function archiveWarehouseLocation(ctx: InventoryRequestContext, loc
     throw new InventoryError("NOT_FOUND", "Location not found");
   }
 
-  const updated = await prisma.inventoryWarehouseLocation.update({
-    where: { id: locationId },
+  const writeResult = await prisma.inventoryWarehouseLocation.updateMany({
+    where: { id: locationId, companyId: ctx.companyId },
     data: { isActive: false },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Location not found");
+  }
+
+  const updated = await prisma.inventoryWarehouseLocation.findFirst({
+    where: { id: locationId, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Location not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "LOCATION_ARCHIVED",

@@ -1,0 +1,34 @@
+
+> minierp-clerk-nextjs@0.3.0 test:e2e:smoke
+> playwright test --config=playwright.smoke.config.ts tests/e2e/smoke
+
+[2m[WebServer] [22m(node:74733) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m⚠ Compiled with warnings in 23.2s
+[2m[WebServer] [22m
+[2m[WebServer] [22m./node_modules/bullmq/dist/esm/classes/child-processor.js
+[2m[WebServer] [22mCritical dependency: the request of a dependency is an expression
+[2m[WebServer] [22m
+[2m[WebServer] [22mImport trace for requested module:
+[2m[WebServer] [22m./node_modules/bullmq/dist/esm/classes/child-processor.js
+[2m[WebServer] [22m./node_modules/bullmq/dist/esm/classes/index.js
+[2m[WebServer] [22m./node_modules/bullmq/dist/esm/index.js
+[2m[WebServer] [22m./src/modules/iam/infrastructure/queue.ts
+[2m[WebServer] [22m./src/modules/iam/infrastructure/notifications.ts
+[2m[WebServer] [22m./src/modules/iam/infrastructure/local-identity-provider.ts
+[2m[WebServer] [22m./src/modules/iam/infrastructure/provider.ts
+[2m[WebServer] [22m./src/app/auth-actions.ts
+[2m[WebServer] [22m
+[2m[WebServer] [22m(node:74830) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:75483) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:77005) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 2 workers
+
+  ✓  1 [chromium] › tests/e2e/smoke/inventory-flows.spec.ts:149:3 › smoke: inventory critical flows › create item, warehouses, receipt, transfer, adjustment, and verify ledger/balances (10.3s)
+  ✓  2 [chromium] › tests/e2e/smoke/critical-flows.spec.ts:94:3 › smoke: critical ERP flows › sign in, org create, invite/join, item create, invoice create (15.6s)
+
+  2 passed (2.5m)

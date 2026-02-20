@@ -82,8 +82,8 @@ export async function updateCustomFieldDefinition(ctx: InventoryRequestContext, 
     throw new InventoryError("NOT_FOUND", "Custom field definition not found");
   }
 
-  const updated = await prisma.inventoryCustomFieldDefinition.update({
-    where: { id },
+  const writeResult = await prisma.inventoryCustomFieldDefinition.updateMany({
+    where: { id, companyId: ctx.companyId },
     data: {
       ...parsed.data,
       config: parsed.data.config === undefined ? undefined : (parsed.data.config as Prisma.InputJsonValue),
@@ -100,6 +100,16 @@ export async function updateCustomFieldDefinition(ctx: InventoryRequestContext, 
       updatedBy: ctx.userId,
     },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Custom field definition not found");
+  }
+
+  const updated = await prisma.inventoryCustomFieldDefinition.findFirst({
+    where: { id, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Custom field definition not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "CUSTOM_FIELD_UPDATED",
@@ -118,10 +128,20 @@ export async function archiveCustomFieldDefinition(ctx: InventoryRequestContext,
     throw new InventoryError("NOT_FOUND", "Custom field definition not found");
   }
 
-  const updated = await prisma.inventoryCustomFieldDefinition.update({
-    where: { id },
+  const writeResult = await prisma.inventoryCustomFieldDefinition.updateMany({
+    where: { id, companyId: ctx.companyId },
     data: { isActive: false, updatedBy: ctx.userId },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Custom field definition not found");
+  }
+
+  const updated = await prisma.inventoryCustomFieldDefinition.findFirst({
+    where: { id, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Custom field definition not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "CUSTOM_FIELD_ARCHIVED",

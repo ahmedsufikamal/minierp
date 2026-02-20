@@ -1,13 +1,13 @@
 import { InventoryCustomFieldEntityType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCompanyIdOrUserId } from "@/lib/auth";
+import { getInventoryCompanyScopeId } from "@/modules/inventory/interface/company-scope";
 import PageHeader from "@/components/page-header";
 import { NewInventoryItemForm } from "../new-item-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewInventoryItemPage() {
-  const companyId = await getCompanyIdOrUserId();
+  const companyId = await getInventoryCompanyScopeId();
 
   const [brands, fields] = await Promise.all([
     prisma.brand.findMany({ where: { companyId }, orderBy: { name: "asc" } }),

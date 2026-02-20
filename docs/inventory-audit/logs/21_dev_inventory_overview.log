@@ -1,0 +1,11 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    15    0    15    0     0   1265      0 --:--:-- --:--:-- --:--:--  1363
+HTTP/1.1 307 Temporary Redirect
+location: /stock/overview
+Date: Fri, 20 Feb 2026 18:26:29 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+/stock/overview

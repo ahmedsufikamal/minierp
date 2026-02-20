@@ -120,7 +120,7 @@ export function InventoryItemsList({
                 <td className="px-4 py-3 font-mono text-xs">
                   <Link
                     href={`/inventory/items/${item.id}`}
-                    className="text-blue-600 hover:underline"
+                    className="text-primary hover:underline"
                   >
                     {item.sku}
                   </Link>
@@ -158,7 +158,7 @@ export function InventoryItemsList({
                 <td className="px-4 py-3">
                   <Link
                     href={`/inventory/items/${item.id}`}
-                    className="text-blue-600 hover:underline text-sm"
+                    className="text-primary hover:underline text-sm"
                   >
                     View Details
                   </Link>

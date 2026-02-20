@@ -10,6 +10,7 @@
     "dev": "next dev",
     "build": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/minierp} next build",
     "start": "next start -p 3000",
+    "postinstall": "npm run prisma:generate",
     "lint": "eslint src --max-warnings=0 && npm run theme:audit",
     "format": "prettier --write \"{src,prisma,docs,e2e,scripts}/**/*.{ts,tsx,js,mjs,json,md,sql}\"",
     "format:check": "prettier --check \"{src,prisma,docs,e2e,scripts}/**/*.{ts,tsx,js,mjs,json,md,sql}\"",
@@ -34,6 +35,7 @@
     "inventory:seed": "node prisma/seed.mjs",
     "typecheck": "tsc -p tsconfig.refactor.json --noEmit",
     "typecheck:full": "tsc -p tsconfig.fullcheck.json --noEmit",
+    "check": "bash scripts/check.sh",
     "deps:outdated": "npm outdated",
     "deps:audit": "npm audit --audit-level=high"
   },

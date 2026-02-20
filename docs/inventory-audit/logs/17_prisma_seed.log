@@ -1,0 +1,18 @@
+
+> minierp-clerk-nextjs@0.3.0 prisma:seed
+> node prisma/seed.mjs
+
+Seed failed PrismaClientKnownRequestError: 
+Invalid `prisma.companyMembership.upsert()` invocation:
+
+
+Unique constraint failed on the fields: (`companyId`)
+    at ei.handleRequestError (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:121:7268)
+    at ei.handleAndLogRequestError (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:121:6593)
+    at ei.request (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:121:6300)
+    at async a (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:130:9551)
+    at async main (file:///Users/sufi-mac-pro/Documents/2.%20Other%20Drive/0000.%20WebDesign/minierp/prisma/seed.mjs:1061:5) {
+  code: 'P2002',
+  meta: { modelName: 'CompanyMembership', target: [ 'companyId' ] },
+  clientVersion: '6.19.2'
+}

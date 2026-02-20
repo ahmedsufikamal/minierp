@@ -304,8 +304,8 @@ export async function updateInventoryItem(ctx: InventoryRequestContext, itemId: 
   }
 
   const updated = await prisma.$transaction(async (tx) => {
-    const record = await tx.product.update({
-      where: { id: itemId },
+    const writeResult = await tx.product.updateMany({
+      where: { id: itemId, companyId: ctx.companyId },
       data: {
         sku: data.sku,
         normalizedSku,
@@ -326,6 +326,16 @@ export async function updateInventoryItem(ctx: InventoryRequestContext, itemId: 
         isActive: data.isActive,
       },
     });
+    if (writeResult.count === 0) {
+      throw new InventoryError("NOT_FOUND", "Item not found");
+    }
+
+    const record = await tx.product.findFirst({
+      where: { id: itemId, companyId: ctx.companyId },
+    });
+    if (!record) {
+      throw new InventoryError("NOT_FOUND", "Item not found");
+    }
 
     if (data.identifiers) {
       await tx.inventoryItemIdentifier.deleteMany({
@@ -400,10 +410,20 @@ export async function archiveInventoryItem(ctx: InventoryRequestContext, itemId:
     throw new InventoryError("NOT_FOUND", "Item not found");
   }
 
-  const updated = await prisma.product.update({
-    where: { id: itemId },
+  const writeResult = await prisma.product.updateMany({
+    where: { id: itemId, companyId: ctx.companyId },
     data: { isActive: false },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Item not found");
+  }
+
+  const updated = await prisma.product.findFirst({
+    where: { id: itemId, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "Item not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "ITEM_ARCHIVED",

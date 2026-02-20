@@ -75,8 +75,16 @@ export async function updateViewPreset(ctx: InventoryRequestContext, id: string,
     throw new InventoryError("NOT_FOUND", "View preset not found");
   }
 
-  const updated = await prisma.inventoryViewPreset.update({
-    where: { id },
+  const writeResult = await prisma.inventoryViewPreset.updateMany({
+    where: {
+      id,
+      companyId: ctx.companyId,
+      OR: [
+        { scope: InventoryPresetScope.COMPANY },
+        { scope: InventoryPresetScope.ROLE, role: ctx.role },
+        { scope: InventoryPresetScope.USER, ownerUserId: ctx.userId },
+      ],
+    },
     data: {
       ...parsed.data,
       config:
@@ -92,6 +100,16 @@ export async function updateViewPreset(ctx: InventoryRequestContext, id: string,
             : existing.ownerUserId,
     },
   });
+  if (writeResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "View preset not found");
+  }
+
+  const updated = await prisma.inventoryViewPreset.findFirst({
+    where: { id, companyId: ctx.companyId },
+  });
+  if (!updated) {
+    throw new InventoryError("NOT_FOUND", "View preset not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "VIEW_PRESET_UPDATED",
@@ -121,7 +139,20 @@ export async function deleteViewPreset(ctx: InventoryRequestContext, id: string)
     throw new InventoryError("NOT_FOUND", "View preset not found");
   }
 
-  await prisma.inventoryViewPreset.delete({ where: { id } });
+  const deleteResult = await prisma.inventoryViewPreset.deleteMany({
+    where: {
+      id,
+      companyId: ctx.companyId,
+      OR: [
+        { scope: InventoryPresetScope.COMPANY },
+        { scope: InventoryPresetScope.ROLE, role: ctx.role },
+        { scope: InventoryPresetScope.USER, ownerUserId: ctx.userId },
+      ],
+    },
+  });
+  if (deleteResult.count === 0) {
+    throw new InventoryError("NOT_FOUND", "View preset not found");
+  }
 
   await writeInventoryAudit(ctx, {
     action: "VIEW_PRESET_DELETED",

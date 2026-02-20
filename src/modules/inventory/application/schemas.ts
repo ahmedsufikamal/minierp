@@ -261,3 +261,11 @@ export const ledgerQuerySchema = paginationSchema.extend({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 });
+
+export const inventoryCompanySettingsSchema = z.object({
+  valuationMethod: z.enum(["MOVING_AVERAGE", "FIFO"]).default("MOVING_AVERAGE"),
+  preventNegativeStock: z.boolean().default(true),
+  allowNegativeOverride: z.boolean().default(false),
+  trackByLocation: z.boolean().default(false),
+  baseCurrency: z.string().trim().min(3).max(3).default("BDT"),
+});

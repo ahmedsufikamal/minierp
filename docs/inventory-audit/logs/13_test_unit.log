@@ -1,0 +1,36 @@
+
+> minierp-clerk-nextjs@0.3.0 test:unit
+> vitest run --exclude '**/*.integration.test.ts' --exclude '**/*.e2e.test.ts'
+
+
+ RUN  v2.1.9 /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp
+
+ ✓ src/components/__tests__/theme-preference-sync.test.ts (4 tests) 7ms
+ ✓ src/application/inventory/__tests__/import-service.test.ts (2 tests) 8ms
+ ✓ src/lib/__tests__/auth-current-user-safe.test.ts (2 tests) 15ms
+ ✓ src/modules/inventory/application/__tests__/workflow-permissions.test.ts (5 tests) 6ms
+ ✓ src/app/(app)/inventory/__tests__/inventory-action-permissions.test.ts (8 tests) 54ms
+ ✓ src/modules/platform/application/__tests__/row-scope.service.test.ts (3 tests) 9ms
+ ✓ src/modules/iam/application/__tests__/master-admin-policy.test.ts (5 tests) 9ms
+ ✓ src/lib/__tests__/excel-import.test.ts (25 tests) 18ms
+ ✓ src/modules/iam/application/__tests__/principal-resolver.test.ts (3 tests) 9ms
+ ✓ src/lib/__tests__/auth-server-action-permissions.test.ts (8 tests) 11ms
+ ✓ src/modules/accounting/application/__tests__/invariants.test.ts (5 tests) 9ms
+ ✓ src/components/ui/button.test.ts (3 tests) 6ms
+ ✓ src/modules/inventory/domain/__tests__/posting.test.ts (4 tests) 7ms
+ ✓ src/modules/inventory/domain/__tests__/custom-fields.test.ts (3 tests) 7ms
+ ✓ src/modules/inventory/domain/__tests__/reorder.test.ts (2 tests) 6ms
+ ✓ src/modules/platform/application/__tests__/numbering.service.test.ts (3 tests) 13ms
+ ✓ src/modules/accounting/application/__tests__/payment-entries.service.test.ts (3 tests) 6ms
+ ✓ src/modules/iam/application/__tests__/policy.test.ts (5 tests) 8ms
+ ✓ src/modules/iam/infrastructure/__tests__/totp.test.ts (3 tests) 8ms
+ ✓ src/modules/platform/application/__tests__/parity-route-permissions.test.ts (4 tests) 28ms
+ ✓ src/modules/platform/application/__tests__/audit-ledger.service.test.ts (2 tests) 6ms
+ ✓ src/modules/iam/application/__tests__/invite-token.test.ts (2 tests) 7ms
+ ✓ src/modules/accounting/application/__tests__/reporting.test.ts (3 tests) 3ms
+
+ Test Files  23 passed (23)
+      Tests  107 passed (107)
+   Start at  00:28:03
+   Duration  2.91s (transform 1.97s, setup 0ms, collect 6.99s, tests 259ms, environment 9ms, prepare 4.97s)
+
