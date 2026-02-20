@@ -31,7 +31,7 @@ export default async function InventorySnapshotsPage() {
         <div className="rounded-2xl border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-left text-slate-600 bg-slate-50">
+              <thead className="text-left text-muted-foreground bg-[hsl(var(--surface-elevated))]">
                 <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                   <th>Imported At</th>
                   <th>File</th>
@@ -48,12 +48,12 @@ export default async function InventorySnapshotsPage() {
                     </td>
                     <td className="px-4 py-3">{snap.sourceFileName}</td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-slate-100 text-slate-700">
+                      <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-[hsl(var(--surface-interactive))] text-foreground">
                         {snap.status}
                       </span>
                     </td>
                     <td className="px-4 py-3">{snap.mode}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 max-w-md truncate">
+                    <td className="px-4 py-3 text-xs text-muted-foreground max-w-md truncate">
                       {Array.isArray(snap.warnings) && snap.warnings.length > 0
                         ? snap.warnings.join("; ")
                         : "—"}

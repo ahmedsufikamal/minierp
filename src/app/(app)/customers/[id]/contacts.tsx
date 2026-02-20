@@ -48,29 +48,29 @@ export function ContactsTab({ customer }: { customer: CustomerWithContacts }) {
               className="grid grid-cols-1 md:grid-cols-2 gap-4"
             >
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase text-slate-500">First Name</label>
-                <Input name="firstName" required placeholder="Jane" className="bg-white" />
+                <label className="text-xs font-medium uppercase text-muted-foreground">First Name</label>
+                <Input name="firstName" required placeholder="Jane" className="bg-card" />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase text-slate-500">Last Name</label>
-                <Input name="lastName" placeholder="Doe" className="bg-white" />
+                <label className="text-xs font-medium uppercase text-muted-foreground">Last Name</label>
+                <Input name="lastName" placeholder="Doe" className="bg-card" />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase text-slate-500">Job Title</label>
-                <Input name="jobTitle" placeholder="Manager" className="bg-white" />
+                <label className="text-xs font-medium uppercase text-muted-foreground">Job Title</label>
+                <Input name="jobTitle" placeholder="Manager" className="bg-card" />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase text-slate-500">Email</label>
+                <label className="text-xs font-medium uppercase text-muted-foreground">Email</label>
                 <Input
                   name="email"
                   type="email"
                   placeholder="jane@example.com"
-                  className="bg-white"
+                  className="bg-card"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase text-slate-500">Phone</label>
-                <Input name="phone" placeholder="+1..." className="bg-white" />
+                <label className="text-xs font-medium uppercase text-muted-foreground">Phone</label>
+                <Input name="phone" placeholder="+1..." className="bg-card" />
               </div>
               <div className="md:col-span-2 flex justify-end pt-2">
                 <Button type="submit" variant="default">
@@ -88,24 +88,24 @@ export function ContactsTab({ customer }: { customer: CustomerWithContacts }) {
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="flex gap-3">
-                  <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-medium">
+                  <div className="h-10 w-10 rounded-full bg-[hsl(var(--surface-interactive))] flex items-center justify-center text-muted-foreground font-medium">
                     {contact.firstName[0]}
                   </div>
                   <div>
-                    <div className="font-medium text-slate-900">
+                    <div className="font-medium text-foreground">
                       {contact.firstName} {contact.lastName}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {contact.jobTitle || "No Title"}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2 text-sm text-slate-600">
+              <div className="mt-4 space-y-2 text-sm text-muted-foreground">
                 {contact.email && (
                   <div className="flex items-center gap-2">
-                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                     <a
                       href={`mailto:${contact.email}`}
                       className="hover:text-indigo-600 transition-colors"
@@ -116,7 +116,7 @@ export function ContactsTab({ customer }: { customer: CustomerWithContacts }) {
                 )}
                 {contact.phone && (
                   <div className="flex items-center gap-2">
-                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>{contact.phone}</span>
                   </div>
                 )}
@@ -126,8 +126,8 @@ export function ContactsTab({ customer }: { customer: CustomerWithContacts }) {
         ))}
 
         {customer.contacts.length === 0 && !isAdding && (
-          <div className="col-span-full py-12 text-center text-slate-500 border-2 border-dashed rounded-xl">
-            <User className="h-8 w-8 mx-auto text-slate-300 mb-3" />
+          <div className="col-span-full py-12 text-center text-muted-foreground border-2 border-dashed rounded-xl">
+            <User className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p>No contacts added yet.</p>
             <Button variant="link" onClick={() => setIsAdding(true)}>
               Add your first contact

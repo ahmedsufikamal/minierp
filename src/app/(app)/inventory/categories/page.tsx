@@ -37,7 +37,7 @@ export default async function InventoryCategoriesPage() {
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
             <div className="font-medium">Category list</div>
-            <div className="text-sm text-slate-600">Total: {categories.length}</div>
+            <div className="text-sm text-muted-foreground">Total: {categories.length}</div>
           </div>
           {categories.length === 0 ? (
             <EmptyState
@@ -48,7 +48,7 @@ export default async function InventoryCategoriesPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-left text-slate-600">
+                <thead className="text-left text-muted-foreground">
                   <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                     <th>Name</th>
                     <th>Subcategories</th>
@@ -59,7 +59,7 @@ export default async function InventoryCategoriesPage() {
                   {categories.map((category) => (
                     <tr key={category.id} className="border-b last:border-0">
                       <td className="px-4 py-3">{category.name}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {category.subCategories.length > 0
                           ? category.subCategories.map((s) => s.name).join(", ")
                           : "—"}

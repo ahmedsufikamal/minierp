@@ -28,8 +28,8 @@ export function InvoicesTab({ customer }: { customer: CustomerWithInvoices }) {
                     <FileText className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-medium text-slate-900">Invoice #{invoice.number}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="font-medium text-foreground">Invoice #{invoice.number}</div>
+                    <div className="text-xs text-muted-foreground">
                       {format(new Date(invoice.createdAt), "MMM d, yyyy")}
                     </div>
                   </div>
@@ -46,7 +46,7 @@ export function InvoicesTab({ customer }: { customer: CustomerWithInvoices }) {
         ))}
 
         {customer.invoices.length === 0 && (
-          <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-dashed">
+          <div className="text-center py-12 text-muted-foreground bg-[hsl(var(--surface-elevated))] rounded-xl border border-dashed">
             No invoices found for this customer.
           </div>
         )}

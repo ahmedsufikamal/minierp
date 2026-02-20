@@ -50,14 +50,14 @@ export function SearchInput({
 
   return (
     <div className={`relative ${className ?? ""}`}>
-      <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+      <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       <Input
         type="search"
         name={name}
         placeholder={placeholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="pl-9 bg-white dark:bg-slate-950"
+        className="pl-9 bg-card"
         aria-label={placeholder}
       />
     </div>

@@ -39,7 +39,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       <div className="flex flex-col gap-4">
         <Link
           href="/customers"
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors w-fit"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Customers
@@ -51,8 +51,8 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               {customer.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">{customer.name}</h1>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-1 text-sm text-slate-500">
+              <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-1 text-sm text-muted-foreground">
                 {customer.email && (
                   <div className="flex items-center gap-1.5">
                     <Mail className="h-3.5 w-3.5" />

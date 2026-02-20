@@ -32,7 +32,7 @@ export function SortableTh({ sortKey, label, currentSort, currentOrder, classNam
     <th scope="col" className={className ?? "px-4 py-3 text-left"}>
       <Link
         href={href}
-        className="inline-flex items-center gap-1 font-medium text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
+        className="inline-flex items-center gap-1 font-medium text-foreground hover:text-foreground"
       >
         {label}
         {isActive ? (

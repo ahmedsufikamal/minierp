@@ -64,7 +64,7 @@ export default async function InvoicesPage(props: PageProps) {
           <div className="p-4 border-b flex items-center justify-between gap-4 flex-wrap">
             <div>
               <div className="font-medium">Invoice list</div>
-              <div className="text-sm text-slate-600">Total: {total}</div>
+              <div className="text-sm text-muted-foreground">Total: {total}</div>
             </div>
             <SearchInput name="q" placeholder="Search by number…" defaultValue={q ?? ""} className="max-w-sm" />
           </div>
@@ -83,7 +83,7 @@ export default async function InvoicesPage(props: PageProps) {
           ) : (
           <div className="overflow-x-auto">
             <table className="data-table min-w-full text-sm">
-              <thead className="text-left text-slate-600">
+              <thead className="text-left text-muted-foreground">
                 <InvoiceTableHead sort={sortKey} order={order} />
               </thead>
               <tbody>
@@ -102,7 +102,7 @@ export default async function InvoicesPage(props: PageProps) {
                 ))}
                 {invoices.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-slate-600" colSpan={5}>
+                    <td className="px-4 py-8 text-muted-foreground" colSpan={5}>
                       No invoices yet. Create your first invoice on the left.
                     </td>
                   </tr>

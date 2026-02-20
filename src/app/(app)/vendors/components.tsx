@@ -29,7 +29,7 @@ export function AddVendorCard() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Add vendor</div>
-          <div className="text-sm text-slate-600">Create a new vendor record.</div>
+          <div className="text-sm text-muted-foreground">Create a new vendor record.</div>
         </div>
         <Button
           id="add-vendor"
@@ -138,7 +138,7 @@ export function VendorList({
     <>
       <div className="overflow-x-auto">
         <table className="data-table min-w-full text-sm">
-          <thead className="text-left text-slate-600">
+          <thead className="text-left text-muted-foreground">
             <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
               <SortableTh sortKey="name" label="Name" currentSort={sort} currentOrder={order} />
               <th scope="col" className="px-4 py-3">Email</th>
@@ -170,7 +170,7 @@ export function VendorList({
             ))}
             {vendors.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-slate-600" colSpan={4}>
+                <td className="px-4 py-8 text-muted-foreground" colSpan={4}>
                   No vendors yet. Create your first vendor on the left.
                 </td>
               </tr>

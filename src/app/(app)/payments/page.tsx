@@ -60,7 +60,7 @@ export default async function PaymentsPage(props: PageProps) {
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
             <div className="font-medium">Payment list</div>
-            <div className="text-sm text-slate-600">Total: {total}</div>
+            <div className="text-sm text-muted-foreground">Total: {total}</div>
           </div>
 
           {payments.length === 0 ? (
@@ -77,7 +77,7 @@ export default async function PaymentsPage(props: PageProps) {
           ) : (
           <div className="overflow-x-auto">
             <table className="data-table min-w-full text-sm">
-              <thead className="text-left text-slate-600">
+              <thead className="text-left text-muted-foreground">
                 <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                   <th scope="col">Date</th>
                   <th scope="col">Type</th>
@@ -102,7 +102,7 @@ export default async function PaymentsPage(props: PageProps) {
                 ))}
                 {payments.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-slate-600" colSpan={6}>
+                    <td className="px-4 py-8 text-muted-foreground" colSpan={6}>
                       No payments yet. Record a payment on the left.
                     </td>
                   </tr>

@@ -40,10 +40,10 @@ export function Breadcrumbs() {
   });
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
       <Link
         href="/dashboard"
-        className="rounded px-1 py-0.5 font-medium text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
+        className="rounded px-1 py-0.5 font-medium text-foreground/90 hover:text-foreground"
       >
         Home
       </Link>
@@ -51,13 +51,13 @@ export function Breadcrumbs() {
         <span key={segmentHref} className="flex items-center gap-1">
           <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
           {isLast ? (
-            <span className="font-medium text-slate-900 dark:text-white" aria-current="page">
+            <span className="font-medium text-foreground" aria-current="page">
               {label}
             </span>
           ) : (
             <Link
               href={segmentHref}
-              className="rounded px-1 py-0.5 font-medium text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
+              className="rounded px-1 py-0.5 font-medium text-foreground/90 hover:text-foreground"
             >
               {label}
             </Link>

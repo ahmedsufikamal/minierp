@@ -98,7 +98,7 @@ export function InventoryItemsList({
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
-        <thead className="text-left text-slate-600 bg-slate-50">
+        <thead className="text-left text-muted-foreground bg-[hsl(var(--surface-elevated))]">
           <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
             <th>SKU</th>
             <th>Brand</th>
@@ -116,7 +116,7 @@ export function InventoryItemsList({
             const locationStock = locationFilter ? stock.byLocation[locationFilter] || 0 : null;
             
             return (
-              <tr key={item.id} className="border-b last:border-0 hover:bg-slate-50">
+              <tr key={item.id} className="border-b last:border-0 hover:bg-[hsl(var(--surface-elevated))]">
                 <td className="px-4 py-3 font-mono text-xs">
                   <Link
                     href={`/inventory/items/${item.id}`}
@@ -129,7 +129,7 @@ export function InventoryItemsList({
                 <td className="px-4 py-3">
                   <div className="font-medium">{item.name}</div>
                   {item.description && (
-                    <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                    <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                       {item.description}
                     </div>
                   )}
@@ -139,7 +139,7 @@ export function InventoryItemsList({
                     <div>
                       {item.category.name}
                       {item.subCategory && (
-                        <span className="text-slate-500"> / {item.subCategory.name}</span>
+                        <span className="text-muted-foreground"> / {item.subCategory.name}</span>
                       )}
                     </div>
                   )}

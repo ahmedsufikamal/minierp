@@ -45,7 +45,7 @@ export default async function VendorsPage(props: PageProps) {
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
             <div className="font-medium">Vendor list</div>
-            <div className="text-sm text-slate-600">Total: {total}</div>
+            <div className="text-sm text-muted-foreground">Total: {total}</div>
           </div>
 
           {vendors.length === 0 ? (

@@ -21,11 +21,11 @@ export function SalesChart({ data }: { data: Point[] }) {
           <XAxis
             dataKey="label"
             tick={{ fontSize: 12 }}
-            className="text-slate-600 dark:text-slate-400"
+            className="text-muted-foreground dark:text-muted-foreground"
           />
           <YAxis
             tick={{ fontSize: 12 }}
-            className="text-slate-600 dark:text-slate-400"
+            className="text-muted-foreground dark:text-muted-foreground"
             tickFormatter={(v) => (v >= 100 ? `${(v / 100).toFixed(0)}` : String(v))}
           />
           <Tooltip

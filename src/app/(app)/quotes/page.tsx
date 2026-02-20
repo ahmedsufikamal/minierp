@@ -64,7 +64,7 @@ export default async function QuotesPage(props: PageProps) {
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
             <div className="font-medium">Quote list</div>
-            <div className="text-sm text-slate-600">Total: {total}</div>
+            <div className="text-sm text-muted-foreground">Total: {total}</div>
           </div>
 
           {quotes.length === 0 ? (
@@ -81,7 +81,7 @@ export default async function QuotesPage(props: PageProps) {
           ) : (
           <div className="overflow-x-auto">
             <table className="data-table min-w-full text-sm">
-              <thead className="text-left text-slate-600">
+              <thead className="text-left text-muted-foreground">
                 <QuoteTableHead sort={sortKey} order={order} />
               </thead>
               <tbody>
@@ -115,7 +115,7 @@ export default async function QuotesPage(props: PageProps) {
                 ))}
                 {quotes.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-slate-600" colSpan={6}>
+                    <td className="px-4 py-8 text-muted-foreground" colSpan={6}>
                       No quotes yet. Create your first quote on the left.
                     </td>
                   </tr>

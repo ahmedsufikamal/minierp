@@ -158,15 +158,15 @@ export default async function InventoryLocationsPage() {
             <div className="font-medium mb-4">Overall Summary</div>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-600">Total Items:</span>
+                <span className="text-muted-foreground">Total Items:</span>
                 <span className="font-medium">{overallTotal.itemCount}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Total Quantity:</span>
+                <span className="text-muted-foreground">Total Quantity:</span>
                 <span className="font-medium">{overallTotal.qty.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600">Total Value:</span>
+                <span className="text-muted-foreground">Total Value:</span>
                 <span className="font-medium">
                   {formatMoney(overallTotal.value, "BDT")}
                 </span>
@@ -179,13 +179,13 @@ export default async function InventoryLocationsPage() {
           <div className="rounded-2xl border">
             <div className="p-4 border-b">
               <div className="font-medium">Locations ({locations.length})</div>
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-muted-foreground">
                 Stock levels by location
               </div>
             </div>
 
             {locations.length === 0 ? (
-              <div className="p-8 text-center text-slate-600">
+              <div className="p-8 text-center text-muted-foreground">
                 No locations found. Import inventory data to create locations.
               </div>
             ) : (

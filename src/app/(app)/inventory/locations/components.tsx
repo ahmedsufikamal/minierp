@@ -18,7 +18,7 @@ export function LocationsList({
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
-        <thead className="text-left text-slate-600 bg-slate-50">
+        <thead className="text-left text-muted-foreground bg-[hsl(var(--surface-elevated))]">
           <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
             <th>Code</th>
             <th>Name</th>
@@ -36,7 +36,7 @@ export function LocationsList({
             };
 
             return (
-              <tr key={location.id} className="border-b last:border-0 hover:bg-slate-50">
+              <tr key={location.id} className="border-b last:border-0 hover:bg-[hsl(var(--surface-elevated))]">
                 <td className="px-4 py-3 font-mono text-xs font-medium">
                   {location.code}
                 </td>

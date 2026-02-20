@@ -66,7 +66,7 @@ export function CustomerTable({
   return (
     <div>
         <table className="data-table w-full text-sm text-left">
-          <thead className="bg-slate-50/50 border-b border-slate-200/60 text-slate-500 font-medium">
+          <thead className="bg-[hsl(var(--surface-elevated))]/50 border-b border-border/60 text-muted-foreground font-medium">
             <tr>
               <SortableTh sortKey="name" label="Customer" currentSort={sort} currentOrder={order} className="px-4 py-3 pl-6 text-left" />
               <th scope="col" className="px-4 py-3">Contact</th>
@@ -76,10 +76,10 @@ export function CustomerTable({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {customers.map((customer) => (
-              <tr key={customer.id} className="group hover:bg-slate-50/50 transition-colors">
+              <tr key={customer.id} className="group hover:bg-[hsl(var(--surface-elevated))]/50 transition-colors">
                 <td className="px-4 py-3 pl-6">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9 border border-slate-200/50">
+                    <Avatar className="h-9 w-9 border border-border/50">
                       <AvatarFallback className="bg-indigo-50 text-indigo-700 font-medium text-xs">
                         {customer.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
@@ -87,11 +87,11 @@ export function CustomerTable({
                     <div>
                       <Link
                         href={`/customers/${customer.id}`}
-                        className="font-medium text-slate-900 group-hover:text-indigo-600 transition-colors"
+                        className="font-medium text-foreground group-hover:text-indigo-600 transition-colors"
                       >
                         {customer.name}
                       </Link>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-muted-foreground">
                         Added {format(new Date(customer.createdAt), "MMM d, yyyy")}
                       </div>
                     </div>
@@ -100,13 +100,13 @@ export function CustomerTable({
                 <td className="px-4 py-3">
                   <div className="space-y-1">
                     {customer.email && (
-                      <div className="flex items-center gap-2 text-slate-600">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <Mail className="h-3 w-3" />
                         <span className="truncate max-w-[150px]">{customer.email}</span>
                       </div>
                     )}
                     {customer.phone && (
-                      <div className="flex items-center gap-2 text-slate-600">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="h-3 w-3" />
                         <span>{customer.phone}</span>
                       </div>
@@ -114,7 +114,7 @@ export function CustomerTable({
                   </div>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <div className="text-slate-600 text-xs max-w-[200px] truncate">
+                  <div className="text-muted-foreground text-xs max-w-[200px] truncate">
                     {customer.address || "No address provided"}
                   </div>
                 </td>
@@ -124,7 +124,7 @@ export function CustomerTable({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-slate-900"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -156,7 +156,7 @@ export function CustomerTable({
             ))}
             {customers.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
                   No customers found.
                 </td>
               </tr>

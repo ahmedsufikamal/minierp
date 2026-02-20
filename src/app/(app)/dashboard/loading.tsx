@@ -12,7 +12,7 @@ export default function DashboardLoading() {
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-slate-200/60 p-5">
+          <div key={i} className="rounded-xl border border-border/60 p-5">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <Skeleton className="h-4 w-24" />

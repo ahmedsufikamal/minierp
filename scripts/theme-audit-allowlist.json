@@ -1,0 +1,14 @@
+{
+  "ignoredFiles": [],
+  "allowedMatchSubstrings": [],
+  "allowedMatches": [
+    {
+      "file": "src/app/(app)/customers/[id]/page.tsx",
+      "match": "text-white"
+    },
+    {
+      "file": "src/components/ui/dialog.tsx",
+      "match": "bg-black/80"
+    }
+  ]
+}

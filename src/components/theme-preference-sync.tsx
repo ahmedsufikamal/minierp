@@ -1,14 +1,56 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 
-type NextThemeMode = "light" | "dark" | "system";
+export type NextThemeMode = "light" | "dark" | "system";
+const THEME_STORAGE_KEY = "minierp-ui-theme";
+const VALID_THEME_MODES = new Set<NextThemeMode>(["light", "dark", "system"]);
 
-function toApiTheme(theme: string): "LIGHT" | "DARK" | "SYSTEM" {
+export function toApiTheme(theme: string): "LIGHT" | "DARK" | "SYSTEM" {
   if (theme === "light") return "LIGHT";
   if (theme === "dark") return "DARK";
   return "SYSTEM";
+}
+
+export function normalizeThemeMode(theme: string | null | undefined): NextThemeMode | null {
+  if (!theme) return null;
+  return VALID_THEME_MODES.has(theme as NextThemeMode) ? (theme as NextThemeMode) : null;
+}
+
+export function resolveBootstrapTheme(
+  storedTheme: string | null | undefined,
+  initialTheme: NextThemeMode,
+): NextThemeMode {
+  return normalizeThemeMode(storedTheme) ?? initialTheme;
+}
+
+export function resolveSyncResult(input: {
+  persistedTheme: NextThemeMode;
+  pendingTheme: NextThemeMode | null;
+  attemptedTheme: NextThemeMode;
+  succeeded: boolean;
+}): { persistedTheme: NextThemeMode; pendingTheme: NextThemeMode | null } {
+  if (input.succeeded) {
+    return {
+      persistedTheme: input.attemptedTheme,
+      pendingTheme: input.pendingTheme === input.attemptedTheme ? null : input.pendingTheme,
+    };
+  }
+
+  return {
+    persistedTheme: input.persistedTheme,
+    pendingTheme: input.pendingTheme ?? input.attemptedTheme,
+  };
+}
+
+function readStoredTheme(): NextThemeMode | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return normalizeThemeMode(window.localStorage.getItem(THEME_STORAGE_KEY));
+  } catch {
+    return null;
+  }
 }
 
 interface ThemePreferenceSyncProps {
@@ -20,32 +62,32 @@ export function ThemePreferenceSync({ enabled, initialTheme }: ThemePreferenceSy
   const { theme, setTheme } = useTheme();
   const bootstrappedRef = useRef(false);
   const persistedThemeRef = useRef<NextThemeMode>(initialTheme);
+  const pendingThemeRef = useRef<NextThemeMode | null>(null);
+  const inFlightRef = useRef(false);
+  const inFlightAbortControllerRef = useRef<AbortController | null>(null);
+  const flushPendingSyncRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     persistedThemeRef.current = initialTheme;
   }, [initialTheme]);
 
-  useEffect(() => {
-    if (!enabled) return;
-    if (bootstrappedRef.current) return;
+  const scheduleFlushPendingSync = useCallback(() => {
+    queueMicrotask(() => flushPendingSyncRef.current());
+  }, []);
 
-    if (theme !== initialTheme) {
-      setTheme(initialTheme);
+  const flushPendingSync = useCallback(() => {
+    if (!enabled || inFlightRef.current) return;
+    const nextTheme = pendingThemeRef.current;
+    if (!nextTheme) return;
+
+    if (nextTheme === persistedThemeRef.current) {
+      pendingThemeRef.current = null;
+      return;
     }
 
-    bootstrappedRef.current = true;
-  }, [enabled, initialTheme, setTheme, theme]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (!bootstrappedRef.current) return;
-    if (!theme) return;
-
-    const nextTheme = theme as NextThemeMode;
-    if (nextTheme === persistedThemeRef.current) return;
-
+    inFlightRef.current = true;
     const abortController = new AbortController();
-    persistedThemeRef.current = nextTheme;
+    inFlightAbortControllerRef.current = abortController;
 
     void fetch("/api/account/preferences", {
       method: "PATCH",
@@ -53,14 +95,99 @@ export function ThemePreferenceSync({ enabled, initialTheme }: ThemePreferenceSy
       credentials: "same-origin",
       signal: abortController.signal,
       body: JSON.stringify({ uiThemePreference: toApiTheme(nextTheme) }),
-    }).catch(() => {
-      // Keep local preference even if network call fails; retry on next theme change.
-    });
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Theme sync failed with status ${response.status}`);
+        }
+
+        const resolved = resolveSyncResult({
+          persistedTheme: persistedThemeRef.current,
+          pendingTheme: pendingThemeRef.current,
+          attemptedTheme: nextTheme,
+          succeeded: true,
+        });
+        persistedThemeRef.current = resolved.persistedTheme;
+        pendingThemeRef.current = resolved.pendingTheme;
+      })
+      .catch(() => {
+        const resolved = resolveSyncResult({
+          persistedTheme: persistedThemeRef.current,
+          pendingTheme: pendingThemeRef.current,
+          attemptedTheme: nextTheme,
+          succeeded: false,
+        });
+        persistedThemeRef.current = resolved.persistedTheme;
+        pendingThemeRef.current = resolved.pendingTheme;
+      })
+      .finally(() => {
+        inFlightRef.current = false;
+        inFlightAbortControllerRef.current = null;
+        if (
+          pendingThemeRef.current &&
+          pendingThemeRef.current !== persistedThemeRef.current
+        ) {
+          scheduleFlushPendingSync();
+        }
+      });
+  }, [enabled, scheduleFlushPendingSync]);
+
+  useEffect(() => {
+    flushPendingSyncRef.current = flushPendingSync;
+  }, [flushPendingSync]);
+
+  useEffect(() => {
+    if (bootstrappedRef.current) return;
+
+    const targetTheme = resolveBootstrapTheme(readStoredTheme(), initialTheme);
+    const normalizedTheme = normalizeThemeMode(theme);
+
+    if (normalizedTheme !== targetTheme) {
+      setTheme(targetTheme);
+    }
+
+    bootstrappedRef.current = true;
+  }, [initialTheme, setTheme, theme]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (!bootstrappedRef.current) return;
+    const nextTheme = normalizeThemeMode(theme);
+    if (!nextTheme) return;
+
+    if (nextTheme === persistedThemeRef.current) {
+      if (pendingThemeRef.current === nextTheme) {
+        pendingThemeRef.current = null;
+      }
+      return;
+    }
+
+    pendingThemeRef.current = nextTheme;
+    flushPendingSync();
+  }, [enabled, flushPendingSync, theme]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const retryPendingSync = () => {
+      if (!pendingThemeRef.current) return;
+      flushPendingSync();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      retryPendingSync();
+    };
+
+    window.addEventListener("online", retryPendingSync);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      abortController.abort();
+      window.removeEventListener("online", retryPendingSync);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      inFlightAbortControllerRef.current?.abort();
     };
-  }, [enabled, theme]);
+  }, [enabled, flushPendingSync]);
 
   return null;
 }

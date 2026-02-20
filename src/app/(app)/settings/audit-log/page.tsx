@@ -60,7 +60,7 @@ export default async function AuditLogPage(props: PageProps) {
       <div className="rounded-2xl border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="text-left text-slate-600 bg-slate-50">
+            <thead className="text-left text-muted-foreground bg-[hsl(var(--surface-elevated))]">
               <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                 <th>Time</th>
                 <th>User</th>
@@ -83,7 +83,7 @@ export default async function AuditLogPage(props: PageProps) {
               ))}
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-slate-500 text-center">
+                  <td colSpan={5} className="px-4 py-8 text-muted-foreground text-center">
                     No audit entries yet.
                   </td>
                 </tr>
@@ -92,7 +92,7 @@ export default async function AuditLogPage(props: PageProps) {
           </table>
         </div>
         {totalPages > 1 && (
-          <div className="flex justify-between px-4 py-3 border-t text-sm text-slate-600">
+          <div className="flex justify-between px-4 py-3 border-t text-sm text-muted-foreground">
             <span>
               Showing {(page - 1) * limit + 1}-{Math.min(page * limit, total)} of {total}
             </span>

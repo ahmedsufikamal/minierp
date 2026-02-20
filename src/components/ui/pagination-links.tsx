@@ -29,7 +29,7 @@ export function PaginationLinks({ page, totalPages, total, limit }: Props) {
 
   return (
     <div className="flex items-center justify-between gap-4 py-3 px-4 border-t">
-      <div className="text-sm text-slate-600">
+      <div className="text-sm text-muted-foreground">
         {total != null && limit != null
           ? `Showing ${(page - 1) * limit + 1}-${Math.min(page * limit, total)} of ${total}`
           : `Page ${page} of ${totalPages}`}
@@ -41,7 +41,7 @@ export function PaginationLinks({ page, totalPages, total, limit }: Props) {
             Prev
           </Link>
         </Button>
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-muted-foreground">
           {page} / {totalPages}
         </span>
         <Button variant="outline" size="sm" asChild disabled={page >= totalPages}>

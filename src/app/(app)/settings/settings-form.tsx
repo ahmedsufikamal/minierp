@@ -78,7 +78,7 @@ export function SettingsForm({ defaults }: { defaults: Defaults }) {
 
       <div className="rounded-2xl border p-4 space-y-4">
         <h3 className="font-medium">Number sequences</h3>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           Prefix and next number for new documents. Next is incremented when you use it (manual for now).
         </p>
         <div className="grid grid-cols-2 gap-4">

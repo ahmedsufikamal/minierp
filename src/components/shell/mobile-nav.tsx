@@ -35,15 +35,15 @@ export function MobileNav() {
           aria-describedby={undefined}
         >
           <DialogTitle className="sr-only">Navigation menu</DialogTitle>
-          <div className="flex h-full flex-col border-r border-slate-200/60 bg-white dark:border-white/10 dark:bg-slate-950">
-            <div className="border-b border-slate-200/60 p-4 dark:border-white/10">
+          <div className="flex h-full flex-col border-r border-border bg-[hsl(var(--surface-card))]">
+            <div className="border-b border-border p-4">
               <MiniERPLogo size="sm" className="text-foreground" />
             </div>
             <nav className="flex-1 overflow-auto p-4">
               <div className="space-y-4">
                 {navGroups.map((group) => (
                   <section key={group.title} className="space-y-1">
-                    <h2 className="px-3 pb-1 text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <h2 className="px-3 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                       {group.title}
                     </h2>
                     <ul className="grid gap-1">
@@ -57,9 +57,9 @@ export function MobileNav() {
                               onClick={() => setOpen(false)}
                               className={cn(
                                 "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
-                                "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5",
+                                "text-foreground/85 hover:bg-[hsl(var(--surface-interactive))] hover:text-foreground",
                                 active &&
-                                  "bg-slate-900 font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900",
+                                  "bg-[hsl(var(--surface-interactive))] font-medium text-foreground",
                               )}
                             >
                               <Icon className="h-4 w-4" />

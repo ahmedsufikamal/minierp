@@ -24,7 +24,7 @@ export function NewAccountCard() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Add account</div>
-          <div className="text-sm text-slate-600">Extend chart of accounts.</div>
+          <div className="text-sm text-muted-foreground">Extend chart of accounts.</div>
         </div>
         <Button
           type="button"
@@ -51,7 +51,7 @@ export function NewAccountCard() {
             />
             <select
               name="type"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
               defaultValue="EXPENSE"
             >
               <option value="ASSET">ASSET</option>
@@ -92,7 +92,7 @@ export function NewJournalEntryCard({ accounts }: { accounts: Account[] }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">New journal entry</div>
-          <div className="text-sm text-slate-600">Simple debit/credit entry.</div>
+          <div className="text-sm text-muted-foreground">Simple debit/credit entry.</div>
         </div>
         <Button
           type="button"
@@ -119,7 +119,7 @@ export function NewJournalEntryCard({ accounts }: { accounts: Account[] }) {
           <div className="grid grid-cols-2 gap-3">
             <select
               name="debitAccountId"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
               defaultValue={defaultDebit}
               required
             >
@@ -134,7 +134,7 @@ export function NewJournalEntryCard({ accounts }: { accounts: Account[] }) {
             </select>
             <select
               name="creditAccountId"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
               defaultValue={defaultCredit}
               required
             >

@@ -26,20 +26,20 @@ export default async function PurchaseOrderDetailPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/purchase-orders" className="text-sm text-slate-600 hover:underline">
+          <Link href="/purchase-orders" className="text-sm text-muted-foreground hover:underline">
             ← Purchase orders
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight mt-1">
             {order.number} — {order.vendor.name}
           </h1>
-          <p className="text-sm text-slate-600">Status: {order.status}</p>
+          <p className="text-sm text-muted-foreground">Status: {order.status}</p>
         </div>
       </div>
 
       <div className="rounded-2xl border overflow-hidden">
-        <div className="px-4 py-3 border-b bg-slate-50 font-medium">Line items</div>
+        <div className="px-4 py-3 border-b bg-[hsl(var(--surface-elevated))] font-medium">Line items</div>
         <table className="min-w-full text-sm">
-          <thead className="text-left text-slate-600">
+          <thead className="text-left text-muted-foreground">
             <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
               <th>Product / Description</th>
               <th>Ordered</th>
@@ -66,7 +66,7 @@ export default async function PurchaseOrderDetailPage({
                       maxQty={line.qtyOrdered - line.qtyReceived}
                     />
                   ) : (
-                    <span className="text-slate-400">
+                    <span className="text-muted-foreground">
                       {line.qtyReceived >= line.qtyOrdered ? "Fully received" : "No product"}
                     </span>
                   )}

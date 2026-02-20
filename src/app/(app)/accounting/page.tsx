@@ -33,16 +33,16 @@ export default async function AccountingPage() {
       <PageHeader title="Accounting" subtitle="Chart of accounts + simple double-entry journal." />
 
       <div className="flex flex-wrap gap-2 text-sm">
-        <Link href="/accounting/coa" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+        <Link href="/accounting/coa" className="rounded-md border px-3 py-1.5 hover:bg-[hsl(var(--surface-elevated))]">
           COA
         </Link>
-        <Link href="/accounting/journal-entries" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+        <Link href="/accounting/journal-entries" className="rounded-md border px-3 py-1.5 hover:bg-[hsl(var(--surface-elevated))]">
           Journal Entries
         </Link>
-        <Link href="/accounting/gl" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+        <Link href="/accounting/gl" className="rounded-md border px-3 py-1.5 hover:bg-[hsl(var(--surface-elevated))]">
           General Ledger
         </Link>
-        <Link href="/accounting/periods" className="rounded-md border px-3 py-1.5 hover:bg-slate-50">
+        <Link href="/accounting/periods" className="rounded-md border px-3 py-1.5 hover:bg-[hsl(var(--surface-elevated))]">
           Fiscal Periods
         </Link>
       </div>
@@ -59,11 +59,11 @@ export default async function AccountingPage() {
           <div className="rounded-2xl border">
             <div className="p-4 border-b">
               <div className="font-medium">Chart of accounts</div>
-              <div className="text-sm text-slate-600">Total: {accounts.length}</div>
+              <div className="text-sm text-muted-foreground">Total: {accounts.length}</div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-left text-slate-600">
+                <thead className="text-left text-muted-foreground">
                   <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                     <th>Code</th>
                     <th>Name</th>
@@ -84,7 +84,7 @@ export default async function AccountingPage() {
                   ))}
                   {accounts.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-slate-600" colSpan={4}>
+                      <td className="px-4 py-8 text-muted-foreground" colSpan={4}>
                         No accounts yet. Click “Init chart of accounts” on Dashboard for a quick
                         setup.
                       </td>
@@ -98,11 +98,11 @@ export default async function AccountingPage() {
           <div className="rounded-2xl border">
             <div className="p-4 border-b">
               <div className="font-medium">Journal entries</div>
-              <div className="text-sm text-slate-600">Latest {entries.length} entries</div>
+              <div className="text-sm text-muted-foreground">Latest {entries.length} entries</div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-left text-slate-600">
+                <thead className="text-left text-muted-foreground">
                   <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                     <th>Date</th>
                     <th>Memo</th>
@@ -121,7 +121,7 @@ export default async function AccountingPage() {
                         <div className="grid gap-1">
                           {e.lines.map((l) => (
                             <div key={l.id} className="flex items-center justify-between gap-4">
-                              <span className="text-slate-700">
+                              <span className="text-foreground">
                                 {l.account.code} — {l.account.name}
                               </span>
                               <AmountCell debitCents={l.debitCents} creditCents={l.creditCents} />
@@ -136,7 +136,7 @@ export default async function AccountingPage() {
                   ))}
                   {entries.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-slate-600" colSpan={4}>
+                      <td className="px-4 py-8 text-muted-foreground" colSpan={4}>
                         No journal entries yet.
                       </td>
                     </tr>

@@ -27,6 +27,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {tenantTheme?.customCss ? <style>{tenantTheme.customCss}</style> : null}
         <ThemeProvider
           attribute="class"
+          themes={["light", "dark", "system"]}
+          storageKey="minierp-ui-theme"
           defaultTheme={initialTheme}
           enableSystem
           disableTransitionOnChange

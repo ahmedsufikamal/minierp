@@ -68,7 +68,7 @@ export function AppShell({ children, user }: AppShellProps) {
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onOpenMobile={() => setMobileOpen(true)} user={user} />
           {user?.isImpersonating ? (
-            <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+            <div className="state-warning flex items-center justify-between gap-3 border-b px-4 py-2 text-xs">
               <span>
                 Impersonation active
                 {user.impersonationExpiresAt
@@ -76,7 +76,7 @@ export function AppShell({ children, user }: AppShellProps) {
                   : ""}
               </span>
               <button
-                className="rounded border border-amber-300/60 px-2 py-1 text-amber-100 disabled:opacity-60"
+                className="rounded border border-[hsl(var(--state-warning-border))] bg-transparent px-2 py-1 text-[hsl(var(--state-warning-fg))] disabled:opacity-60"
                 disabled={stoppingImpersonation}
                 onClick={async () => {
                   setStoppingImpersonation(true);

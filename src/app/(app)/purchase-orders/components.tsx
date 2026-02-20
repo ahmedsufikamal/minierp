@@ -66,7 +66,7 @@ export function NewPOCard({ vendors, products }: { vendors: Vendor[]; products: 
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Create purchase order</div>
-          <div className="text-sm text-slate-600">Vendor and line items.</div>
+          <div className="text-sm text-muted-foreground">Vendor and line items.</div>
         </div>
         <Button
           id="add-po"
@@ -104,7 +104,7 @@ export function NewPOCard({ vendors, products }: { vendors: Vendor[]; products: 
             />
             <select
               name="vendorId"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
               required
               defaultValue=""
             >
@@ -123,12 +123,12 @@ export function NewPOCard({ vendors, products }: { vendors: Vendor[]; products: 
             <input type="date" name="expectedDate" className="w-full rounded-xl border px-3 py-2 text-sm" />
           </div>
           <div className="rounded-xl border overflow-hidden">
-            <div className="px-3 py-2 text-xs text-slate-600 border-b bg-slate-50">Line items</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground border-b bg-[hsl(var(--surface-elevated))]">Line items</div>
             <div className="p-3 grid gap-2">
               {lines.map((line, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-center">
                   <select
-                    className="col-span-4 rounded-lg border px-2 py-2 text-xs bg-white"
+                    className="col-span-4 rounded-lg border px-2 py-2 text-xs bg-card"
                     value={line.productId || ""}
                     onChange={(e) => {
                       const productId = e.target.value || undefined;
@@ -231,7 +231,7 @@ export function POStatusSelect({
     <select
       value={currentStatus}
       disabled={pending}
-      className="rounded-lg border px-2 py-1 text-xs bg-white disabled:opacity-60"
+      className="rounded-lg border px-2 py-1 text-xs bg-card disabled:opacity-60"
       onChange={(e) => {
         const status = e.target.value;
         if (!PO_STATUSES.includes(status as (typeof PO_STATUSES)[number])) return;

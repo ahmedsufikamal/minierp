@@ -22,7 +22,7 @@ export function AddCustomerCard() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Add customer</div>
-          <div className="text-sm text-slate-600">Create a new customer record.</div>
+          <div className="text-sm text-muted-foreground">Create a new customer record.</div>
         </div>
         <Button
           type="button"

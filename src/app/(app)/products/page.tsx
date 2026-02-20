@@ -128,7 +128,7 @@ export default async function ProductsPage(props: PageProps) {
           <div className="p-4 border-b flex items-center justify-between gap-4 flex-wrap">
             <div>
               <div className="font-medium">Product list</div>
-              <div className="text-sm text-slate-600">Total: {total}</div>
+              <div className="text-sm text-muted-foreground">Total: {total}</div>
             </div>
             <SearchInput name="q" placeholder="Search products…" defaultValue={q ?? ""} className="max-w-sm" />
           </div>

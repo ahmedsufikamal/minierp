@@ -46,7 +46,7 @@ export function DealsTab({ customer }: { customer: CustomerWithDeals }) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium tracking-tight">Deals Pipeline</h3>
-          <p className="text-sm text-slate-500">Manage your opportunities with {customer.name}</p>
+          <p className="text-sm text-muted-foreground">Manage your opportunities with {customer.name}</p>
         </div>
 
         <Dialog open={isOpen} onOpenChange={setIsOpen}>

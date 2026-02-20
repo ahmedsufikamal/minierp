@@ -148,7 +148,7 @@ export default function InventoryImportPage() {
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
-              className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:border-slate-400 transition-colors"
+              className="cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors hover:border-[hsl(var(--border-strong))]"
               onClick={() => fileInputRef.current?.click()}
             >
               <input
@@ -161,9 +161,9 @@ export default function InventoryImportPage() {
               
               {file ? (
                 <div className="space-y-2">
-                  <FileSpreadsheet className="h-12 w-12 mx-auto text-slate-400" />
+                  <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div className="font-medium">{file.name}</div>
-                  <div className="text-sm text-slate-600">
+                  <div className="text-sm text-muted-foreground">
                     {(file.size / 1024).toFixed(1)} KB
                   </div>
                   <Button
@@ -180,10 +180,10 @@ export default function InventoryImportPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Upload className="h-12 w-12 mx-auto text-slate-400" />
+                  <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div className="font-medium">Drop Excel file here</div>
-                  <div className="text-sm text-slate-600">or click to browse</div>
-                  <div className="text-xs text-slate-500 mt-2">
+                  <div className="text-sm text-muted-foreground">or click to browse</div>
+                  <div className="text-xs text-muted-foreground mt-2">
                     Supports .xlsx and .xls files
                   </div>
                 </div>
@@ -219,7 +219,7 @@ export default function InventoryImportPage() {
                     }
                   }}
                 />
-                <div className="text-xs text-slate-500 mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   Override brand for all imported items. Leave empty to use file data or default to SIEMENS.
                 </div>
               </div>
@@ -244,29 +244,29 @@ export default function InventoryImportPage() {
           </div>
 
           {preview && (
-            <div className="rounded-2xl border p-5 bg-slate-50">
+            <div className="rounded-2xl border p-5 bg-[hsl(var(--surface-elevated))]">
               <div className="font-medium mb-3">Import Summary</div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Items:</span>
+                  <span className="text-muted-foreground">Items:</span>
                   <span className="font-medium">{preview.summary.totalItems}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Total Qty:</span>
+                  <span className="text-muted-foreground">Total Qty:</span>
                   <span className="font-medium">{preview.summary.totalQty.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Total Value:</span>
+                  <span className="text-muted-foreground">Total Value:</span>
                   <span className="font-medium">
                     {formatMoney(Math.round(preview.summary.totalValue * 100), "BDT")}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Brands:</span>
+                  <span className="text-muted-foreground">Brands:</span>
                   <span className="font-medium">{preview.summary.brands.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Locations:</span>
+                  <span className="text-muted-foreground">Locations:</span>
                   <span className="font-medium">{preview.summary.locations.length}</span>
                 </div>
               </div>
@@ -278,12 +278,12 @@ export default function InventoryImportPage() {
           {preview && (
             <>
               {preview.errors.length > 0 && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                <div className="state-error rounded-2xl p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                    <AlertCircle className="mt-0.5 h-5 w-5 text-[hsl(var(--state-error-fg))]" />
                     <div className="flex-1">
-                      <div className="font-medium text-red-900 mb-1">Errors</div>
-                      <ul className="text-sm text-red-700 space-y-1">
+                      <div className="mb-1 font-medium">Errors</div>
+                      <ul className="space-y-1 text-sm">
                         {preview.errors.map((err, i) => (
                           <li key={i}>• {err}</li>
                         ))}
@@ -294,12 +294,12 @@ export default function InventoryImportPage() {
               )}
 
               {preview.warnings.length > 0 && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div className="state-warning rounded-2xl p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                    <AlertCircle className="mt-0.5 h-5 w-5 text-[hsl(var(--state-warning-fg))]" />
                     <div className="flex-1">
-                      <div className="font-medium text-amber-900 mb-1">Warnings</div>
-                      <ul className="text-sm text-amber-700 space-y-1">
+                      <div className="mb-1 font-medium">Warnings</div>
+                      <ul className="space-y-1 text-sm">
                         {preview.warnings.map((warn, i) => (
                           <li key={i}>• {warn}</li>
                         ))}
@@ -310,14 +310,14 @@ export default function InventoryImportPage() {
               )}
 
               {preview.alreadyImported && (
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                <div className="state-info rounded-2xl p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <AlertCircle className="mt-0.5 h-5 w-5 text-[hsl(var(--state-info-fg))]" />
                     <div className="flex-1">
-                      <div className="font-medium text-blue-900 mb-1">
+                      <div className="mb-1 font-medium">
                         File Already Imported
                       </div>
-                      <div className="text-sm text-blue-700">
+                      <div className="text-sm">
                         This file was previously imported. Use &quot;Force Re-import&quot; to import again.
                       </div>
                     </div>
@@ -329,7 +329,7 @@ export default function InventoryImportPage() {
                 <div className="p-4 border-b flex items-center justify-between">
                   <div>
                     <div className="font-medium">Preview ({preview.rows.length} items)</div>
-                    <div className="text-sm text-slate-600">
+                    <div className="text-sm text-muted-foreground">
                       Review the data before importing
                     </div>
                   </div>
@@ -368,7 +368,7 @@ export default function InventoryImportPage() {
 
                 <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
                   <table className="min-w-full text-sm">
-                    <thead className="text-left text-slate-600 bg-slate-50 sticky top-0">
+                    <thead className="text-left text-muted-foreground bg-[hsl(var(--surface-elevated))] sticky top-0">
                       <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                         <th>MLFB</th>
                         <th>Brand</th>
@@ -393,7 +393,7 @@ export default function InventoryImportPage() {
                               <div>
                                 {row.category}
                                 {row.subCategory && (
-                                  <span className="text-slate-500"> / {row.subCategory}</span>
+                                  <span className="text-muted-foreground"> / {row.subCategory}</span>
                                 )}
                               </div>
                             )}
@@ -405,7 +405,7 @@ export default function InventoryImportPage() {
                                   <div key={j} className="text-xs">
                                     {loc.location}: {loc.qty}
                                     {loc.warning && (
-                                      <span className="text-amber-600 ml-1" title={loc.warning}>
+                                      <span className="ml-1 text-[hsl(var(--state-warning-fg))]" title={loc.warning}>
                                         ⚠
                                       </span>
                                     )}
@@ -413,16 +413,16 @@ export default function InventoryImportPage() {
                                 ))}
                               </div>
                             ) : (
-                              <span className="text-slate-400">—</span>
+                              <span className="text-muted-foreground">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
                             {row.errors.length > 0 ? (
-                              <span className="text-red-600 text-xs">Errors</span>
+                              <span className="text-xs text-[hsl(var(--state-error-fg))]">Errors</span>
                             ) : row.warnings.length > 0 ? (
-                              <span className="text-amber-600 text-xs">Warnings</span>
+                              <span className="text-xs text-[hsl(var(--state-warning-fg))]">Warnings</span>
                             ) : (
-                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
                             )}
                           </td>
                         </tr>
@@ -436,13 +436,13 @@ export default function InventoryImportPage() {
 
           {!preview && file && loading && (
             <div className="rounded-2xl border p-8 text-center">
-              <Loader2 className="h-8 w-8 mx-auto animate-spin text-slate-400" />
-              <div className="mt-4 text-slate-600">Parsing Excel file...</div>
+              <Loader2 className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
+              <div className="mt-4 text-muted-foreground">Parsing Excel file...</div>
             </div>
           )}
 
           {!preview && !file && (
-            <div className="rounded-2xl border p-8 text-center text-slate-600">
+            <div className="rounded-2xl border p-8 text-center text-muted-foreground">
               Select an Excel file to preview the import data
             </div>
           )}

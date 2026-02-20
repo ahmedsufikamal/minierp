@@ -33,9 +33,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-card">
       <div className="flex">
-        <aside className="hidden md:flex md:flex-col w-64 border-r min-h-screen p-4 gap-2 fixed top-0 left-0 h-full bg-slate-50/50">
+        <aside className="hidden md:flex md:flex-col w-64 border-r min-h-screen p-4 gap-2 fixed top-0 left-0 h-full bg-[hsl(var(--surface-elevated))]/50">
           <Link href="/dashboard" className="font-semibold text-lg px-2">
             miniERP
           </Link>
@@ -51,8 +51,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900",
+                      ? "bg-[hsl(var(--surface-interactive))] text-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-[hsl(var(--surface-interactive))] hover:text-foreground",
                   )}
                 >
                   <Icon size={18} />
@@ -68,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               variant="ghost"
               size="sm"
               onClick={() => logout()}
-              className="w-full justify-start gap-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
+              className="w-full justify-start gap-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             >
               <LogOut size={18} />
               Sign Out
@@ -77,13 +77,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="flex-1 md:ml-64">
-          <header className="sticky top-0 z-20 border-b bg-white/80 backdrop-blur">
+          <header className="sticky top-0 z-20 border-b bg-card/80 backdrop-blur">
             <div className="flex items-center justify-between p-4">
               <div className="md:hidden font-semibold">miniERP</div>
               {/* Could add a mobile menu toggle here */}
               <div className="flex items-center gap-3 ml-auto">
                 {/* Placeholder for user profile if needed */}
-                <div className="h-8 w-8 rounded-full bg-slate-200 animate-pulse" />
+                <div className="h-8 w-8 rounded-full bg-[hsl(var(--surface-interactive))] animate-pulse" />
               </div>
             </div>
           </header>

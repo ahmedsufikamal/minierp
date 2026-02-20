@@ -33,7 +33,7 @@ export function NewPaymentCard({
   return (
     <div id="add-payment" className="rounded-2xl border p-5">
       <div className="font-medium">Record payment</div>
-      <div className="text-sm text-slate-600 mb-4">Link to an unpaid invoice or bill.</div>
+      <div className="text-sm text-muted-foreground mb-4">Link to an unpaid invoice or bill.</div>
 
       <form
         action={async (formData: FormData) => {
@@ -59,7 +59,7 @@ export function NewPaymentCard({
         className="grid gap-3"
       >
         <div>
-          <label className="text-xs text-slate-600">Link to</label>
+          <label className="text-xs text-muted-foreground">Link to</label>
           <div className="flex gap-4 mt-1">
             <label className="flex items-center gap-2">
               <input
@@ -84,10 +84,10 @@ export function NewPaymentCard({
 
         {linkType === "invoice" ? (
           <div>
-            <label className="text-xs text-slate-600">Invoice</label>
+            <label className="text-xs text-muted-foreground">Invoice</label>
             <select
               name="invoiceId"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white mt-1"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card mt-1"
               required={linkType === "invoice"}
             >
               <option value="">Select invoice</option>
@@ -105,10 +105,10 @@ export function NewPaymentCard({
           </div>
         ) : (
           <div>
-            <label className="text-xs text-slate-600">Bill</label>
+            <label className="text-xs text-muted-foreground">Bill</label>
             <select
               name="billId"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white mt-1"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card mt-1"
               required={linkType === "bill"}
             >
               <option value="">Select bill</option>
@@ -127,7 +127,7 @@ export function NewPaymentCard({
         )}
 
         <div>
-          <label className="text-xs text-slate-600">Amount (e.g. 100.50)</label>
+          <label className="text-xs text-muted-foreground">Amount (e.g. 100.50)</label>
           <input
             type="number"
             name="amount"
@@ -140,7 +140,7 @@ export function NewPaymentCard({
         </div>
 
         <div>
-          <label className="text-xs text-slate-600">Date</label>
+          <label className="text-xs text-muted-foreground">Date</label>
           <input
             type="date"
             name="date"
@@ -151,10 +151,10 @@ export function NewPaymentCard({
         </div>
 
         <div>
-          <label className="text-xs text-slate-600">Method</label>
+          <label className="text-xs text-muted-foreground">Method</label>
           <select
             name="method"
-            className="w-full rounded-xl border px-3 py-2 text-sm bg-white mt-1"
+            className="w-full rounded-xl border px-3 py-2 text-sm bg-card mt-1"
           >
             <option value="CASH">Cash</option>
             <option value="BANK">Bank</option>
@@ -164,7 +164,7 @@ export function NewPaymentCard({
         </div>
 
         <div>
-          <label className="text-xs text-slate-600">Reference (optional)</label>
+          <label className="text-xs text-muted-foreground">Reference (optional)</label>
           <input
             name="reference"
             placeholder="Check #, ref..."
@@ -179,7 +179,7 @@ export function NewPaymentCard({
         </div>
       </form>
 
-      <p className="text-xs text-slate-500 mt-3">
+      <p className="text-xs text-muted-foreground mt-3">
         Enter amount in currency units (e.g. 100.50).
       </p>
     </div>

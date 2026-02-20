@@ -36,7 +36,7 @@ export default async function InventoryBrandsPage() {
         <div className="lg:col-span-2 rounded-2xl border">
           <div className="p-4 border-b">
             <div className="font-medium">Brand list</div>
-            <div className="text-sm text-slate-600">Total: {brands.length}</div>
+            <div className="text-sm text-muted-foreground">Total: {brands.length}</div>
           </div>
           {brands.length === 0 ? (
             <EmptyState
@@ -47,7 +47,7 @@ export default async function InventoryBrandsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="text-left text-slate-600">
+                <thead className="text-left text-muted-foreground">
                   <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                     <th>Name</th>
                     <th className="w-[120px]">Action</th>

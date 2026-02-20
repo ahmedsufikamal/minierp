@@ -2,35 +2,61 @@
 
 @theme {
   --background: 222 35% 7%;
-  --foreground: 220 20% 96%;
+  --foreground: 220 22% 96%;
   --card: 222 30% 10%;
-  --card-foreground: 220 20% 96%;
-  --popover: 222 30% 10%;
-  --popover-foreground: 220 20% 96%;
+  --card-foreground: 220 22% 96%;
+  --popover: 222 26% 12%;
+  --popover-foreground: 220 22% 96%;
   --primary: 214 95% 62%;
   --primary-foreground: 220 40% 10%;
-  --secondary: 221 24% 16%;
-  --secondary-foreground: 220 20% 92%;
-  --muted: 221 24% 14%;
-  --muted-foreground: 218 13% 68%;
-  --accent: 220 24% 18%;
-  --accent-foreground: 220 20% 96%;
+  --secondary: 221 24% 15%;
+  --secondary-foreground: 220 18% 90%;
+  --muted: 221 22% 14%;
+  --muted-foreground: 218 14% 72%;
+  --accent: 220 22% 18%;
+  --accent-foreground: 220 22% 96%;
   --destructive: 0 75% 56%;
   --destructive-foreground: 0 0% 98%;
-  --border: 221 18% 22%;
-  --input: 221 18% 22%;
+  --border: 220 14% 25%;
+  --input: 220 14% 25%;
   --ring: 214 95% 62%;
 
-  /* Apollo-like semantic surface tokens */
+  /* Semantic surface and text tokens */
+  --surface-page: 222 35% 7%;
+  --surface-card: 222 30% 10%;
+  --surface-elevated: 222 25% 13%;
+  --surface-overlay: 222 32% 6%;
+  --surface-interactive: 222 20% 17%;
+  --text-strong: 220 22% 98%;
+  --text-default: 220 20% 95%;
+  --text-muted: 218 14% 72%;
+  --text-disabled: 218 12% 56%;
+  --border-strong: 220 18% 32%;
+  --border-subtle: 220 14% 25%;
+
+  /* Backwards-compatible aliases */
   --bg: 222 35% 7%;
   --surface-1: 222 30% 10%;
-  --surface-2: 222 26% 13%;
-  --surface-3: 222 22% 16%;
-  --surface-interactive: 222 22% 16%;
-  --text: 220 20% 96%;
-  --text-muted: 218 13% 68%;
+  --surface-2: 222 25% 13%;
+  --surface-3: 222 20% 17%;
+  --text: 220 20% 95%;
+
+  /* State tokens */
+  --state-success-bg: 145 56% 20%;
+  --state-success-fg: 145 84% 90%;
+  --state-success-border: 145 50% 32%;
+  --state-warning-bg: 37 65% 20%;
+  --state-warning-fg: 37 96% 88%;
+  --state-warning-border: 37 64% 35%;
+  --state-error-bg: 0 64% 22%;
+  --state-error-fg: 0 90% 92%;
+  --state-error-border: 0 62% 37%;
+  --state-info-bg: 214 66% 20%;
+  --state-info-fg: 214 92% 90%;
+  --state-info-border: 214 58% 35%;
+
   --accent-solid: 214 95% 62%;
-  --success: 146 58% 47%;
+  --success: 145 56% 46%;
   --warning: 37 92% 56%;
 
   --radius: 0.625rem;
@@ -48,27 +74,51 @@
 }
 
 .light {
-  --background: 210 40% 98%;
+  --background: 210 40% 99%;
   --foreground: 224 42% 10%;
   --card: 0 0% 100%;
   --card-foreground: 224 42% 10%;
   --popover: 0 0% 100%;
   --popover-foreground: 224 42% 10%;
-  --secondary: 215 32% 95%;
-  --secondary-foreground: 224 32% 18%;
-  --muted: 215 32% 95%;
-  --muted-foreground: 220 11% 44%;
-  --accent: 212 35% 93%;
+  --secondary: 212 32% 95%;
+  --secondary-foreground: 224 36% 16%;
+  --muted: 212 28% 95%;
+  --muted-foreground: 220 12% 40%;
+  --accent: 212 34% 92%;
   --accent-foreground: 224 42% 10%;
-  --border: 214 24% 88%;
-  --input: 214 24% 88%;
-  --bg: 210 40% 98%;
+  --border: 214 24% 86%;
+  --input: 214 24% 86%;
+
+  --surface-page: 210 40% 99%;
+  --surface-card: 0 0% 100%;
+  --surface-elevated: 210 33% 97%;
+  --surface-overlay: 215 32% 20%;
+  --surface-interactive: 212 34% 92%;
+  --text-strong: 224 42% 10%;
+  --text-default: 224 32% 14%;
+  --text-muted: 220 12% 40%;
+  --text-disabled: 220 10% 56%;
+  --border-strong: 214 24% 74%;
+  --border-subtle: 214 24% 86%;
+
+  --bg: 210 40% 99%;
   --surface-1: 0 0% 100%;
-  --surface-2: 210 29% 97%;
-  --surface-3: 212 30% 93%;
-  --surface-interactive: 212 30% 93%;
-  --text: 224 42% 10%;
-  --text-muted: 220 11% 44%;
+  --surface-2: 210 33% 97%;
+  --surface-3: 212 34% 92%;
+  --text: 224 32% 14%;
+
+  --state-success-bg: 145 62% 93%;
+  --state-success-fg: 145 70% 22%;
+  --state-success-border: 145 42% 74%;
+  --state-warning-bg: 36 100% 93%;
+  --state-warning-fg: 30 82% 24%;
+  --state-warning-border: 36 72% 76%;
+  --state-error-bg: 0 86% 94%;
+  --state-error-fg: 0 72% 26%;
+  --state-error-border: 0 70% 78%;
+  --state-info-bg: 214 96% 94%;
+  --state-info-fg: 214 72% 26%;
+  --state-info-border: 214 72% 79%;
 }
 
 @layer base {
@@ -81,9 +131,17 @@
     height: 100%;
   }
 
+  html.light {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
-    background: hsl(var(--bg));
-    color: hsl(var(--text));
+    background: hsl(var(--surface-page));
+    color: hsl(var(--text-default));
     font-family: var(--tenant-font-family, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif);
     font-feature-settings: "rlig" 1, "calt" 1;
   }
@@ -96,21 +154,73 @@
    - surface-3: interactive highlights (active nav, chip emphasis)
   */
   .surface-1 {
-    background-color: hsl(var(--surface-1));
-    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--surface-card));
+    border: 1px solid hsl(var(--border-subtle));
     border-radius: var(--radius-lg);
   }
 
   .surface-2 {
-    background-color: hsl(var(--surface-2));
-    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--surface-elevated));
+    border: 1px solid hsl(var(--border-subtle));
     border-radius: var(--radius-md);
   }
 
   .surface-3 {
-    background-color: hsl(var(--surface-3));
-    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--surface-interactive));
+    border: 1px solid hsl(var(--border-subtle));
     border-radius: var(--radius-md);
+  }
+
+  .surface-card {
+    background-color: hsl(var(--surface-card));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: var(--radius-lg);
+  }
+
+  .surface-subtle {
+    background-color: hsl(var(--surface-elevated));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: var(--radius-md);
+  }
+
+  .text-strong {
+    color: hsl(var(--text-strong));
+  }
+
+  .text-default {
+    color: hsl(var(--text-default));
+  }
+
+  .text-muted {
+    color: hsl(var(--text-muted));
+  }
+
+  .text-disabled {
+    color: hsl(var(--text-disabled));
+  }
+
+  .state-success {
+    background-color: hsl(var(--state-success-bg));
+    color: hsl(var(--state-success-fg));
+    border: 1px solid hsl(var(--state-success-border));
+  }
+
+  .state-warning {
+    background-color: hsl(var(--state-warning-bg));
+    color: hsl(var(--state-warning-fg));
+    border: 1px solid hsl(var(--state-warning-border));
+  }
+
+  .state-error {
+    background-color: hsl(var(--state-error-bg));
+    color: hsl(var(--state-error-fg));
+    border: 1px solid hsl(var(--state-error-border));
+  }
+
+  .state-info {
+    background-color: hsl(var(--state-info-bg));
+    color: hsl(var(--state-info-fg));
+    border: 1px solid hsl(var(--state-info-border));
   }
 
   .focus-ring:focus-visible {

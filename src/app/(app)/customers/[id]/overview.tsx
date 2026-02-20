@@ -38,14 +38,14 @@ export function OverviewTab({ customer }: { customer: CustomerWithRelations }) {
       {/* Activity Feed */}
       <div className="md:col-span-2 space-y-6">
         <Card>
-          <CardHeader className="pb-3 border-b bg-slate-50/50">
+          <CardHeader className="pb-3 border-b bg-[hsl(var(--surface-elevated))]/50">
             <CardTitle className="text-base font-medium">Activity Feed</CardTitle>
           </CardHeader>
           <CardContent className="p-4">
             {/* Quick Note Input */}
             <div className="mb-6 flex gap-3">
-              <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                <MessageSquare className="h-5 w-5 text-slate-500" />
+              <div className="h-9 w-9 rounded-full bg-[hsl(var(--surface-interactive))] flex items-center justify-center shrink-0">
+                <MessageSquare className="h-5 w-5 text-muted-foreground" />
               </div>
               <form ref={noteFormRef} action={handleAddNote} className="flex-1">
                 <Input
@@ -62,33 +62,33 @@ export function OverviewTab({ customer }: { customer: CustomerWithRelations }) {
             </div>
 
             {/* Timeline */}
-            <div className="relative pl-4 border-l border-slate-200 space-y-8">
+            <div className="relative pl-4 border-l border-border space-y-8">
               {customer.activities.map((activity) => (
                 <div key={activity.id} className="relative z-10">
-                  <div className="absolute -left-[21px] rounded-full bg-white border border-slate-200 p-1">
+                  <div className="absolute -left-[21px] rounded-full bg-card border border-border p-1">
                     {activity.type === "CALL" && <Phone className="h-3 w-3 text-blue-500" />}
                     {activity.type === "EMAIL" && <Mail className="h-3 w-3 text-yellow-500" />}
                     {activity.type === "MEETING" && <Users className="h-3 w-3 text-purple-500" />}
                     {activity.type === "NOTE" && (
-                      <MessageSquare className="h-3 w-3 text-slate-500" />
+                      <MessageSquare className="h-3 w-3 text-muted-foreground" />
                     )}
                   </div>
 
                   <div className="text-sm">
-                    <span className="font-medium text-slate-900">{activity.type}</span>
-                    <span className="text-slate-500 mx-1">•</span>
-                    <span className="text-slate-500">
+                    <span className="font-medium text-foreground">{activity.type}</span>
+                    <span className="text-muted-foreground mx-1">•</span>
+                    <span className="text-muted-foreground">
                       {format(new Date(activity.createdAt), "MMM d, h:mm a")}
                     </span>
                   </div>
-                  <div className="mt-1 text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <div className="mt-1 text-sm text-foreground bg-[hsl(var(--surface-elevated))] p-3 rounded-lg border border-border/60">
                     {activity.description || activity.subject}
                   </div>
                 </div>
               ))}
 
               {customer.activities.length === 0 && (
-                <div className="text-sm text-slate-500 italic pb-2">No activities yet.</div>
+                <div className="text-sm text-muted-foreground italic pb-2">No activities yet.</div>
               )}
             </div>
           </CardContent>
@@ -118,13 +118,13 @@ export function OverviewTab({ customer }: { customer: CustomerWithRelations }) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="mt-0.5 h-6 w-6 text-slate-400 hover:text-green-600"
+                  className="mt-0.5 h-6 w-6 text-muted-foreground hover:text-green-600"
                 >
                   <Circle className="h-4 w-4" />
                 </Button>
                 <div className="text-sm">
                   <div
-                    className={`text-slate-900 ${task.status === "DONE" ? "line-through text-slate-400" : ""}`}
+                    className={`text-foreground ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`}
                   >
                     {task.title}
                   </div>
@@ -139,7 +139,7 @@ export function OverviewTab({ customer }: { customer: CustomerWithRelations }) {
             ))}
 
             {customer.tasks.length === 0 && (
-              <div className="text-sm text-slate-500">No open tasks. Good job!</div>
+              <div className="text-sm text-muted-foreground">No open tasks. Good job!</div>
             )}
           </CardContent>
         </Card>
@@ -150,14 +150,14 @@ export function OverviewTab({ customer }: { customer: CustomerWithRelations }) {
           </CardHeader>
           <CardContent className="p-4 text-sm space-y-3">
             <div className="grid grid-cols-3 gap-2">
-              <div className="text-slate-500">Created</div>
-              <div className="col-span-2 text-slate-900 font-medium">
+              <div className="text-muted-foreground">Created</div>
+              <div className="col-span-2 text-foreground font-medium">
                 {format(new Date(customer.createdAt), "MMM d, yyyy")}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <div className="text-slate-500">Address</div>
-              <div className="col-span-2 text-slate-900">{customer.address || "—"}</div>
+              <div className="text-muted-foreground">Address</div>
+              <div className="col-span-2 text-foreground">{customer.address || "—"}</div>
             </div>
           </CardContent>
         </Card>

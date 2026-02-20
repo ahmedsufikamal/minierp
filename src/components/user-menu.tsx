@@ -113,7 +113,7 @@ export function UserMenu({ user }: UserMenuProps) {
           <DropdownMenuSubTrigger className={rowClass}>
             <Languages className={iconClass} />
             <span>Language</span>
-            <span className="ml-1 rounded-full bg-blue-500/25 px-2 py-0.5 text-[11px] font-semibold text-blue-300">
+            <span className="ml-1 rounded-full border border-[hsl(var(--state-info-border))] bg-[hsl(var(--state-info-bg))] px-2 py-0.5 text-[11px] font-semibold text-[hsl(var(--state-info-fg))]">
               Beta
             </span>
           </DropdownMenuSubTrigger>

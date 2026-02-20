@@ -155,7 +155,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className="flex h-full min-w-[280px] w-[280px] flex-col rounded-xl bg-slate-100/50 border border-slate-200/60 dark:bg-slate-900/50 dark:border-slate-800"
+      className="flex h-full min-w-[280px] w-[280px] flex-col rounded-xl bg-[hsl(var(--surface-interactive))]/50 border border-border/60 dark:bg-card/50 dark:border-border"
     >
       <div
         className={cn(
@@ -165,11 +165,11 @@ function KanbanColumn({
         )}
       >
         <div className="font-semibold text-sm">{title}</div>
-        <Badge variant="secondary" className="bg-white/50 text-xs font-normal">
+        <Badge variant="secondary" className="bg-card/50 text-xs font-normal">
           {items.length}
         </Badge>
       </div>
-      <div className="px-3 py-2 bg-slate-50 border-b border-slate-200/50 text-xs text-slate-500 font-medium">
+      <div className="px-3 py-2 bg-[hsl(var(--surface-elevated))] border-b border-border/50 text-xs text-muted-foreground font-medium">
         {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
           totalValue / 100,
         )}
@@ -182,7 +182,7 @@ function KanbanColumn({
           ))}
         </SortableContext>
         {items.length === 0 && (
-          <div className="h-24 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center text-xs text-slate-400">
+          <div className="h-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
             Drop here
           </div>
         )}
@@ -210,7 +210,7 @@ function KanbanCard({ item, isOverlay }: { item: Opportunity; isOverlay?: boolea
       ref={setNodeRef}
       style={style}
       className={cn(
-        "cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-slate-200 shadow-sm relative group bg-white",
+        "cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-border shadow-sm relative group bg-card",
         isDragging && "opacity-50",
         isOverlay &&
           "shadow-xl rotate-2 scale-105 cursor-grabbing z-50 ring-2 ring-indigo-500 ring-offset-2",
@@ -220,20 +220,20 @@ function KanbanCard({ item, isOverlay }: { item: Opportunity; isOverlay?: boolea
     >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between">
-          <div className="font-medium text-sm leading-tight text-slate-900 line-clamp-2">
+          <div className="font-medium text-sm leading-tight text-foreground line-clamp-2">
             {item.title}
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-slate-400 -mr-1 -mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="h-6 w-6 text-muted-foreground -mr-1 -mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <MoreHorizontal className="h-3 w-3" />
           </Button>
         </div>
 
-        <div className="pt-1 flex items-center justify-between text-xs text-slate-500">
-          <div className="font-semibold text-slate-700">
+        <div className="pt-1 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="font-semibold text-foreground">
             {new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: "USD",

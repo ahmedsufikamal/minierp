@@ -61,7 +61,7 @@ export function NewQuoteCard({ customers, products }: { customers: Customer[]; p
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Create quote</div>
-          <div className="text-sm text-slate-600">Customer and line items.</div>
+          <div className="text-sm text-muted-foreground">Customer and line items.</div>
         </div>
         <Button
           id="add-quote"
@@ -99,7 +99,7 @@ export function NewQuoteCard({ customers, products }: { customers: Customer[]; p
             />
             <select
               name="customerId"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
               required
               defaultValue=""
             >
@@ -118,12 +118,12 @@ export function NewQuoteCard({ customers, products }: { customers: Customer[]; p
             <input type="date" name="validUntil" className="w-full rounded-xl border px-3 py-2 text-sm" />
           </div>
           <div className="rounded-xl border overflow-hidden">
-            <div className="px-3 py-2 text-xs text-slate-600 border-b bg-slate-50">Line items</div>
+            <div className="px-3 py-2 text-xs text-muted-foreground border-b bg-[hsl(var(--surface-elevated))]">Line items</div>
             <div className="p-3 grid gap-2">
               {lines.map((line, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-center">
                   <select
-                    className="col-span-4 rounded-lg border px-2 py-2 text-xs bg-white"
+                    className="col-span-4 rounded-lg border px-2 py-2 text-xs bg-card"
                     value={line.productId || ""}
                     onChange={(e) => {
                       const productId = e.target.value || undefined;
@@ -226,7 +226,7 @@ export function QuoteStatusSelect({
     <select
       value={currentStatus}
       disabled={pending}
-      className="rounded-lg border px-2 py-1 text-xs bg-white disabled:opacity-60"
+      className="rounded-lg border px-2 py-1 text-xs bg-card disabled:opacity-60"
       onChange={(e) => {
         const status = e.target.value;
         if (!QUOTE_STATUSES.includes(status as (typeof QUOTE_STATUSES)[number])) return;

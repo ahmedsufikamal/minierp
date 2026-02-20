@@ -24,7 +24,7 @@ export function NewMoveCard({ products }: { products: Product[] }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">New inventory move</div>
-          <div className="text-sm text-slate-600">Record stock in/out adjustments.</div>
+          <div className="text-sm text-muted-foreground">Record stock in/out adjustments.</div>
         </div>
         <Button type="button" size="sm" onClick={() => setOpen((v) => !v)}>
           {open ? "Close" : "New"}
@@ -40,7 +40,7 @@ export function NewMoveCard({ products }: { products: Product[] }) {
         >
           <select
             name="productId"
-            className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+            className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
             required
             defaultValue=""
           >
@@ -57,7 +57,7 @@ export function NewMoveCard({ products }: { products: Product[] }) {
           <div className="grid grid-cols-2 gap-3">
             <select
               name="type"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+              className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
               defaultValue="IN"
             >
               <option value="IN">IN</option>

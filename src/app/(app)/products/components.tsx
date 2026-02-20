@@ -34,7 +34,7 @@ export function AddProductCard({ brands }: { brands: Array<{ id: string; name: s
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Add product</div>
-          <div className="text-sm text-slate-600">SKU, UOM, and default selling price.</div>
+          <div className="text-sm text-muted-foreground">SKU, UOM, and default selling price.</div>
         </div>
         <Button
           id="add-product"
@@ -162,7 +162,7 @@ export function ProductList({
     <>
       <div className="overflow-x-auto">
         <table className="data-table min-w-full text-sm">
-          <thead className="text-left text-slate-600">
+          <thead className="text-left text-muted-foreground">
               <tr className="[&>th]:px-4 [&>th]:py-3 border-b">
                   <SortableTh sortKey="sku" label="SKU" currentSort={sort} currentOrder={order} />
                   <SortableTh sortKey="name" label="Name" currentSort={sort} currentOrder={order} />
@@ -183,7 +183,7 @@ export function ProductList({
                     <td className="px-4 py-3">
                       <div className="font-medium">{p.name}</div>
                       {"brand" in p && p.brand && (
-                        <div className="text-xs text-slate-500">{p.brand.name}</div>
+                        <div className="text-xs text-muted-foreground">{p.brand.name}</div>
                       )}
                     </td>
                     <td className="px-4 py-3">{p.uom}</td>
@@ -213,7 +213,7 @@ export function ProductList({
             })}
             {products.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-slate-600" colSpan={6}>
+                <td className="px-4 py-8 text-muted-foreground" colSpan={6}>
                   No products yet. Create your first product on the left.
                 </td>
               </tr>
