@@ -24,7 +24,11 @@ function isCriticalInventoryEvent(action: string): boolean {
     upper.includes("APPROVE") ||
     upper.includes("REJECT") ||
     upper.includes("CANCEL") ||
-    upper.includes("LEDGER")
+    upper.includes("LEDGER") ||
+    upper.includes("RECONCILIATION") ||
+    upper.includes("RESERVATION") ||
+    upper.includes("SERIAL") ||
+    upper.includes("BATCH")
   );
 }
 

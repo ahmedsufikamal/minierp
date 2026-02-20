@@ -152,6 +152,20 @@ enum InventoryExportJobStatus {
   FAILED
 }
 
+enum InventoryReservationStatus {
+  ACTIVE
+  RELEASED
+  CONSUMED
+  CANCELLED
+}
+
+enum InventorySerialStatus {
+  AVAILABLE
+  RESERVED
+  ISSUED
+  SCRAPPED
+}
+
 enum IamTenantStatus {
   ACTIVE
   DISABLED
@@ -462,6 +476,8 @@ model Product {
   uom               String       @default("pcs")
   priceCents        Int          @default(0)
   unitCostMinor     Int?         @default(0)
+  trackSerial       Boolean      @default(false)
+  trackBatch        Boolean      @default(false)
   lowStockThreshold Int? // optional: warn when stock below this
   isActive          Boolean      @default(true)
   createdAt         DateTime     @default(now())
@@ -479,6 +495,9 @@ model Product {
   inventoryLedgerEntries   InventoryLedgerEntry[]
   inventoryStockBalances   InventoryStockBalance[]
   inventoryReorderRules    InventoryReorderRule[]
+  inventoryReservations    InventoryReservation[]
+  inventoryBatches         InventoryBatch[]
+  inventorySerials         InventorySerial[]
 
   @@unique([companyId, brandId, normalizedSku])
   @@index([companyId, brandId])
@@ -676,19 +695,19 @@ model InventoryMove {
 }
 
 model Account {
-  id        String      @id @default(cuid())
-  companyId String      @map("orgId")
+  id        String       @id @default(cuid())
+  companyId String       @map("orgId")
   tenantId  String?
   code      String
   name      String
   type      AccountType
   parentId  String?
-  parent    Account?    @relation("AccountTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Account[]   @relation("AccountTree")
-  isGroup   Boolean     @default(false)
+  parent    Account?     @relation("AccountTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Account[]    @relation("AccountTree")
+  isGroup   Boolean      @default(false)
   rootType  AccountType?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   lines     JournalLine[]
   glEntries GLEntry[]
@@ -699,28 +718,28 @@ model Account {
 }
 
 model JournalEntry {
-  id               String            @id @default(cuid())
-  tenantId         String?
-  companyId        String            @map("orgId")
-  number           String?
-  status           JournalEntryStatus @default(DRAFT)
-  date             DateTime          @default(now())
-  postingDate      DateTime?         @db.Date
-  fiscalYearId     String?
-  fiscalYear       FiscalYear?       @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
+  id                 String             @id @default(cuid())
+  tenantId           String?
+  companyId          String             @map("orgId")
+  number             String?
+  status             JournalEntryStatus @default(DRAFT)
+  date               DateTime           @default(now())
+  postingDate        DateTime?          @db.Date
+  fiscalYearId       String?
+  fiscalYear         FiscalYear?        @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
   accountingPeriodId String?
-  accountingPeriod AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
-  memo             String?
-  submittedAt      DateTime?
-  submittedBy      String?
-  postedAt         DateTime?
-  postedBy         String?
-  cancelledAt      DateTime?
-  cancelledBy      String?
-  totalDebitCents  Int               @default(0)
-  totalCreditCents Int               @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  accountingPeriod   AccountingPeriod?  @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
+  memo               String?
+  submittedAt        DateTime?
+  submittedBy        String?
+  postedAt           DateTime?
+  postedBy           String?
+  cancelledAt        DateTime?
+  cancelledBy        String?
+  totalDebitCents    Int                @default(0)
+  totalCreditCents   Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   lines     JournalLine[]
   glEntries GLEntry[]
@@ -745,19 +764,19 @@ model JournalLine {
 }
 
 model FiscalYear {
-  id         String   @id @default(cuid())
-  tenantId   String
-  companyId  String   @map("orgId")
-  name       String
-  startDate  DateTime @db.Date
-  endDate    DateTime @db.Date
-  isClosed   Boolean  @default(false)
-  isDefault  Boolean  @default(false)
-  createdBy  String?
-  closedBy   String?
-  closedAt   DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String    @id @default(cuid())
+  tenantId  String
+  companyId String    @map("orgId")
+  name      String
+  startDate DateTime  @db.Date
+  endDate   DateTime  @db.Date
+  isClosed  Boolean   @default(false)
+  isDefault Boolean   @default(false)
+  createdBy String?
+  closedBy  String?
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   periods        AccountingPeriod[]
   journalEntries JournalEntry[]
@@ -768,20 +787,20 @@ model FiscalYear {
 }
 
 model AccountingPeriod {
-  id         String                @id @default(cuid())
-  tenantId   String
-  companyId  String                @map("orgId")
+  id           String                 @id @default(cuid())
+  tenantId     String
+  companyId    String                 @map("orgId")
   fiscalYearId String
-  fiscalYear FiscalYear            @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
-  name       String
-  startDate  DateTime              @db.Date
-  endDate    DateTime              @db.Date
-  status     AccountingPeriodStatus @default(OPEN)
-  isYearEnd  Boolean               @default(false)
-  closedBy   String?
-  closedAt   DateTime?
-  createdAt  DateTime              @default(now())
-  updatedAt  DateTime              @updatedAt
+  fiscalYear   FiscalYear             @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  name         String
+  startDate    DateTime               @db.Date
+  endDate      DateTime               @db.Date
+  status       AccountingPeriodStatus @default(OPEN)
+  isYearEnd    Boolean                @default(false)
+  closedBy     String?
+  closedAt     DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   journalEntries JournalEntry[]
   glEntries      GLEntry[]
@@ -791,27 +810,27 @@ model AccountingPeriod {
 }
 
 model GLEntry {
-  id               String            @id @default(cuid())
-  tenantId         String
-  companyId        String            @map("orgId")
-  postingDate      DateTime          @db.Date
-  accountId        String
-  account          Account           @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  journalEntryId   String?
-  journalEntry     JournalEntry?     @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
-  fiscalYearId     String?
-  fiscalYear       FiscalYear?       @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
+  id                 String            @id @default(cuid())
+  tenantId           String
+  companyId          String            @map("orgId")
+  postingDate        DateTime          @db.Date
+  accountId          String
+  account            Account           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  journalEntryId     String?
+  journalEntry       JournalEntry?     @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  fiscalYearId       String?
+  fiscalYear         FiscalYear?       @relation(fields: [fiscalYearId], references: [id], onDelete: SetNull)
   accountingPeriodId String?
-  accountingPeriod AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
-  debitCents       Int               @default(0)
-  creditCents      Int               @default(0)
-  currency         String            @default("USD")
-  voucherType      String?
-  voucherId        String?
-  remarks          String?
-  metadata         Json?
-  createdBy        String?
-  createdAt        DateTime          @default(now())
+  accountingPeriod   AccountingPeriod? @relation(fields: [accountingPeriodId], references: [id], onDelete: SetNull)
+  debitCents         Int               @default(0)
+  creditCents        Int               @default(0)
+  currency           String            @default("USD")
+  voucherType        String?
+  voucherId          String?
+  remarks            String?
+  metadata           Json?
+  createdBy          String?
+  createdAt          DateTime          @default(now())
 
   @@index([tenantId, companyId, postingDate])
   @@index([tenantId, companyId, accountId, postingDate])
@@ -1533,6 +1552,9 @@ model InventoryWarehouse {
   ledgerEntries            InventoryLedgerEntry[]
   balances                 InventoryStockBalance[]
   reorderRules             InventoryReorderRule[]
+  reservations             InventoryReservation[]
+  batches                  InventoryBatch[]
+  serials                  InventorySerial[]
 
   @@unique([companyId, code])
   @@index([companyId, isActive])
@@ -1561,6 +1583,9 @@ model InventoryWarehouseLocation {
   ledgerEntries            InventoryLedgerEntry[]
   balances                 InventoryStockBalance[]
   reorderRules             InventoryReorderRule[]
+  reservations             InventoryReservation[]
+  batches                  InventoryBatch[]
+  serials                  InventorySerial[]
 
   @@unique([companyId, warehouseId, code])
   @@index([companyId, warehouseId, parentId])
@@ -1723,6 +1748,10 @@ model InventoryDocumentLine {
   destinationWarehouse   InventoryWarehouse?         @relation("InventoryDocumentLineDestinationWarehouse", fields: [destinationWarehouseId], references: [id], onDelete: SetNull)
   destinationLocationId  String?
   destinationLocation    InventoryWarehouseLocation? @relation("InventoryDocumentLineDestinationLocation", fields: [destinationLocationId], references: [id], onDelete: SetNull)
+  reservationId          String?
+  reservation            InventoryReservation?       @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  batchCode              String?
+  serialNumbers          Json?
   customData             Json?
   metadata               Json?
   createdAt              DateTime                    @default(now())
@@ -1732,6 +1761,8 @@ model InventoryDocumentLine {
 
   @@index([companyId, documentId])
   @@index([companyId, itemId])
+  @@index([companyId, reservationId])
+  @@index([companyId, batchCode])
 }
 
 model InventoryWorkflowState {
@@ -1767,6 +1798,10 @@ model InventoryLedgerEntry {
   unitCostMinor  Int?
   totalCostMinor Int?
   currency       String                      @default("BDT")
+  reservationId  String?
+  reservation    InventoryReservation?       @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  batchCode      String?
+  serialNumbers  Json?
   postingTime    DateTime                    @default(now())
   metadata       Json?
   createdBy      String?
@@ -1775,6 +1810,8 @@ model InventoryLedgerEntry {
   @@index([companyId, itemId, postingTime])
   @@index([companyId, warehouseId, locationId])
   @@index([companyId, documentId])
+  @@index([companyId, reservationId])
+  @@index([companyId, batchCode])
 }
 
 model InventoryStockBalance {
@@ -1796,6 +1833,84 @@ model InventoryStockBalance {
   @@unique([companyId, itemId, warehouseId, locationId])
   @@index([companyId, warehouseId, locationId])
   @@index([companyId, itemId])
+}
+
+model InventoryReservation {
+  id            String                      @id @default(cuid())
+  companyId     String                      @map("orgId")
+  itemId        String
+  item          Product                     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  warehouseId   String
+  warehouse     InventoryWarehouse          @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  locationId    String?
+  location      InventoryWarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  quantity      Int
+  fulfilledQty  Int                         @default(0)
+  status        InventoryReservationStatus  @default(ACTIVE)
+  referenceType String?
+  referenceId   String?
+  notes         String?
+  metadata      Json?
+  releasedAt    DateTime?
+  releasedBy    String?
+  createdBy     String?
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  documentLines InventoryDocumentLine[]
+  ledgerEntries InventoryLedgerEntry[]
+
+  @@index([companyId, status, createdAt])
+  @@index([companyId, itemId, warehouseId, locationId])
+  @@index([companyId, referenceType, referenceId])
+}
+
+model InventoryBatch {
+  id             String                      @id @default(cuid())
+  companyId      String                      @map("orgId")
+  itemId         String
+  item           Product                     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  warehouseId    String
+  warehouse      InventoryWarehouse          @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       InventoryWarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  batchCode      String
+  quantityOnHand Int                         @default(0)
+  manufacturedAt DateTime?                   @db.Date
+  expiresAt      DateTime?                   @db.Date
+  metadata       Json?
+  createdBy      String?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  serials InventorySerial[]
+
+  @@unique([companyId, itemId, warehouseId, locationId, batchCode])
+  @@index([companyId, itemId, batchCode])
+  @@index([companyId, warehouseId, locationId])
+}
+
+model InventorySerial {
+  id           String                      @id @default(cuid())
+  companyId    String                      @map("orgId")
+  itemId       String
+  item         Product                     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  serialNumber String
+  status       InventorySerialStatus       @default(AVAILABLE)
+  batchId      String?
+  batch        InventoryBatch?             @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  warehouseId  String?
+  warehouse    InventoryWarehouse?         @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  locationId   String?
+  location     InventoryWarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  metadata     Json?
+  createdBy    String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+
+  @@unique([companyId, serialNumber])
+  @@index([companyId, itemId, status])
+  @@index([companyId, warehouseId, locationId])
 }
 
 model InventoryReorderRule {

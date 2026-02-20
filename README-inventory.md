@@ -8,6 +8,9 @@ This repository now contains a production-oriented Inventory module with:
 - Configurable document workflows
 - Immutable ledger posting + derived stock balances
 - Multi-warehouse / nested locations
+- Stock reconciliation preview/apply pipeline (COUNT-backed)
+- Reservation lifecycle with balance-aware locking
+- Serial/batch baseline registry and posting hooks
 - Reorder rules + suggestions
 - Import/export jobs with validation preview
 - Barcode/QR scan entry support (keyboard scanner + browser image scan)
@@ -80,6 +83,7 @@ npm run dev
 - Prisma schema extended in `prisma/schema.prisma`
 - Migration added:
   - `prisma/migrations/20260211100000_inventory_platform_extension/migration.sql`
+  - `prisma/migrations/20260222000000_phase2_wave2_stock_mvp/migration.sql`
 
 Key new entities include:
 
@@ -90,6 +94,8 @@ Key new entities include:
 - `InventoryCustomFieldDefinition`, `InventoryCustomFieldValue`
 - `InventoryViewPreset`
 - `InventoryReorderRule`
+- `InventoryReservation`
+- `InventoryBatch`, `InventorySerial`
 - `InventoryAttachment`
 - `InventoryImportJob`, `InventoryImportJobRowError`, `InventoryExportJob`
 - `InventoryIdempotencyKey`
@@ -123,6 +129,8 @@ API routes (REST):
 - `/api/v1/inventory/balances`
 - `/api/v1/inventory/reorder-rules` (+ `/[ruleId]`)
 - `/api/v1/inventory/reorder-suggestions`
+- `/api/v1/inventory/reconciliation` (+ `/preview`)
+- `/api/v1/inventory/reservations` (+ `/[reservationId]/release`)
 - `/api/v1/inventory/custom-fields` (+ `/[fieldId]`, `/schema`)
 - `/api/v1/inventory/view-presets` (+ `/[presetId]`)
 - `/api/v1/inventory/attachments` (+ upload/finalize/download routes)

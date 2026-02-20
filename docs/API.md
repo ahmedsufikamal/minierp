@@ -60,6 +60,16 @@ These endpoints use session auth + IAM permissions (`finance.*` compatibility is
 - `PATCH /api/v1/accounting/periods` (open/close)
 - `GET /api/v1/accounting/reports?reportKey=trial-balance|profit-loss|balance-sheet`
 
+### Stock MVP Completion (Phase 2 Wave 2, baseline)
+
+These inventory endpoints are now available for Wave 2 scope:
+
+- `POST /api/v1/inventory/reconciliation/preview`
+- `POST /api/v1/inventory/reconciliation`
+- `GET /api/v1/inventory/reservations`
+- `POST /api/v1/inventory/reservations`
+- `POST /api/v1/inventory/reservations/{reservationId}/release`
+
 ## Errors
 
 - `401 Unauthorized` – missing or invalid API key.

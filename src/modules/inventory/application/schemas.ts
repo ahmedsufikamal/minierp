@@ -6,6 +6,7 @@ import {
   InventoryDocumentStatus,
   InventoryDocumentType,
   InventoryPresetScope,
+  InventoryReservationStatus,
 } from "@prisma/client";
 import { workflowConfigSchema } from "@/modules/inventory/domain/workflow";
 
@@ -31,6 +32,8 @@ export const itemUpsertSchema = z.object({
   uom: z.string().default("pcs"),
   unitCostMinor: z.number().int().nonnegative().default(0),
   priceCents: z.number().int().nonnegative().default(0),
+  trackSerial: z.boolean().default(false),
+  trackBatch: z.boolean().default(false),
   lowStockThreshold: z.number().int().nonnegative().optional().nullable(),
   isActive: z.boolean().default(true),
   identifiers: z
@@ -111,6 +114,9 @@ export const documentLineSchema = z.object({
   sourceLocationId: z.string().optional().nullable(),
   destinationWarehouseId: z.string().optional().nullable(),
   destinationLocationId: z.string().optional().nullable(),
+  reservationId: z.string().optional().nullable(),
+  batchCode: z.string().min(1).optional().nullable(),
+  serialNumbers: z.array(z.string().min(1)).max(1000).optional(),
   customData: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -162,6 +168,56 @@ export const reorderRuleSchema = z.object({
   leadTimeDays: z.number().int().default(0),
   preferredVendorId: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
+});
+
+export const reservationCreateSchema = z.object({
+  itemId: z.string().min(1),
+  warehouseId: z.string().min(1),
+  locationId: z.string().optional().nullable(),
+  quantity: z.number().int().positive(),
+  referenceType: z.string().optional().nullable(),
+  referenceId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const reservationListQuerySchema = paginationSchema.extend({
+  itemId: z.string().optional(),
+  warehouseId: z.string().optional(),
+  status: z.nativeEnum(InventoryReservationStatus).optional(),
+  referenceType: z.string().optional(),
+  referenceId: z.string().optional(),
+});
+
+export const reservationReleaseSchema = z.object({
+  reason: z.string().optional().nullable(),
+  cancel: z.boolean().default(false),
+});
+
+export const reconciliationLineSchema = z.object({
+  itemId: z.string().min(1),
+  countedQty: z.number().int(),
+  unitCostMinor: z.number().int().nonnegative().optional().nullable(),
+  currency: z.string().default("BDT"),
+  batchCode: z.string().min(1).optional().nullable(),
+  serialNumbers: z.array(z.string().min(1)).max(1000).optional(),
+});
+
+export const reconciliationPreviewSchema = z.object({
+  warehouseId: z.string().min(1),
+  locationId: z.string().optional().nullable(),
+  lines: z.array(reconciliationLineSchema).min(1),
+});
+
+export const reconciliationApplySchema = z.object({
+  number: z.string().min(1).optional(),
+  documentDate: z.coerce.date().optional(),
+  warehouseId: z.string().min(1),
+  locationId: z.string().optional().nullable(),
+  externalRef: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  reason: z.string().optional().nullable(),
+  lines: z.array(reconciliationLineSchema).min(1),
 });
 
 export const attachmentCreateSchema = z.object({

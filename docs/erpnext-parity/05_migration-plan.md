@@ -58,7 +58,7 @@
 ## Phase 2 wave status
 - [x] Wave 0 closeout (platform verification + docs sync)
 - [-] Wave 1 accounting MVP (schema/services/APIs/minimal routes/tests)
-- [ ] Wave 2 stock MVP completion alignment
+- [-] Wave 2 stock MVP completion alignment
 - [ ] Wave 3 sales chain MVP
 - [ ] Wave 4 procurement chain MVP
 - [ ] Wave 5 CRM MVP

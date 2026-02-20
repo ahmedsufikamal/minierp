@@ -44,9 +44,9 @@ Compliance note:
 | Stock | Item Group and UOM | https://docs.frappe.io/erpnext/user/manual/en/stock/item-group | `stock.item-group-uom` | `[ ] Not Started` | Category exists; full parity pending |
 | Stock | Warehouse and nested locations | https://docs.frappe.io/erpnext/user/manual/en/stock/warehouse | `stock.warehouse` (`InventoryWarehouse`,`InventoryWarehouseLocation`) | `[x] Done` | Extend branch/company scopes |
 | Stock | Stock Entry workflows | https://docs.frappe.io/erpnext/user/manual/en/stock/stock-entry | `stock.documents` (`InventoryDocument`) | `[-] In Progress` | Generic workflow engine migration pending |
-| Stock | Stock Ledger | https://docs.frappe.io/erpnext/user/manual/en/stock/stock-ledger | `stock.ledger` (`InventoryLedgerEntry`) | `[-] In Progress` | Immutable ledger hash-chain pending |
-| Stock | Stock Reconciliation | https://docs.frappe.io/erpnext/user/manual/en/stock/stock-reconciliation | `stock.reconciliation` | `[ ] Not Started` | Controlled adjustments pending |
-| Stock | Serial and Batch | https://docs.frappe.io/erpnext/user/manual/en/stock/serial-no | `stock.serial-batch` | `[ ] Not Started` | Phase 2/3 |
+| Stock | Stock Ledger | https://docs.frappe.io/erpnext/user/manual/en/stock/stock-ledger | `stock.ledger` (`InventoryLedgerEntry`) | `[-] In Progress` | Immutable hooks expanded for posting/reconciliation/reservations |
+| Stock | Stock Reconciliation | https://docs.frappe.io/erpnext/user/manual/en/stock/stock-reconciliation | `stock.reconciliation` | `[-] In Progress` | COUNT-backed preview/apply baseline landed |
+| Stock | Serial and Batch | https://docs.frappe.io/erpnext/user/manual/en/stock/serial-no | `stock.serial-batch` | `[-] In Progress` | Serial/batch registry + posting baseline landed |
 | Stock | Reorder and auto procurement | https://docs.frappe.io/erpnext/user/manual/en/stock/item-reorder | `stock.reorder` (`InventoryReorderRule`) | `[-] In Progress` | Auto PO generation pending |
 | Manufacturing | BOM | https://docs.frappe.io/erpnext/user/manual/en/manufacturing/bill-of-materials | `mfg.bom` | `[ ] Not Started` | Core entities planned |
 | Manufacturing | Work Order | https://docs.frappe.io/erpnext/user/manual/en/manufacturing/work-order | `mfg.work-order` | `[ ] Not Started` | Capacity checks pending |
