@@ -1,0 +1,7 @@
+npm error code ENOTEMPTY
+npm error syscall rename
+npm error path /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/vite-node
+npm error dest /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/.vite-node-EE6iq6kl
+npm error errno -66
+npm error ENOTEMPTY: directory not empty, rename '/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/vite-node' -> '/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/.vite-node-EE6iq6kl'
+npm error A complete log of this run can be found in: /tmp/minierp-npm-cache/_logs/2026-02-20T13_40_33_604Z-debug-0.log

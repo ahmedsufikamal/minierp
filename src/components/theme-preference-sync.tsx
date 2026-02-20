@@ -68,7 +68,9 @@ export function ThemePreferenceSync({ enabled, initialTheme }: ThemePreferenceSy
   const flushPendingSyncRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    persistedThemeRef.current = initialTheme;
+    if (!bootstrappedRef.current) {
+      persistedThemeRef.current = initialTheme;
+    }
   }, [initialTheme]);
 
   const scheduleFlushPendingSync = useCallback(() => {
@@ -139,7 +141,8 @@ export function ThemePreferenceSync({ enabled, initialTheme }: ThemePreferenceSy
   useEffect(() => {
     if (bootstrappedRef.current) return;
 
-    const targetTheme = resolveBootstrapTheme(readStoredTheme(), initialTheme);
+    const storedTheme = readStoredTheme();
+    const targetTheme = resolveBootstrapTheme(storedTheme, initialTheme);
     const normalizedTheme = normalizeThemeMode(theme);
 
     if (normalizedTheme !== targetTheme) {

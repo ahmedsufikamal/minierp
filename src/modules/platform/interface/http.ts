@@ -4,6 +4,7 @@ import { PlatformError, isPlatformError } from "@/modules/platform/domain/errors
 import type { PlatformPermission } from "@/modules/platform/domain/types";
 import { getPlatformRequestContext } from "@/modules/platform/interface/context";
 import { assertPlatformPermission } from "@/modules/platform/application/authorization.service";
+import { logError } from "@/lib/logger";
 
 export async function parseJson<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
   const body = await request.json().catch(() => ({}));
@@ -24,13 +25,24 @@ export function parseQuery<T>(request: Request, schema: ZodSchema<T>): T {
   return parsed.data;
 }
 
-export function jsonOk(data: unknown, init?: ResponseInit): NextResponse {
-  return NextResponse.json({ ok: true, data }, init);
+export function jsonOk(data: unknown, init?: ResponseInit, requestId?: string): NextResponse {
+  const response = NextResponse.json({ ok: true, data }, init);
+  if (requestId) {
+    response.headers.set("x-request-id", requestId);
+  }
+  return response;
 }
 
-export function jsonError(error: unknown): NextResponse {
+export function jsonError(error: unknown, requestId?: string): NextResponse {
+  const withRequestId = (response: NextResponse) => {
+    if (requestId) {
+      response.headers.set("x-request-id", requestId);
+    }
+    return response;
+  };
+
   if (isPlatformError(error)) {
-    return NextResponse.json(
+    return withRequestId(NextResponse.json(
       {
         ok: false,
         error: {
@@ -40,11 +52,11 @@ export function jsonError(error: unknown): NextResponse {
         },
       },
       { status: error.status },
-    );
+    ));
   }
 
   if (error instanceof ZodError) {
-    return NextResponse.json(
+    return withRequestId(NextResponse.json(
       {
         ok: false,
         error: {
@@ -54,7 +66,7 @@ export function jsonError(error: unknown): NextResponse {
         },
       },
       { status: 400 },
-    );
+    ));
   }
 
   const message =
@@ -64,7 +76,15 @@ export function jsonError(error: unknown): NextResponse {
         ? error.message
         : "Unexpected error";
 
-  return NextResponse.json(
+  logError("platform api handler error", {
+    requestId,
+    module: "platform.interface.http",
+    details: {
+      message: error instanceof Error ? error.message : String(error),
+    },
+  });
+
+  return withRequestId(NextResponse.json(
     {
       ok: false,
       error: {
@@ -73,7 +93,7 @@ export function jsonError(error: unknown): NextResponse {
       },
     },
     { status: 500 },
-  );
+  ));
 }
 
 export async function withPlatformAuth(
@@ -85,6 +105,7 @@ export async function withPlatformAuth(
     const ctx = await getPlatformRequestContext(request);
     assertPlatformPermission(ctx, permission);
     const response = await handler(ctx);
+    response.headers.set("x-request-id", ctx.requestId);
     if (ctx.responseHeaders) {
       for (const [key, value] of Object.entries(ctx.responseHeaders)) {
         response.headers.set(key, value);
@@ -92,6 +113,6 @@ export async function withPlatformAuth(
     }
     return response;
   } catch (error) {
-    return jsonError(error);
+    return jsonError(error, request.headers.get("x-request-id") ?? crypto.randomUUID());
   }
 }

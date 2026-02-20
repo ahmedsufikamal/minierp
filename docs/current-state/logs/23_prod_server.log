@@ -1,0 +1,17 @@
+
+> minierp-clerk-nextjs@0.3.0 start
+> next start -p 3000
+
+▲ Next.js 16.1.4
+- Local:         http://localhost:3000
+- Network:       http://192.168.68.101:3000
+
+✓ Starting...
+✓ Ready in 740ms
+⨯ Error: INVENTORY_STORAGE_SIGNING_SECRET must be set to at least 32 characters in production
+    at <unknown> (.next/server/chunks/ssr/_d0a61865._.js:1:777)
+    at l (.next/server/chunks/ssr/_d0a61865._.js:1:1050)
+    at n (.next/server/chunks/ssr/src_41798996._.js:1:20952)
+    at stringify (<anonymous>) {
+  digest: '3686154185'
+}

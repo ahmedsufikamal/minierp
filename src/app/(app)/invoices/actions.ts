@@ -18,14 +18,14 @@ const LineSchema = z.object({
 const CreateInvoiceSchema = z.object({
   customerId: z.string().min(1),
   number: z.string().min(1),
-  issueDate: z.string().optional(),
-  invoiceDate: z.string().optional(),
-  dueDate: z.string().optional(),
-  notes: z.string().optional(),
+  issueDate: z.string().nullish(),
+  invoiceDate: z.string().nullish(),
+  dueDate: z.string().nullish(),
+  notes: z.string().nullish(),
   linesJson: z.string().min(2),
 });
 
-function toDateOrUndefined(v?: string) {
+function toDateOrUndefined(v?: string | null) {
   if (!v) return undefined;
   const d = new Date(v);
   return isNaN(d.getTime()) ? undefined : d;

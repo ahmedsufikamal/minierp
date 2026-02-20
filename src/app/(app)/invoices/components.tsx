@@ -93,7 +93,18 @@ export function NewInvoiceCard({
               router.refresh();
             } else {
               const err = res.error;
-              setFormError(typeof err === "string" ? err : err.lines?.[0] ?? err.linesJson?.[0] ?? "Please fix the errors below");
+              setFormError(
+                typeof err === "string"
+                  ? err
+                  : err.customerId?.[0] ??
+                    err.number?.[0] ??
+                    err.lines?.[0] ??
+                    err.linesJson?.[0] ??
+                    err.invoiceDate?.[0] ??
+                    err.issueDate?.[0] ??
+                    err.dueDate?.[0] ??
+                    "Please fix the errors below",
+              );
               toast.error(typeof err === "string" ? err : "Invalid form data");
             }
           }}

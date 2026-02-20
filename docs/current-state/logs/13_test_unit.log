@@ -1,0 +1,35 @@
+
+> minierp-clerk-nextjs@0.3.0 test:unit
+> vitest run --exclude '**/*.integration.test.ts' --exclude '**/*.e2e.test.ts'
+
+
+ RUN  v2.1.9 /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp
+
+ ✓ src/components/__tests__/theme-preference-sync.test.ts (4 tests) 5ms
+ ✓ src/application/inventory/__tests__/import-service.test.ts (2 tests) 9ms
+ ✓ src/modules/accounting/application/__tests__/invariants.test.ts (5 tests) 11ms
+ ✓ src/modules/inventory/application/__tests__/workflow-permissions.test.ts (5 tests) 6ms
+ ✓ src/app/(app)/inventory/__tests__/inventory-action-permissions.test.ts (8 tests) 49ms
+ ✓ src/lib/__tests__/excel-import.test.ts (25 tests) 16ms
+ ✓ src/components/ui/button.test.ts (3 tests) 5ms
+ ✓ src/modules/inventory/domain/__tests__/posting.test.ts (4 tests) 6ms
+ ✓ src/modules/inventory/domain/__tests__/custom-fields.test.ts (3 tests) 7ms
+ ✓ src/modules/inventory/domain/__tests__/reorder.test.ts (2 tests) 5ms
+ ✓ src/modules/platform/application/__tests__/numbering.service.test.ts (3 tests) 7ms
+ ✓ src/modules/iam/application/__tests__/policy.test.ts (5 tests) 7ms
+ ✓ src/modules/platform/application/__tests__/row-scope.service.test.ts (3 tests) 10ms
+ ✓ src/lib/__tests__/auth-server-action-permissions.test.ts (8 tests) 11ms
+ ✓ src/modules/iam/application/__tests__/master-admin-policy.test.ts (5 tests) 10ms
+ ✓ src/modules/accounting/application/__tests__/payment-entries.service.test.ts (3 tests) 7ms
+ ✓ src/modules/platform/application/__tests__/parity-route-permissions.test.ts (4 tests) 28ms
+ ✓ src/modules/iam/application/__tests__/principal-resolver.test.ts (3 tests) 8ms
+ ✓ src/modules/platform/application/__tests__/audit-ledger.service.test.ts (2 tests) 12ms
+ ✓ src/modules/iam/infrastructure/__tests__/totp.test.ts (3 tests) 9ms
+ ✓ src/modules/iam/application/__tests__/invite-token.test.ts (2 tests) 5ms
+ ✓ src/modules/accounting/application/__tests__/reporting.test.ts (3 tests) 3ms
+
+ Test Files  22 passed (22)
+      Tests  105 passed (105)
+   Start at  19:48:40
+   Duration  3.38s (transform 1.78s, setup 0ms, collect 9.53s, tests 235ms, environment 6ms, prepare 3.18s)
+

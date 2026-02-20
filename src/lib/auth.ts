@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifySession } from "@/lib/session";
+import { resolvePrincipalFromCookies } from "@/modules/iam/application/principal-resolver";
 
 function isIamV2Enabled(): boolean {
   return process.env.IAM_V2_ENABLED === "1";
@@ -30,9 +31,17 @@ export async function getUser() {
   return session;
 }
 
-export async function getCurrentUser() {
-  const session = await verifySession();
-  if (!session?.userId) return null;
+type CurrentUserSessionShape = {
+  userId: string;
+  companyId?: string | null;
+  isImpersonating?: boolean;
+  impersonatorUserId?: string | null;
+  impersonationExpiresAt?: Date | null;
+  deviceFingerprint?: string | null;
+};
+
+async function loadCurrentUserFromSession(session: CurrentUserSessionShape) {
+  if (!session.userId) return null;
 
   try {
     const user = await prisma.user.findUnique({
@@ -93,6 +102,35 @@ export async function getCurrentUser() {
 
     throw error;
   }
+}
+
+export async function getCurrentUserSafe() {
+  const resolved = await resolvePrincipalFromCookies({ allowLegacyFallback: true });
+  if (!resolved.principal?.userId) {
+    return null;
+  }
+
+  return loadCurrentUserFromSession({
+    userId: resolved.principal.userId,
+    companyId: resolved.principal.activeCompanyId,
+    isImpersonating: resolved.principal.isImpersonating,
+    impersonatorUserId: resolved.principal.impersonatorUserId,
+    impersonationExpiresAt: resolved.principal.impersonationExpiresAt ?? null,
+    deviceFingerprint: resolved.principal.deviceFingerprint ?? null,
+  });
+}
+
+export async function getCurrentUser() {
+  const session = await verifySession();
+  if (!session?.userId) return null;
+  return loadCurrentUserFromSession({
+    userId: session.userId,
+    companyId: session.companyId,
+    isImpersonating: session.isImpersonating,
+    impersonatorUserId: session.impersonatorUserId ?? null,
+    impersonationExpiresAt: session.impersonationExpiresAt ?? null,
+    deviceFingerprint: session.deviceFingerprint ?? null,
+  });
 }
 
 const LEGACY_ADMIN_PERMISSIONS = new Set(["settings:write", "audit:read", "user:manage"]);

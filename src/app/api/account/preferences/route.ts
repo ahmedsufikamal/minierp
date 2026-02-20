@@ -7,6 +7,7 @@ import { accountPreferencesSchema } from "@/modules/iam/interface/schemas";
 import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
 
 export async function GET(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   try {
     assertSameOrigin(request);
     const principal = await requireAuth();
@@ -23,13 +24,14 @@ export async function GET(request: Request) {
       throw new IamError("NOT_FOUND", "User not found");
     }
 
-    return ok({ uiThemePreference: user.uiThemePreference });
+    return ok({ uiThemePreference: user.uiThemePreference }, undefined, requestId);
   } catch (error) {
-    return err(error);
+    return err(error, requestId);
   }
 }
 
 export async function PATCH(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   try {
     assertSameOrigin(request);
     const principal = await requireAuth();
@@ -55,8 +57,8 @@ export async function PATCH(request: Request) {
       after: updated,
     });
 
-    return ok({ uiThemePreference: updated.uiThemePreference });
+    return ok({ uiThemePreference: updated.uiThemePreference }, undefined, requestId);
   } catch (error) {
-    return err(error);
+    return err(error, requestId);
   }
 }

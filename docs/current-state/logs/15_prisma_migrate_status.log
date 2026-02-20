@@ -1,0 +1,13 @@
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "minierp", schema "public" at "127.0.0.1:5432"
+
+27 migrations found in prisma/migrations
+Following migrations have not yet been applied:
+20260226000000_user_theme_preference
+20260227000000_phase3_accounting_financial_baseline
+
+To apply migrations in development run prisma migrate dev.
+To apply migrations in production run prisma migrate deploy.

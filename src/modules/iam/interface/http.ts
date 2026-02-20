@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodSchema } from "zod";
 import { IamError, isIamError } from "@/modules/iam/domain/errors";
+import { logError } from "@/lib/logger";
 
 export async function parseBody<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
   const body = await request.json().catch(() => ({}));
@@ -20,13 +21,24 @@ export function parseSearch<T>(request: Request, schema: ZodSchema<T>): T {
   return parsed.data;
 }
 
-export function ok(data: unknown, init?: ResponseInit): NextResponse {
-  return NextResponse.json({ ok: true, data }, init);
+export function ok(data: unknown, init?: ResponseInit, requestId?: string): NextResponse {
+  const response = NextResponse.json({ ok: true, data }, init);
+  if (requestId) {
+    response.headers.set("x-request-id", requestId);
+  }
+  return response;
 }
 
-export function err(error: unknown): NextResponse {
+export function err(error: unknown, requestId?: string): NextResponse {
+  const withRequestId = (response: NextResponse) => {
+    if (requestId) {
+      response.headers.set("x-request-id", requestId);
+    }
+    return response;
+  };
+
   if (isIamError(error)) {
-    return NextResponse.json(
+    return withRequestId(NextResponse.json(
       {
         ok: false,
         error: {
@@ -36,11 +48,11 @@ export function err(error: unknown): NextResponse {
         },
       },
       { status: error.status },
-    );
+    ));
   }
 
   if (error instanceof ZodError) {
-    return NextResponse.json(
+    return withRequestId(NextResponse.json(
       {
         ok: false,
         error: {
@@ -50,7 +62,7 @@ export function err(error: unknown): NextResponse {
         },
       },
       { status: 400 },
-    );
+    ));
   }
 
   const message =
@@ -59,7 +71,15 @@ export function err(error: unknown): NextResponse {
       : error instanceof Error
         ? error.message
         : "Unexpected error";
-  return NextResponse.json(
+  logError("iam api handler error", {
+    requestId,
+    module: "iam.interface.http",
+    details: {
+      message: error instanceof Error ? error.message : String(error),
+    },
+  });
+
+  return withRequestId(NextResponse.json(
     {
       ok: false,
       error: {
@@ -68,5 +88,5 @@ export function err(error: unknown): NextResponse {
       },
     },
     { status: 500 },
-  );
+  ));
 }

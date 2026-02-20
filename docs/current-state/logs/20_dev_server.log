@@ -1,0 +1,13 @@
+
+> minierp-clerk-nextjs@0.3.0 dev
+> next dev --port 3101
+
+▲ Next.js 16.1.4 (Turbopack)
+- Local:         http://localhost:3101
+- Network:       http://192.168.68.101:3101
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 3.6s
+ GET /auth/sign-in 307 in 3.8s (compile: 2.1s, proxy.ts: 790ms, render: 928ms)
+ GET /api/health 200 in 809ms (compile: 792ms, render: 17ms)

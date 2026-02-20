@@ -1,0 +1,9 @@
+
+> minierp-clerk-nextjs@0.3.0 lint
+> eslint src --max-warnings=0 && npm run theme:audit
+
+
+> minierp-clerk-nextjs@0.3.0 theme:audit
+> node scripts/theme-audit.mjs
+
+theme-audit: no forbidden raw theme classes found
