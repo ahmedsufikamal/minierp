@@ -14,6 +14,11 @@ import {
 } from "@/modules/selling/domain/schemas";
 
 type DeliveryAction = "SUBMIT" | "APPROVE" | "POST" | "CANCEL";
+type DeliveryNoteForPosting = Prisma.DeliveryNoteGetPayload<{
+  include: {
+    lines: true;
+  };
+}>;
 
 function pageToSkip(page: number, limit: number): number {
   return Math.max(0, (page - 1) * limit);
@@ -285,7 +290,7 @@ async function refreshSalesOrderStatusInTx(
 
 async function postDeliveryNote(
   ctx: PlatformRequestContext,
-  note: Awaited<ReturnType<typeof prisma.deliveryNote.findFirst>>,
+  note: DeliveryNoteForPosting | null,
   idempotencyKey?: string,
 ) {
   if (!note) {

@@ -380,6 +380,12 @@ enum AutomationActionType {
   CALL_WEBHOOK
 }
 
+enum ThemeMode {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
 model User {
   id                    String          @id @default(cuid())
   email                 String          @unique
@@ -393,6 +399,7 @@ model User {
   emailVerifiedAt       DateTime?
   pendingEmail          String?
   pendingEmailExpiresAt DateTime?
+  uiThemePreference     ThemeMode        @default(SYSTEM)
   mustResetPassword     Boolean         @default(false)
   platformRole          IamPlatformRole @default(NONE)
   status                IamUserStatus   @default(ACTIVE)

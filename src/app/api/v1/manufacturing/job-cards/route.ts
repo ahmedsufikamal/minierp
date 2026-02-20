@@ -1,5 +1,5 @@
 import { createJobCard, listJobCards } from "@/modules/manufacturing/application/job-cards.service";
-import { jobCardActionSchema, jobCardCreateSchema, jobCardListQuerySchema } from "@/modules/manufacturing/domain/schemas";
+import { jobCardCreateSchema, jobCardListQuerySchema } from "@/modules/manufacturing/domain/schemas";
 import { manufacturingPermissions } from "@/modules/manufacturing/domain/types";
 import { jsonOk, parseJson, parseQuery, withManufacturingAuth } from "@/modules/manufacturing/interface/http";
 

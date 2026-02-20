@@ -21,6 +21,14 @@ import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { writeInventoryAudit } from "@/modules/inventory/infrastructure/audit-log";
 
 type AppContext = Omit<InventoryRequestContext, "role"> & { role: import("@/modules/inventory/domain/types").InventoryRole };
+type InventoryDocumentPostResult = {
+  documentId: string;
+  status: InventoryDocumentStatus;
+  alreadyPosted: boolean;
+  postedAt: string | null;
+  movementCount?: number;
+  reservationConsumedQty?: number;
+};
 
 function pageToSkip(page: number, limit: number) {
   return Math.max(0, (page - 1) * limit);
@@ -72,6 +80,23 @@ function lineReservationId(line: {
   const custom = asJsonObject(line.customData);
   const legacy = typeof custom?.reservationId === "string" ? custom.reservationId.trim() : "";
   return legacy || null;
+}
+
+function parseStoredPostResult(value: Prisma.JsonValue | null): InventoryDocumentPostResult | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.documentId !== "string" || typeof record.status !== "string") return null;
+
+  return {
+    documentId: record.documentId,
+    status: record.status as InventoryDocumentStatus,
+    alreadyPosted: Boolean(record.alreadyPosted),
+    postedAt: typeof record.postedAt === "string" ? record.postedAt : null,
+    ...(typeof record.movementCount === "number" ? { movementCount: record.movementCount } : {}),
+    ...(typeof record.reservationConsumedQty === "number"
+      ? { reservationConsumedQty: record.reservationConsumedQty }
+      : {}),
+  };
 }
 
 async function getInventorySettings(companyId: string) {
@@ -1014,7 +1039,7 @@ export async function postInventoryDocument(
     allowNegativeOverride?: boolean;
     reason?: string | null;
   },
-) {
+): Promise<InventoryDocumentPostResult> {
   const idempotencyScope = "INVENTORY_DOCUMENT_POST";
 
   if (options.idempotencyKey) {
@@ -1029,7 +1054,10 @@ export async function postInventoryDocument(
     });
 
     if (keyRecord?.response) {
-      return keyRecord.response;
+      const cached = parseStoredPostResult(keyRecord.response);
+      if (cached) {
+        return cached;
+      }
     }
   }
 
@@ -1054,7 +1082,7 @@ export async function postInventoryDocument(
           documentId: document.id,
           status: document.status,
           alreadyPosted: true,
-          postedAt: document.postedAt,
+          postedAt: document.postedAt ? document.postedAt.toISOString() : null,
         };
       }
 
@@ -1338,7 +1366,7 @@ export async function postInventoryDocument(
       return {
         documentId: posted.id,
         status: posted.status,
-        postedAt: posted.postedAt,
+        postedAt: posted.postedAt ? posted.postedAt.toISOString() : null,
         alreadyPosted: false,
         movementCount: movements.length,
         reservationConsumedQty,
@@ -1362,11 +1390,11 @@ export async function postInventoryDocument(
         companyId: ctx.companyId,
         scope: idempotencyScope,
         key: options.idempotencyKey,
-        response: result,
+        response: result as Prisma.InputJsonValue,
         createdBy: ctx.userId,
       },
       update: {
-        response: result,
+        response: result as Prisma.InputJsonValue,
         createdBy: ctx.userId,
       },
     });

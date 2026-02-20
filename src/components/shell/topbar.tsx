@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Menu, Plus, Search, Sparkles, Upload } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useCommandPalette } from "@/components/command-palette";
@@ -39,7 +40,7 @@ export function Topbar({ onOpenMobile, user }: TopbarProps) {
         aria-label="Open command palette"
       >
         <Search className="h-4 w-4" />
-        <span className="truncate">Search customers, invoices, products...</span>
+        <span className="truncate">Search modules, records, and actions...</span>
         <kbd className="ml-auto hidden rounded border border-border px-1.5 py-0.5 text-[10px] md:inline">
           Cmd+K
         </kbd>
@@ -53,9 +54,18 @@ export function Topbar({ onOpenMobile, user }: TopbarProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>New invoice</DropdownMenuItem>
-            <DropdownMenuItem>New quote</DropdownMenuItem>
-            <DropdownMenuItem>New customer</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/selling/sales-orders">New sales order</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/selling/quotations">New quotation</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/buying/material-requests">New material request</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/manufacturing/work-orders">New work order</Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Button variant="outline" size="sm" className="hidden md:inline-flex">

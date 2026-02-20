@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { nav } from "@/config/nav";
+import { navGroups } from "@/components/shell/nav";
 import { MiniERPLogo } from "@/components/minierp-logo";
 import { Menu } from "lucide-react";
 
@@ -40,30 +40,38 @@ export function MobileNav() {
               <MiniERPLogo size="sm" className="text-foreground" />
             </div>
             <nav className="flex-1 overflow-auto p-4">
-              <ul className="grid gap-1">
-                {nav.map((item) => {
-                  const active =
-                    pathname === item.href || pathname?.startsWith(item.href + "/");
-                  const Icon = item.icon;
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setOpen(false)}
-                        className={cn(
-                          "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
-                          "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5",
-                          active &&
-                            "bg-slate-900 font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="space-y-4">
+                {navGroups.map((group) => (
+                  <section key={group.title} className="space-y-1">
+                    <h2 className="px-3 pb-1 text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {group.title}
+                    </h2>
+                    <ul className="grid gap-1">
+                      {group.items.map((item) => {
+                        const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+                        const Icon = item.icon;
+                        return (
+                          <li key={item.href}>
+                            <Link
+                              href={item.href}
+                              onClick={() => setOpen(false)}
+                              className={cn(
+                                "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                                "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5",
+                                active &&
+                                  "bg-slate-900 font-medium text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900",
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                              {item.label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                ))}
+              </div>
             </nav>
           </div>
         </DialogContent>

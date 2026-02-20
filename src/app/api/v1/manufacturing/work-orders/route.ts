@@ -1,5 +1,5 @@
 import { createWorkOrder, listWorkOrders } from "@/modules/manufacturing/application/work-orders.service";
-import { workOrderActionSchema, workOrderCreateSchema, workOrderListQuerySchema } from "@/modules/manufacturing/domain/schemas";
+import { workOrderCreateSchema, workOrderListQuerySchema } from "@/modules/manufacturing/domain/schemas";
 import { manufacturingPermissions } from "@/modules/manufacturing/domain/types";
 import { jsonOk, parseJson, parseQuery, withManufacturingAuth } from "@/modules/manufacturing/interface/http";
 

@@ -160,6 +160,11 @@ export const accountProfileSchema = z.object({
   email: z.string().email().optional(),
   emailOtpCode: z.string().min(4).max(8).optional(),
   phoneOtpCode: z.string().min(4).max(8).optional(),
+  uiThemePreference: z.enum(["LIGHT", "DARK", "SYSTEM"]).optional(),
+});
+
+export const accountPreferencesSchema = z.object({
+  uiThemePreference: z.enum(["LIGHT", "DARK", "SYSTEM"]),
 });
 
 export const changePasswordSchema = z.object({

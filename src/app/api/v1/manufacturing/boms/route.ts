@@ -1,5 +1,5 @@
 import { createBom, listBoms } from "@/modules/manufacturing/application/boms.service";
-import { bomActionSchema, bomCreateSchema, bomListQuerySchema } from "@/modules/manufacturing/domain/schemas";
+import { bomCreateSchema, bomListQuerySchema } from "@/modules/manufacturing/domain/schemas";
 import { manufacturingPermissions } from "@/modules/manufacturing/domain/types";
 import { jsonOk, parseJson, parseQuery, withManufacturingAuth } from "@/modules/manufacturing/interface/http";
 

@@ -14,6 +14,11 @@ import {
 } from "@/modules/buying/domain/schemas";
 
 type PurchaseReceiptAction = "SUBMIT" | "APPROVE" | "POST" | "CANCEL";
+type PurchaseReceiptForPosting = Prisma.PurchaseReceiptGetPayload<{
+  include: {
+    lines: true;
+  };
+}>;
 
 function pageToSkip(page: number, limit: number): number {
   return Math.max(0, (page - 1) * limit);
@@ -295,7 +300,7 @@ export async function createPurchaseReceipt(ctx: PlatformRequestContext, input: 
 
     normalizedLines.push({
       lineNo: index + 1,
-      purchaseOrderLineId: line.purchaseOrderLineId,
+      purchaseOrderLineId: line.purchaseOrderLineId ?? null,
       productId: resolvedProductId,
       description: resolvedDescription,
       qtyReceived: line.qtyReceived,
@@ -350,7 +355,7 @@ export async function createPurchaseReceipt(ctx: PlatformRequestContext, input: 
 
 async function postPurchaseReceipt(
   ctx: PlatformRequestContext,
-  receipt: Awaited<ReturnType<typeof prisma.purchaseReceipt.findFirst>>,
+  receipt: PurchaseReceiptForPosting | null,
   idempotencyKey?: string,
 ) {
   if (!receipt) {

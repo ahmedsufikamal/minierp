@@ -46,10 +46,15 @@ async function assertParentRecord(
 ) {
   if (!parentId) return;
 
-  const parent = await prisma[entityName].findFirst({
-    where: { id: parentId, companyId, tenantId },
-    select: { id: true },
-  });
+  const where = { id: parentId, companyId, tenantId };
+  const parent =
+    entityName === "setupItemGroup"
+      ? await prisma.setupItemGroup.findFirst({ where, select: { id: true } })
+      : entityName === "setupTerritory"
+        ? await prisma.setupTerritory.findFirst({ where, select: { id: true } })
+        : entityName === "setupCustomerGroup"
+          ? await prisma.setupCustomerGroup.findFirst({ where, select: { id: true } })
+          : await prisma.setupSupplierGroup.findFirst({ where, select: { id: true } });
 
   if (!parent) {
     throw new PlatformError("VALIDATION_ERROR", `${label} parent does not exist in this company`);

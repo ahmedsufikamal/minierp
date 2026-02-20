@@ -48,6 +48,7 @@ export async function getCurrentUser() {
         status: true,
         avatarUrl: true,
         phone: true,
+        uiThemePreference: true,
         mustResetPassword: true,
       },
     });
@@ -81,6 +82,7 @@ export async function getCurrentUser() {
         platformRole: "NONE" as const,
         activeCompanyId: isIamV2Enabled() ? (session.companyId ?? user.companyId) : user.companyId,
         status: "ACTIVE" as const,
+        uiThemePreference: "SYSTEM" as const,
         mustResetPassword: false,
         isImpersonating: Boolean(session.isImpersonating),
         impersonatorUserId: session.impersonatorUserId ?? null,

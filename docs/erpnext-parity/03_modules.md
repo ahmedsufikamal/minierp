@@ -8,6 +8,9 @@ Each module section defines:
 - Required integrations
 - Acceptance tests
 
+Canonical UI route map now lives in `docs/erpnext-parity/07_ui-route-map.md`.
+Legacy non-namespaced routes are migration redirects and should not be treated as canonical parity UI paths.
+
 ## Accounting
 
 - Routes/screens:

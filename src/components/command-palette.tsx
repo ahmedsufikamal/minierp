@@ -14,11 +14,13 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { nav } from "@/config/nav";
 
 const quickActions = [
-  { label: "New customer", href: "/customers", keywords: ["add", "create"] },
-  { label: "New invoice", href: "/invoices", keywords: ["add", "create"] },
-  { label: "New product", href: "/products", keywords: ["add", "create"] },
-  { label: "New vendor", href: "/vendors", keywords: ["add", "create"] },
-  { label: "New quote", href: "/quotes", keywords: ["add", "create"] },
+  { label: "New customer", href: "/selling/customers", keywords: ["add", "create", "selling"] },
+  { label: "New quotation", href: "/selling/quotations", keywords: ["add", "create", "selling"] },
+  { label: "New sales order", href: "/selling/sales-orders", keywords: ["add", "create", "selling"] },
+  { label: "New supplier", href: "/buying/suppliers", keywords: ["add", "create", "buying"] },
+  { label: "New material request", href: "/buying/material-requests", keywords: ["add", "create", "buying"] },
+  { label: "New work order", href: "/manufacturing/work-orders", keywords: ["add", "create", "manufacturing"] },
+  { label: "Open support ticket", href: "/support/tickets", keywords: ["add", "create", "support"] },
 ];
 
 type CommandPaletteContextType = {

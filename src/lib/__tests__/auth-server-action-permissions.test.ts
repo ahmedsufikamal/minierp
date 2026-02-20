@@ -114,7 +114,7 @@ describe("authorizeServerActionPermission", () => {
       companyId: "company-1",
       role: "ADMIN",
       permissions: [],
-    } as Awaited<ReturnType<typeof verifySession>>);
+    } as unknown as Awaited<ReturnType<typeof verifySession>>);
 
     const result = await authorizeServerActionPermission({
       iamPermission: "inventory.import.write",
@@ -130,7 +130,7 @@ describe("authorizeServerActionPermission", () => {
       userId: "user-2",
       role: "ADMIN",
       permissions: [],
-    } as Awaited<ReturnType<typeof verifySession>>);
+    } as unknown as Awaited<ReturnType<typeof verifySession>>);
 
     const result = await authorizeServerActionPermission({
       iamPermission: "inventory.import.write",

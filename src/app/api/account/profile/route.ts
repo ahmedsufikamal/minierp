@@ -7,6 +7,35 @@ import { assertSameOrigin } from "@/modules/iam/interface/origin";
 import { accountProfileSchema } from "@/modules/iam/interface/schemas";
 import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
 
+export async function GET(request: Request) {
+  try {
+    assertSameOrigin(request);
+    const principal = await requireAuth();
+
+    const user = await prisma.user.findUnique({
+      where: { id: principal.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        avatarUrl: true,
+        emailVerifiedAt: true,
+        phoneVerifiedAt: true,
+        uiThemePreference: true,
+      },
+    });
+
+    if (!user) {
+      throw new IamError("NOT_FOUND", "User not found");
+    }
+
+    return ok(user);
+  } catch (error) {
+    return err(error);
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     assertSameOrigin(request);
@@ -19,6 +48,7 @@ export async function PATCH(request: Request) {
         phone: true,
         pendingEmail: true,
         pendingEmailExpiresAt: true,
+        uiThemePreference: true,
       },
     });
     if (!existingUser) {
@@ -71,6 +101,7 @@ export async function PATCH(request: Request) {
           emailVerifiedAt: isEmailChange ? new Date() : undefined,
           pendingEmail: isEmailChange ? null : undefined,
           pendingEmailExpiresAt: isEmailChange ? null : undefined,
+          uiThemePreference: body.uiThemePreference,
         },
         select: {
           id: true,
@@ -80,6 +111,7 @@ export async function PATCH(request: Request) {
           avatarUrl: true,
           emailVerifiedAt: true,
           phoneVerifiedAt: true,
+          uiThemePreference: true,
         },
       });
 

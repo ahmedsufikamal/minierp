@@ -45,6 +45,25 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   experimental: {},
+  async redirects() {
+    return [
+      { source: "/customers", destination: "/selling/customers", permanent: false },
+      { source: "/quotes", destination: "/selling/quotations", permanent: false },
+      { source: "/invoices", destination: "/selling/sales-invoices", permanent: false },
+      { source: "/vendors", destination: "/buying/suppliers", permanent: false },
+      { source: "/purchase-orders", destination: "/buying/purchase-orders", permanent: false },
+      { source: "/bills", destination: "/buying/purchase-invoices", permanent: false },
+      { source: "/payments", destination: "/accounting/payment-entries", permanent: false },
+      { source: "/inventory", destination: "/stock/overview", permanent: false },
+      { source: "/inventory/items", destination: "/stock/items", permanent: false },
+      { source: "/inventory/warehouses", destination: "/stock/warehouses", permanent: false },
+      { source: "/inventory/documents", destination: "/stock/documents", permanent: false },
+      { source: "/inventory/ledger", destination: "/stock/ledger", permanent: false },
+      { source: "/inventory/reorder", destination: "/stock/reorder", permanent: false },
+      { source: "/inventory/settings", destination: "/stock/settings", permanent: false },
+      { source: "/reports", destination: "/platform/reports", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {
