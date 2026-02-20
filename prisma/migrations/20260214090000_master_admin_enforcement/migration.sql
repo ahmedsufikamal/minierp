@@ -18,7 +18,7 @@ SET
   "updatedAt" = NOW()
 FROM ranked_owners
 LEFT JOIN "IamRole" AS admin_role
-  ON admin_role."companyId" = ranked_owners."companyId"
+  ON admin_role."orgId" = ranked_owners."companyId"
   AND admin_role.name = 'ADMIN'
 WHERE membership.id = ranked_owners.id
   AND ranked_owners.rn > 1;
@@ -55,7 +55,7 @@ SET
   "updatedAt" = NOW()
 FROM ranked_active_members
 LEFT JOIN "IamRole" AS owner_role
-  ON owner_role."companyId" = ranked_active_members."companyId"
+  ON owner_role."orgId" = ranked_active_members."companyId"
   AND owner_role.name = 'OWNER'
 WHERE membership.id = ranked_active_members.id
   AND ranked_active_members.rn = 1;

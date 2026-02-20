@@ -14,9 +14,18 @@ ALTER TABLE "Account"
   ADD COLUMN IF NOT EXISTS "isGroup" BOOLEAN NOT NULL DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS "rootType" "AccountType";
 
-ALTER TABLE "Account"
-  ADD CONSTRAINT "Account_parentId_fkey"
-  FOREIGN KEY ("parentId") REFERENCES "Account"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'Account_parentId_fkey'
+      AND conrelid = '"Account"'::regclass
+  ) THEN
+    ALTER TABLE "Account"
+      ADD CONSTRAINT "Account_parentId_fkey"
+      FOREIGN KEY ("parentId") REFERENCES "Account"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS "Account_orgId_parentId_idx" ON "Account"("orgId", "parentId");
 CREATE INDEX IF NOT EXISTS "Account_orgId_rootType_idx" ON "Account"("orgId", "rootType");
@@ -116,57 +125,174 @@ CREATE INDEX IF NOT EXISTS "GLEntry_tenantId_orgId_accountId_postingDate_idx" ON
 CREATE INDEX IF NOT EXISTS "GLEntry_tenantId_orgId_voucherType_voucherId_idx" ON "GLEntry"("tenantId", "orgId", "voucherType", "voucherId");
 CREATE INDEX IF NOT EXISTS "GLEntry_journalEntryId_idx" ON "GLEntry"("journalEntryId");
 
-ALTER TABLE "FiscalYear"
-  ADD CONSTRAINT "FiscalYear_tenantId_fkey"
-  FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'FiscalYear_tenantId_fkey'
+      AND conrelid = '"FiscalYear"'::regclass
+  ) THEN
+    ALTER TABLE "FiscalYear"
+      ADD CONSTRAINT "FiscalYear_tenantId_fkey"
+      FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "FiscalYear"
-  ADD CONSTRAINT "FiscalYear_orgId_fkey"
-  FOREIGN KEY ("orgId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'FiscalYear_orgId_fkey'
+      AND conrelid = '"FiscalYear"'::regclass
+  ) THEN
+    ALTER TABLE "FiscalYear"
+      ADD CONSTRAINT "FiscalYear_orgId_fkey"
+      FOREIGN KEY ("orgId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "AccountingPeriod"
-  ADD CONSTRAINT "AccountingPeriod_tenantId_fkey"
-  FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'AccountingPeriod_tenantId_fkey'
+      AND conrelid = '"AccountingPeriod"'::regclass
+  ) THEN
+    ALTER TABLE "AccountingPeriod"
+      ADD CONSTRAINT "AccountingPeriod_tenantId_fkey"
+      FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "AccountingPeriod"
-  ADD CONSTRAINT "AccountingPeriod_orgId_fkey"
-  FOREIGN KEY ("orgId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'AccountingPeriod_orgId_fkey'
+      AND conrelid = '"AccountingPeriod"'::regclass
+  ) THEN
+    ALTER TABLE "AccountingPeriod"
+      ADD CONSTRAINT "AccountingPeriod_orgId_fkey"
+      FOREIGN KEY ("orgId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "AccountingPeriod"
-  ADD CONSTRAINT "AccountingPeriod_fiscalYearId_fkey"
-  FOREIGN KEY ("fiscalYearId") REFERENCES "FiscalYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'AccountingPeriod_fiscalYearId_fkey'
+      AND conrelid = '"AccountingPeriod"'::regclass
+  ) THEN
+    ALTER TABLE "AccountingPeriod"
+      ADD CONSTRAINT "AccountingPeriod_fiscalYearId_fkey"
+      FOREIGN KEY ("fiscalYearId") REFERENCES "FiscalYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "GLEntry"
-  ADD CONSTRAINT "GLEntry_tenantId_fkey"
-  FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'GLEntry_tenantId_fkey'
+      AND conrelid = '"GLEntry"'::regclass
+  ) THEN
+    ALTER TABLE "GLEntry"
+      ADD CONSTRAINT "GLEntry_tenantId_fkey"
+      FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "GLEntry"
-  ADD CONSTRAINT "GLEntry_orgId_fkey"
-  FOREIGN KEY ("orgId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'GLEntry_orgId_fkey'
+      AND conrelid = '"GLEntry"'::regclass
+  ) THEN
+    ALTER TABLE "GLEntry"
+      ADD CONSTRAINT "GLEntry_orgId_fkey"
+      FOREIGN KEY ("orgId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "GLEntry"
-  ADD CONSTRAINT "GLEntry_accountId_fkey"
-  FOREIGN KEY ("accountId") REFERENCES "Account"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'GLEntry_accountId_fkey'
+      AND conrelid = '"GLEntry"'::regclass
+  ) THEN
+    ALTER TABLE "GLEntry"
+      ADD CONSTRAINT "GLEntry_accountId_fkey"
+      FOREIGN KEY ("accountId") REFERENCES "Account"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "GLEntry"
-  ADD CONSTRAINT "GLEntry_journalEntryId_fkey"
-  FOREIGN KEY ("journalEntryId") REFERENCES "JournalEntry"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'GLEntry_journalEntryId_fkey'
+      AND conrelid = '"GLEntry"'::regclass
+  ) THEN
+    ALTER TABLE "GLEntry"
+      ADD CONSTRAINT "GLEntry_journalEntryId_fkey"
+      FOREIGN KEY ("journalEntryId") REFERENCES "JournalEntry"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "GLEntry"
-  ADD CONSTRAINT "GLEntry_fiscalYearId_fkey"
-  FOREIGN KEY ("fiscalYearId") REFERENCES "FiscalYear"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'GLEntry_fiscalYearId_fkey'
+      AND conrelid = '"GLEntry"'::regclass
+  ) THEN
+    ALTER TABLE "GLEntry"
+      ADD CONSTRAINT "GLEntry_fiscalYearId_fkey"
+      FOREIGN KEY ("fiscalYearId") REFERENCES "FiscalYear"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "GLEntry"
-  ADD CONSTRAINT "GLEntry_accountingPeriodId_fkey"
-  FOREIGN KEY ("accountingPeriodId") REFERENCES "AccountingPeriod"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'GLEntry_accountingPeriodId_fkey'
+      AND conrelid = '"GLEntry"'::regclass
+  ) THEN
+    ALTER TABLE "GLEntry"
+      ADD CONSTRAINT "GLEntry_accountingPeriodId_fkey"
+      FOREIGN KEY ("accountingPeriodId") REFERENCES "AccountingPeriod"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "JournalEntry"
-  ADD CONSTRAINT "JournalEntry_fiscalYearId_fkey"
-  FOREIGN KEY ("fiscalYearId") REFERENCES "FiscalYear"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'JournalEntry_fiscalYearId_fkey'
+      AND conrelid = '"JournalEntry"'::regclass
+  ) THEN
+    ALTER TABLE "JournalEntry"
+      ADD CONSTRAINT "JournalEntry_fiscalYearId_fkey"
+      FOREIGN KEY ("fiscalYearId") REFERENCES "FiscalYear"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "JournalEntry"
-  ADD CONSTRAINT "JournalEntry_accountingPeriodId_fkey"
-  FOREIGN KEY ("accountingPeriodId") REFERENCES "AccountingPeriod"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'JournalEntry_accountingPeriodId_fkey'
+      AND conrelid = '"JournalEntry"'::regclass
+  ) THEN
+    ALTER TABLE "JournalEntry"
+      ADD CONSTRAINT "JournalEntry_accountingPeriodId_fkey"
+      FOREIGN KEY ("accountingPeriodId") REFERENCES "AccountingPeriod"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- Backfill account tenantId from company. This keeps legacy records queryable with tenant context.
 UPDATE "Account" a

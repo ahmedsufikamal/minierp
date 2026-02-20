@@ -83,14 +83,12 @@ maybeDescribe("inventory document posting integration", () => {
 
     expect(posted.status).toBe("POSTED");
 
-    const balance = await prisma.inventoryStockBalance.findUnique({
+    const balance = await prisma.inventoryStockBalance.findFirst({
       where: {
-        companyId_itemId_warehouseId_locationId: {
-          companyId,
-          itemId,
-          warehouseId,
-          locationId: null,
-        },
+        companyId,
+        itemId,
+        warehouseId,
+        locationId: null,
       },
     });
 

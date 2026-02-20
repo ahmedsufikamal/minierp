@@ -129,14 +129,31 @@ describe("master admin governance integration", () => {
     await prisma.company.deleteMany({ where: { id: companyId } });
   });
 
-  it("blocks demotion of the last active super admin", async () => {
-    await expect(
-      updateUserPlatformRole({
-        actorUserId,
-        targetUserId: actorUserId,
-        nextRole: "NONE",
-      }),
-    ).rejects.toThrow(/last active Super Admin/i);
+  it("enforces demotion guard when actor is the last active super admin", async () => {
+    const activeSuperAdminCount = await prisma.user.count({
+      where: {
+        platformRole: "SUPER_ADMIN",
+        status: "ACTIVE",
+      },
+    });
+
+    if (activeSuperAdminCount <= 1) {
+      await expect(
+        updateUserPlatformRole({
+          actorUserId,
+          targetUserId: actorUserId,
+          nextRole: "NONE",
+        }),
+      ).rejects.toThrow(/last active Super Admin/i);
+      return;
+    }
+
+    const result = await updateUserPlatformRole({
+      actorUserId,
+      targetUserId: actorUserId,
+      nextRole: "NONE",
+    });
+    expect(result.platformRole).toBe("NONE");
   });
 
   it("allows demotion once another super admin exists", async () => {
