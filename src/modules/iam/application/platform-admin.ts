@@ -70,26 +70,40 @@ export async function createTenantWithMasterAdminInvite(input: {
 
   let company: { id: string; slug: string | null };
   try {
-    company = await prisma.company.create({
-      data: {
-        name,
-        slug: slug ?? `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.random().toString(36).slice(2, 6)}`,
-        status: "ACTIVE",
-        allowedAuthMethods: ["PASSWORD", "MAGIC_LINK", "OAUTH_GOOGLE", "OAUTH_MICROSOFT"],
-        mfaPolicy: { mode: "OPTIONAL", enforceForRoles: ["OWNER", "ADMIN"], allowOtpFallback: true },
-        sessionPolicy: {
-          idleTimeoutMinutes: 30,
-          absoluteTimeoutMinutes: 480,
-          rememberMeAbsoluteTimeoutMinutes: 43200,
-          rotateEveryMinutes: 15,
+    company = await prisma.$transaction(async (tx) => {
+      const tenantKeyBase = slug ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const tenantKey = `${tenantKeyBase}-${Math.random().toString(36).slice(2, 6)}`;
+      const tenant = await tx.tenant.create({
+        data: {
+          key: tenantKey,
+          name,
+          status: "ACTIVE",
         },
-        botProtectionPolicy: {
-          turnstileEnabled: false,
-          rateLimitWindowSeconds: 60,
-          rateLimitMaxAttempts: 8,
+        select: { id: true },
+      });
+
+      return tx.company.create({
+        data: {
+          tenantId: tenant.id,
+          name,
+          slug: slug ?? `${tenantKeyBase}-${Math.random().toString(36).slice(2, 6)}`,
+          status: "ACTIVE",
+          allowedAuthMethods: ["PASSWORD", "MAGIC_LINK", "OAUTH_GOOGLE", "OAUTH_MICROSOFT"],
+          mfaPolicy: { mode: "OPTIONAL", enforceForRoles: ["OWNER", "ADMIN"], allowOtpFallback: true },
+          sessionPolicy: {
+            idleTimeoutMinutes: 30,
+            absoluteTimeoutMinutes: 480,
+            rememberMeAbsoluteTimeoutMinutes: 43200,
+            rotateEveryMinutes: 15,
+          },
+          botProtectionPolicy: {
+            turnstileEnabled: false,
+            rateLimitWindowSeconds: 60,
+            rateLimitMaxAttempts: 8,
+          },
         },
-      },
-      select: { id: true, slug: true },
+        select: { id: true, slug: true },
+      });
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

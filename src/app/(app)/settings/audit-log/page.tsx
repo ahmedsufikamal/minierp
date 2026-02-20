@@ -12,15 +12,44 @@ export default async function AuditLogPage(props: PageProps) {
   const searchParams = (await props.searchParams) ?? {};
   const { page, limit, skip } = getPaginationParams(searchParams as { page?: string; limit?: string });
 
-  const [logs, total] = await Promise.all([
+  const [legacyLogs, platformAuditEvents] = await Promise.all([
     prisma.auditLog.findMany({
       where: { companyId },
       orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
+      take: 500,
     }),
-    prisma.auditLog.count({ where: { companyId } }),
+    prisma.auditEvent
+      .findMany({
+        where: { companyId },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      })
+      .catch(() => []),
   ]);
+
+  const merged = [
+    ...legacyLogs.map((log) => ({
+      id: `legacy:${log.id}`,
+      createdAt: log.createdAt,
+      userId: log.userId,
+      action: log.action,
+      entityType: log.entityType,
+      entityId: log.entityId,
+      source: "legacy",
+    })),
+    ...platformAuditEvents.map((event) => ({
+      id: `platform:${event.id}`,
+      createdAt: event.createdAt,
+      userId: event.actorUserId ?? "system",
+      action: event.action,
+      entityType: `${event.source}:${event.entityType}`,
+      entityId: event.entityId,
+      source: event.source,
+    })),
+  ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const total = merged.length;
+  const logs = merged.slice(skip, skip + limit);
 
   const totalPages = getTotalPages(total, limit);
 

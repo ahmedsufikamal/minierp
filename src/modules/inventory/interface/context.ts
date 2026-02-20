@@ -35,7 +35,7 @@ function isSchemaMismatch(error: unknown): boolean {
 
 async function resolveUserContext(
   request: Request,
-): Promise<{ userId: string; role: string; companyId: string; iamPermissions?: string[]; responseHeaders?: Record<string, string> }> {
+): Promise<{ userId: string; role: string; companyId: string; tenantId?: string; iamPermissions?: string[]; responseHeaders?: Record<string, string> }> {
   if (hasApiKeyCredential(request)) {
     try {
       const auth = await authenticateApiKeyRequest(request, "inventory");
@@ -43,6 +43,7 @@ async function resolveUserContext(
         userId: "api-key",
         role: "COMPANY_ADMIN",
         companyId: auth.companyId,
+        tenantId: auth.companyId,
         iamPermissions: [],
         responseHeaders: getApiKeyCompatibilityHeaders(auth),
       };
@@ -88,6 +89,7 @@ async function resolveUserContext(
         userId: principal.userId,
         role: membership.role,
         companyId: membership.companyId,
+        tenantId: membership.companyId,
         iamPermissions: principal.permissions,
         responseHeaders: undefined,
       };
@@ -101,18 +103,36 @@ async function resolveUserContext(
         userId: principal.userId,
         role: principal.membershipRole,
         companyId: principal.activeCompanyId,
+        tenantId: principal.activeCompanyId,
         iamPermissions: principal.permissions,
         responseHeaders: undefined,
       };
     }
   }
 
-  return {
+  const base = {
     userId: principal.userId,
     role: principal.membershipRole,
     companyId: requestedCompanyId,
+    tenantId: requestedCompanyId,
     iamPermissions: principal.permissions,
     responseHeaders: undefined,
+  };
+
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: requestedCompanyId },
+      select: { tenantId: true },
+    });
+    return {
+      ...base,
+      tenantId: company?.tenantId ?? requestedCompanyId,
+    };
+  } catch (error: unknown) {
+    if (!isSchemaMismatch(error)) {
+      throw error;
+    }
+    return base;
   };
 }
 
@@ -120,6 +140,7 @@ export async function getInventoryRequestContext(request: Request): Promise<Inve
   const resolved = await resolveUserContext(request);
   return {
     requestId: getRequestId(request),
+    tenantId: resolved.tenantId,
     companyId: resolved.companyId,
     userId: resolved.userId,
     role: mapUserRoleToInventoryRole(resolved.role),

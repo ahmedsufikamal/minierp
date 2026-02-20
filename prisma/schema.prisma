@@ -233,28 +233,100 @@ enum IamAuditAction {
   TENANT_DISABLED
 }
 
-model User {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  passwordHash    String
-  name            String
-  role            String          @default("USER")
-  companyId       String          @default("default-org") @map("orgId")
-  phone           String?
-  phoneVerifiedAt DateTime?
-  avatarUrl       String?
-  emailVerifiedAt DateTime?
-  pendingEmail    String?
-  pendingEmailExpiresAt DateTime?
-  mustResetPassword Boolean       @default(false)
-  platformRole    IamPlatformRole @default(NONE)
-  status          IamUserStatus   @default(ACTIVE)
-  activeCompanyId String?         @map("activeOrgId")
-  sessionVersion  Int             @default(1)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+enum PlatformPermissionEffect {
+  ALLOW
+  DENY
+}
 
-  activeCompany       Company?                 @relation("ActiveCompany", fields: [activeCompanyId], references: [id], onDelete: SetNull)
+enum PlatformScopeLevel {
+  TENANT
+  COMPANY
+  BRANCH
+  WAREHOUSE
+  PROJECT
+  USER
+}
+
+enum PlatformWorkflowDefinitionStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum PlatformWorkflowInstanceStatus {
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum NumberSeriesResetPolicy {
+  NEVER
+  FISCAL_YEAR
+  CALENDAR_YEAR
+  MONTHLY
+}
+
+enum ReportSourceType {
+  ADAPTER
+  SQL
+}
+
+enum ReportScheduleFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum CustomFieldDataType {
+  TEXT
+  NUMBER
+  DATE
+  DATETIME
+  SELECT
+  LINK
+  TABLE
+  BOOLEAN
+  CURRENCY
+  JSON
+}
+
+enum AutomationTrigger {
+  ON_CREATE
+  ON_SUBMIT
+  ON_STATUS_CHANGE
+}
+
+enum AutomationActionType {
+  SET_FIELD
+  CREATE_TASK
+  SEND_NOTIFICATION
+  CALL_WEBHOOK
+}
+
+model User {
+  id                    String          @id @default(cuid())
+  email                 String          @unique
+  passwordHash          String
+  name                  String
+  role                  String          @default("USER")
+  companyId             String          @default("default-org") @map("orgId")
+  phone                 String?
+  phoneVerifiedAt       DateTime?
+  avatarUrl             String?
+  emailVerifiedAt       DateTime?
+  pendingEmail          String?
+  pendingEmailExpiresAt DateTime?
+  mustResetPassword     Boolean         @default(false)
+  platformRole          IamPlatformRole @default(NONE)
+  status                IamUserStatus   @default(ACTIVE)
+  activeCompanyId       String?         @map("activeOrgId")
+  sessionVersion        Int             @default(1)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  activeCompany       Company?                  @relation("ActiveCompany", fields: [activeCompanyId], references: [id], onDelete: SetNull)
   memberships         CompanyMembership[]
   iamSessions         IamSession[]
   iamMfaFactors       IamMfaFactor[]
@@ -262,11 +334,12 @@ model User {
   iamOtpChallenges    IamOtpChallenge[]
   iamMagicLinkTokens  IamMagicLinkToken[]
   iamOAuthAccounts    IamOAuthAccount[]
-  iamInvitesCreated   IamInvitation[]          @relation("IamInviteCreator")
-  iamAuditActorEvents IamAuditLog[]            @relation("IamAuditActor")
+  iamInvitesCreated   IamInvitation[]           @relation("IamInviteCreator")
+  iamAuditActorEvents IamAuditLog[]             @relation("IamAuditActor")
   iamLoginAttempts    IamLoginAttempt[]
   iamImpersonations   IamImpersonationSession[] @relation("IamImpersonationActor")
   iamImpersonatedBy   IamImpersonationSession[] @relation("IamImpersonationTarget")
+  tenantMemberships   TenantMembership[]
 }
 
 model Customer {
@@ -779,32 +852,67 @@ model StockLedger {
 }
 
 // Multi-company support for explicit company membership / active context selection.
+model Tenant {
+  id        String          @id @default(cuid())
+  key       String          @unique
+  name      String
+  status    IamTenantStatus @default(ACTIVE)
+  plan      String?
+  settings  Json?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  domains         TenantDomain[]
+  companies       Company[]
+  memberships     TenantMembership[]
+  roleProfiles    RoleProfile[]
+  permissionRules PermissionRule[]
+  rowScopeRules   RowScopeRule[]
+}
+
+model TenantDomain {
+  id         String                      @id @default(cuid())
+  tenantId   String
+  tenant     Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  domain     String                      @unique
+  isPrimary  Boolean                     @default(false)
+  status     IamDomainVerificationStatus @default(PENDING)
+  verifiedAt DateTime?
+  createdAt  DateTime                    @default(now())
+  updatedAt  DateTime                    @updatedAt
+
+  @@unique([tenantId, domain])
+  @@index([tenantId, isPrimary])
+}
+
 model Company {
-  id                     String                      @id @default(cuid())
-  name                   String
-  slug                   String?                     @unique
-  isActive               Boolean                     @default(true)
-  status                 IamTenantStatus             @default(ACTIVE)
-  logoUrl                String?
-  primaryColor           String?
-  accentColor            String?
-  fontFamily             String?
-  cssVars                Json?
-  customCss              String?
-  primaryDomain          String?                     @unique
-  allowedDomains         Json?
-  domainVerificationStatus IamDomainVerificationStatus @default(PENDING)
-  domainVerificationToken String?
+  id                            String                      @id @default(cuid())
+  tenantId                      String?
+  tenant                        Tenant?                     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  name                          String
+  slug                          String?                     @unique
+  isActive                      Boolean                     @default(true)
+  status                        IamTenantStatus             @default(ACTIVE)
+  logoUrl                       String?
+  primaryColor                  String?
+  accentColor                   String?
+  fontFamily                    String?
+  cssVars                       Json?
+  customCss                     String?
+  primaryDomain                 String?                     @unique
+  allowedDomains                Json?
+  domainVerificationStatus      IamDomainVerificationStatus @default(PENDING)
+  domainVerificationToken       String?
   domainVerificationGeneratedAt DateTime?
-  allowedAuthMethods     Json?
-  mfaPolicy              Json?
-  sessionPolicy          Json?
-  botProtectionPolicy    Json?
-  createdAt              DateTime                    @default(now())
-  updatedAt              DateTime                    @updatedAt
+  allowedAuthMethods            Json?
+  mfaPolicy                     Json?
+  sessionPolicy                 Json?
+  botProtectionPolicy           Json?
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
 
   memberships             CompanyMembership[]
-  activeUsers             User[]                     @relation("ActiveCompany")
+  activeUsers             User[]                    @relation("ActiveCompany")
   iamRoles                IamRole[]
   iamInvites              IamInvitation[]
   iamAutoJoinRules        IamAutoJoinRule[]
@@ -813,27 +921,464 @@ model Company {
   iamAuditLogs            IamAuditLog[]
   iamLoginAttempts        IamLoginAttempt[]
   iamImpersonationTargets IamImpersonationSession[] @relation("IamImpersonationCompany")
+
+  @@index([tenantId, isActive])
 }
 
 model CompanyMembership {
-  id         String              @id @default(cuid())
-  userId     String
-  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId  String
-  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  role       String
-  roleId     String?
-  roleRef    IamRole?            @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  status     IamMembershipStatus @default(ACTIVE)
-  isDefault  Boolean             @default(false)
-  joinedAt   DateTime?
+  id           String              @id @default(cuid())
+  userId       String
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId    String
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role         String
+  roleId       String?
+  roleRef      IamRole?            @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  status       IamMembershipStatus @default(ACTIVE)
+  isDefault    Boolean             @default(false)
+  joinedAt     DateTime?
   lastActiveAt DateTime?
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@unique([userId, companyId])
   @@index([companyId, roleId])
   @@index([companyId, role])
+}
+
+model TenantMembership {
+  id            String              @id @default(cuid())
+  tenantId      String
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          String
+  roleProfileId String?
+  roleProfile   RoleProfile?        @relation(fields: [roleProfileId], references: [id], onDelete: SetNull)
+  status        IamMembershipStatus @default(ACTIVE)
+  isDefault     Boolean             @default(false)
+  joinedAt      DateTime?
+  lastActiveAt  DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, role])
+}
+
+model RoleProfile {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships     TenantMembership[]
+  permissionRules PermissionRule[]
+  rowScopeRules   RowScopeRule[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isDefault])
+}
+
+model PermissionRule {
+  id            String                   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roleProfileId String
+  roleProfile   RoleProfile              @relation(fields: [roleProfileId], references: [id], onDelete: Cascade)
+  module        String
+  resource      String
+  action        String
+  effect        PlatformPermissionEffect @default(ALLOW)
+  scopeLevel    PlatformScopeLevel       @default(COMPANY)
+  condition     Json?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  @@unique([roleProfileId, module, resource, action, scopeLevel])
+  @@index([tenantId, module, resource, action])
+}
+
+model RowScopeRule {
+  id            String             @id @default(cuid())
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roleProfileId String
+  roleProfile   RoleProfile        @relation(fields: [roleProfileId], references: [id], onDelete: Cascade)
+  resource      String
+  scopeLevel    PlatformScopeLevel
+  selector      Json
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([tenantId, resource, scopeLevel])
+}
+
+model WorkflowDefinition {
+  id             String                           @id @default(cuid())
+  tenantId       String
+  companyId      String?
+  entityType     String
+  name           String
+  version        Int                              @default(1)
+  status         PlatformWorkflowDefinitionStatus @default(DRAFT)
+  initialState   String
+  terminalStates Json?
+  config         Json
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime                         @default(now())
+  updatedAt      DateTime                         @updatedAt
+
+  states      WorkflowState[]
+  transitions WorkflowTransition[]
+  instances   WorkflowInstance[]
+
+  @@index([tenantId, companyId, entityType, status])
+}
+
+model WorkflowState {
+  id           String             @id @default(cuid())
+  definitionId String
+  definition   WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  isInitial    Boolean            @default(false)
+  isTerminal   Boolean            @default(false)
+  sortOrder    Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([definitionId, key])
+}
+
+model WorkflowTransition {
+  id                  String             @id @default(cuid())
+  definitionId        String
+  definition          WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  actionKey           String
+  fromState           String
+  toState             String
+  minApprovals        Int                @default(1)
+  requiredPermissions Json?
+  conditions          Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  actions WorkflowAction[]
+
+  @@index([definitionId, fromState, actionKey])
+}
+
+model WorkflowInstance {
+  id           String                         @id @default(cuid())
+  tenantId     String
+  companyId    String?
+  definitionId String
+  definition   WorkflowDefinition             @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  entityType   String
+  entityId     String
+  currentState String
+  status       PlatformWorkflowInstanceStatus @default(IN_PROGRESS)
+  context      Json?
+  startedBy    String?
+  completedBy  String?
+  startedAt    DateTime                       @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime                       @updatedAt
+
+  actions WorkflowAction[]
+
+  @@unique([tenantId, companyId, entityType, entityId])
+  @@index([tenantId, companyId, status, startedAt])
+}
+
+model WorkflowAction {
+  id           String              @id @default(cuid())
+  instanceId   String
+  instance     WorkflowInstance    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  transitionId String?
+  transition   WorkflowTransition? @relation(fields: [transitionId], references: [id], onDelete: SetNull)
+  actionKey    String
+  fromState    String
+  toState      String
+  actedBy      String?
+  comment      String?
+  metadata     Json?
+  createdAt    DateTime            @default(now())
+
+  @@index([instanceId, createdAt])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  companyId   String?
+  actorUserId String?
+  source      String
+  action      String
+  entityType  String
+  entityId    String?
+  before      Json?
+  after       Json?
+  metadata    Json?
+  requestId   String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, companyId, createdAt])
+  @@index([tenantId, entityType, entityId, createdAt])
+}
+
+model ImmutableLedgerEvent {
+  id           String   @id @default(cuid())
+  tenantId     String
+  companyId    String?
+  stream       String
+  eventType    String
+  entityType   String
+  entityId     String
+  payload      Json
+  previousHash String?
+  eventHash    String   @unique
+  metadata     Json?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, companyId, stream, createdAt])
+  @@index([tenantId, entityType, entityId, createdAt])
+}
+
+model OutboxEvent {
+  id            String    @id @default(cuid())
+  tenantId      String
+  companyId     String?
+  topic         String
+  aggregateType String
+  aggregateId   String
+  payload       Json
+  headers       Json?
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
+  availableAt   DateTime  @default(now())
+  processedAt   DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId, status, availableAt])
+  @@index([tenantId, topic, createdAt])
+}
+
+model NumberSeries {
+  id          String                  @id @default(cuid())
+  tenantId    String
+  companyId   String?
+  key         String
+  name        String
+  pattern     String
+  resetPolicy NumberSeriesResetPolicy @default(NEVER)
+  startAt     Int                     @default(1)
+  padding     Int                     @default(4)
+  isActive    Boolean                 @default(true)
+  metadata    Json?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  counters NumberSeriesCounter[]
+
+  @@unique([tenantId, companyId, key])
+  @@index([tenantId, isActive])
+}
+
+model NumberSeriesCounter {
+  id           String       @id @default(cuid())
+  seriesId     String
+  series       NumberSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  periodKey    String
+  currentValue Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([seriesId, periodKey])
+}
+
+model ReportDefinition {
+  id             String           @id @default(cuid())
+  tenantId       String
+  companyId      String?
+  key            String
+  name           String
+  description    String?
+  sourceType     ReportSourceType @default(ADAPTER)
+  sourceRef      String
+  schema         Json?
+  defaultFilters Json?
+  isSystem       Boolean          @default(false)
+  isActive       Boolean          @default(true)
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  views     ReportView[]
+  schedules ReportSchedule[]
+
+  @@unique([tenantId, companyId, key])
+  @@index([tenantId, companyId, isActive])
+}
+
+model ReportView {
+  id                 String           @id @default(cuid())
+  tenantId           String
+  companyId          String?
+  reportDefinitionId String
+  reportDefinition   ReportDefinition @relation(fields: [reportDefinitionId], references: [id], onDelete: Cascade)
+  name               String
+  ownerUserId        String?
+  isDefault          Boolean          @default(false)
+  filters            Json?
+  columns            Json?
+  sort               Json?
+  visibility         Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([tenantId, companyId, reportDefinitionId])
+}
+
+model ReportSchedule {
+  id                 String                  @id @default(cuid())
+  tenantId           String
+  companyId          String?
+  reportDefinitionId String
+  reportDefinition   ReportDefinition        @relation(fields: [reportDefinitionId], references: [id], onDelete: Cascade)
+  name               String
+  frequency          ReportScheduleFrequency
+  cronExpr           String?
+  timezone           String?
+  recipients         Json
+  filters            Json?
+  outputFormat       String                  @default("CSV")
+  isActive           Boolean                 @default(true)
+  nextRunAt          DateTime?
+  lastRunAt          DateTime?
+  createdBy          String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([tenantId, companyId, isActive, nextRunAt])
+}
+
+model CustomField {
+  id           String              @id @default(cuid())
+  tenantId     String
+  companyId    String?
+  entityType   String
+  fieldKey     String
+  label        String
+  dataType     CustomFieldDataType
+  required     Boolean             @default(false)
+  unique       Boolean             @default(false)
+  showInList   Boolean             @default(false)
+  readOnly     Boolean             @default(false)
+  isHidden     Boolean             @default(false)
+  options      Json?
+  defaultValue Json?
+  permissions  Json?
+  validation   Json?
+  sortOrder    Int                 @default(0)
+  isActive     Boolean             @default(true)
+  createdBy    String?
+  updatedBy    String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([tenantId, companyId, entityType, fieldKey])
+  @@index([tenantId, companyId, entityType, isActive])
+}
+
+model FormLayout {
+  id         String   @id @default(cuid())
+  tenantId   String
+  companyId  String?
+  entityType String
+  name       String
+  version    Int      @default(1)
+  isDefault  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  layout     Json
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, companyId, entityType, isActive])
+}
+
+model ValidationRule {
+  id         String   @id @default(cuid())
+  tenantId   String
+  companyId  String?
+  entityType String
+  name       String
+  trigger    String
+  ruleType   String
+  expression String?
+  config     Json?
+  isActive   Boolean  @default(true)
+  createdBy  String?
+  updatedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId, companyId, entityType, isActive])
+}
+
+model PrintTemplate {
+  id              String   @id @default(cuid())
+  tenantId        String
+  companyId       String?
+  entityType      String
+  name            String
+  templateHtml    String
+  css             String?
+  variablesSchema Json?
+  isDefault       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, companyId, entityType, name])
+  @@index([tenantId, companyId, entityType, isActive])
+}
+
+model AutomationRule {
+  id           String               @id @default(cuid())
+  tenantId     String
+  companyId    String?
+  entityType   String
+  name         String
+  trigger      AutomationTrigger
+  condition    Json?
+  actionType   AutomationActionType
+  actionConfig Json
+  runAsRole    String?
+  isActive     Boolean              @default(true)
+  createdBy    String?
+  updatedBy    String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([tenantId, companyId, entityType, trigger, isActive])
 }
 
 model InventoryCompanySetting {
@@ -1303,13 +1848,13 @@ model InventoryLabelTemplate {
 }
 
 model IamPermission {
-  id          String              @id @default(cuid())
-  key         String              @unique
+  id          String   @id @default(cuid())
+  key         String   @unique
   module      String
   description String?
-  isSystem    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   roles IamRolePermission[]
 
@@ -1317,15 +1862,15 @@ model IamPermission {
 }
 
 model IamRole {
-  id          String              @id @default(cuid())
-  companyId   String              @map("orgId")
-  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  companyId   String   @map("orgId")
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  isSystem    Boolean             @default(false)
-  isDefault   Boolean             @default(false)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  isSystem    Boolean  @default(false)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   permissions IamRolePermission[]
   memberships CompanyMembership[]
@@ -1348,35 +1893,35 @@ model IamRolePermission {
 }
 
 model IamInvitation {
-  id              String     @id @default(cuid())
-  companyId       String     @map("orgId")
-  company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  companyId       String           @map("orgId")
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   email           String
   roleId          String?
-  role            IamRole?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  tokenHash       String     @unique
+  role            IamRole?         @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  tokenHash       String           @unique
   expiresAt       DateTime
   createdByUserId String?
-  createdBy       User?      @relation("IamInviteCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation("IamInviteCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   acceptedAt      DateTime?
   autoJoinRuleId  String?
   autoJoinRule    IamAutoJoinRule? @relation(fields: [autoJoinRuleId], references: [id], onDelete: SetNull)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([companyId, email])
   @@index([companyId, createdAt])
 }
 
 model IamAutoJoinRule {
-  id         String              @id @default(cuid())
-  companyId  String              @map("orgId")
-  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  ruleType   IamAutoJoinRuleType
-  config     Json
-  isEnabled  Boolean             @default(true)
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  id        String              @id @default(cuid())
+  companyId String              @map("orgId")
+  company   Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ruleType  IamAutoJoinRuleType
+  config    Json
+  isEnabled Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
 
   invites IamInvitation[]
 
@@ -1384,25 +1929,25 @@ model IamAutoJoinRule {
 }
 
 model IamSession {
-  id               String                 @id @default(cuid())
-  sessionTokenHash String                 @unique
-  userId           String
-  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId        String                 @map("orgId")
-  company          Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id                 String                  @id @default(cuid())
+  sessionTokenHash   String                  @unique
+  userId             String
+  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId          String                  @map("orgId")
+  company            Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   impersonatorUserId String?
-  rememberMe       Boolean                @default(false)
-  userAgent        String?
-  ip               String?
-  requestId        String?
-  createdAt        DateTime               @default(now())
-  lastSeenAt       DateTime               @default(now())
-  idleExpiresAt    DateTime
-  expiresAt        DateTime
-  stepUpVerifiedAt DateTime?
-  revokedAt        DateTime?
-  revokeReason     IamSessionRevokeReason?
-  updatedAt        DateTime               @updatedAt
+  rememberMe         Boolean                 @default(false)
+  userAgent          String?
+  ip                 String?
+  requestId          String?
+  createdAt          DateTime                @default(now())
+  lastSeenAt         DateTime                @default(now())
+  idleExpiresAt      DateTime
+  expiresAt          DateTime
+  stepUpVerifiedAt   DateTime?
+  revokedAt          DateTime?
+  revokeReason       IamSessionRevokeReason?
+  updatedAt          DateTime                @updatedAt
 
   impersonation IamImpersonationSession?
 
@@ -1412,19 +1957,19 @@ model IamSession {
 }
 
 model IamMfaFactor {
-  id          String          @id @default(cuid())
+  id          String           @id @default(cuid())
   userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   type        IamMfaFactorType
   label       String?
   secretEnc   String?
   destination String?
-  isPrimary   Boolean         @default(false)
-  isVerified  Boolean         @default(false)
+  isPrimary   Boolean          @default(false)
+  isVerified  Boolean          @default(false)
   verifiedAt  DateTime?
   lastUsedAt  DateTime?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   recoveryCodes IamRecoveryCode[]
 
@@ -1443,39 +1988,39 @@ model IamRecoveryCode {
 }
 
 model IamOtpChallenge {
-  id         String        @id @default(cuid())
-  userId     String?
-  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  companyId  String?
-  company    Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  channel    IamOtpChannel
+  id          String        @id @default(cuid())
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companyId   String?
+  company     Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  channel     IamOtpChannel
   destination String
-  purpose    String
-  codeHash   String
-  attempts   Int           @default(0)
-  maxAttempts Int          @default(5)
-  expiresAt  DateTime
-  consumedAt DateTime?
-  requestId  String?
-  ip         String?
-  createdAt  DateTime      @default(now())
+  purpose     String
+  codeHash    String
+  attempts    Int           @default(0)
+  maxAttempts Int           @default(5)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  requestId   String?
+  ip          String?
+  createdAt   DateTime      @default(now())
 
   @@index([destination, createdAt])
   @@index([companyId, createdAt])
 }
 
 model IamMagicLinkToken {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   email      String
   purpose    String
-  tokenHash  String   @unique
+  tokenHash  String    @unique
   expiresAt  DateTime
   consumedAt DateTime?
   requestId  String?
   ip         String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([email, createdAt])
 }
@@ -1533,17 +2078,17 @@ model IamLoginAttempt {
 }
 
 model IamImpersonationSession {
-  id              String      @id @default(cuid())
-  sessionId       String      @unique
-  session         IamSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id              String     @id @default(cuid())
+  sessionId       String     @unique
+  session         IamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   actorUserId     String
-  actorUser       User        @relation("IamImpersonationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  actorUser       User       @relation("IamImpersonationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
   targetUserId    String
-  targetUser      User        @relation("IamImpersonationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetUser      User       @relation("IamImpersonationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
   targetCompanyId String
-  targetCompany   Company     @relation("IamImpersonationCompany", fields: [targetCompanyId], references: [id], onDelete: Cascade)
+  targetCompany   Company    @relation("IamImpersonationCompany", fields: [targetCompanyId], references: [id], onDelete: Cascade)
   reason          String
-  startedAt       DateTime    @default(now())
+  startedAt       DateTime   @default(now())
   expiresAt       DateTime
   endedAt         DateTime?
 }

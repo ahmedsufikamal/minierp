@@ -11,6 +11,8 @@
     "build": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/minierp} next build",
     "start": "next start -p 3000",
     "lint": "eslint src --max-warnings=0",
+    "format": "prettier --write \"{src,prisma,docs,e2e,scripts}/**/*.{ts,tsx,js,mjs,json,md,sql}\"",
+    "format:check": "prettier --check \"{src,prisma,docs,e2e,scripts}/**/*.{ts,tsx,js,mjs,json,md,sql}\"",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "vitest run --exclude '**/*.integration.test.ts' --exclude '**/*.e2e.test.ts'",
     "test:integration": "vitest run $(find src -name '*.integration.test.ts' -print)",

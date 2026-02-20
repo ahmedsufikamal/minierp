@@ -31,6 +31,7 @@ export type InventoryRole =
 
 export type InventoryRequestContext = {
   requestId: string;
+  tenantId?: string;
   companyId: string;
   userId: string;
   role: InventoryRole;
