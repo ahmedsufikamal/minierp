@@ -339,7 +339,15 @@ async function ensureRoleCatalog(companyId) {
   }
 }
 
-async function ensureUser(email, name, role, companyId, platformRole = "NONE", password = SYSTEM_SEED_PASSWORD) {
+async function ensureUser(
+  email,
+  name,
+  role,
+  companyId,
+  platformRole = "NONE",
+  password = SYSTEM_SEED_PASSWORD,
+  activeCompanyId = companyId
+) {
   const passwordHash = await bcrypt.hash(password, 10);
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -350,7 +358,7 @@ async function ensureUser(email, name, role, companyId, platformRole = "NONE", p
       name,
       role,
       companyId,
-      activeCompanyId: companyId,
+      activeCompanyId,
       passwordHash,
       status: "ACTIVE",
       platformRole,
@@ -360,7 +368,7 @@ async function ensureUser(email, name, role, companyId, platformRole = "NONE", p
       name,
       role,
       companyId,
-      activeCompanyId: companyId,
+      activeCompanyId,
       status: "ACTIVE",
       platformRole,
       emailVerifiedAt: new Date(),
@@ -1043,8 +1051,8 @@ async function main() {
     },
   });
 
-  const ownerUser = await ensureUser(SYSTEM_SEED_OWNER_EMAIL, "Demo Owner", "OWNER", PRIMARY_COMPANY_ID, "SUPER_ADMIN");
-  const managerUser = await ensureUser(SYSTEM_SEED_MANAGER_EMAIL, "Demo Manager", "MANAGER", PRIMARY_COMPANY_ID, "NONE");
+  const ownerUser = await ensureUser(SYSTEM_SEED_OWNER_EMAIL, "Demo Owner", "OWNER", PRIMARY_COMPANY_ID, "SUPER_ADMIN", SYSTEM_SEED_PASSWORD, null);
+  const managerUser = await ensureUser(SYSTEM_SEED_MANAGER_EMAIL, "Demo Manager", "MANAGER", PRIMARY_COMPANY_ID, "NONE", SYSTEM_SEED_PASSWORD, null);
 
   const primaryCompany = await ensureCompanyBase({
     companyId: PRIMARY_COMPANY_ID,
@@ -1061,6 +1069,9 @@ async function main() {
     primaryDomain: process.env.SEED_SECONDARY_DOMAIN || null,
     createdByUserId: ownerUser.id,
   });
+
+  await ensureUser(SYSTEM_SEED_OWNER_EMAIL, "Demo Owner", "OWNER", PRIMARY_COMPANY_ID, "SUPER_ADMIN");
+  await ensureUser(SYSTEM_SEED_MANAGER_EMAIL, "Demo Manager", "MANAGER", PRIMARY_COMPANY_ID, "NONE");
 
   if (process.env.SEED_PRIMARY_DOMAIN) {
     await prisma.tenantDomain.upsert({
