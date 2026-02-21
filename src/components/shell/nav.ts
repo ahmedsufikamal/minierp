@@ -52,6 +52,8 @@ export type NavGroup = {
   items: NavItem[];
 };
 
+export const primaryNavItem: NavItem = { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard };
+
 export const navGroups: NavGroup[] = [
   {
     title: "Setup",
@@ -209,7 +211,6 @@ export const navGroups: NavGroup[] = [
   {
     title: "Workspace",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/settings/account", label: "Account", icon: UserRound },
       { href: "/org/select", label: "Org Switcher", icon: Building2 },
       { href: "/org/settings", label: "Org IAM", icon: ShieldCheck },
@@ -218,4 +219,13 @@ export const navGroups: NavGroup[] = [
   },
 ];
 
-export const flatNavItems: NavItem[] = navGroups.flatMap((group) => group.items);
+const groupedNavItems = navGroups.flatMap((group) => group.items);
+
+export const flatNavItems: NavItem[] = Array.from(
+  [primaryNavItem, ...groupedNavItems].reduce((acc, item) => {
+    if (!acc.has(item.href)) {
+      acc.set(item.href, item);
+    }
+    return acc;
+  }, new Map<string, NavItem>()),
+).map(([, item]) => item);

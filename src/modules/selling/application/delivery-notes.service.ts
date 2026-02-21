@@ -4,6 +4,7 @@ import {
   applyInventoryDocumentAction,
   createInventoryDocument,
 } from "@/modules/inventory/application/documents.service";
+import { allocateCompanyRequiredSeriesNumber } from "@/modules/platform/application/company-numbering.service";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { PlatformError } from "@/modules/platform/domain/errors";
 import type { PlatformRequestContext } from "@/modules/platform/domain/types";
@@ -151,6 +152,14 @@ export async function createDeliveryNote(ctx: PlatformRequestContext, input: unk
   }
 
   const payload = parsed.data;
+  if (payload.number?.trim()) {
+    throw new PlatformError("VALIDATION_ERROR", "Delivery challan number is system-generated");
+  }
+  const allocated = await allocateCompanyRequiredSeriesNumber(ctx, {
+    key: "DELIVERY_CHALLAN",
+    date: payload.deliveryDate ?? new Date(),
+  });
+  const generatedNumber = allocated.number;
 
   await ensureCustomer(ctx.companyId, payload.customerId);
   await assertWarehouseLocation(
@@ -228,7 +237,7 @@ export async function createDeliveryNote(ctx: PlatformRequestContext, input: unk
     data: {
       tenantId: ctx.tenantId,
       companyId: ctx.companyId,
-      number: payload.number,
+      number: generatedNumber,
       status: DeliveryNoteStatus.DRAFT,
       customerId: payload.customerId,
       salesOrderId: payload.salesOrderId,

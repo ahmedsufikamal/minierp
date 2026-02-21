@@ -43,4 +43,5 @@ export type NumberSeriesAllocationInput = {
   companyId?: string | null;
   date?: Date;
   fiscalYear?: string;
+  strictCompanyScope?: boolean;
 };

@@ -31,6 +31,9 @@ type LabelTemplate = {
 };
 
 type CompanySettings = {
+  defaultWarehouseId: string | null;
+  documentSeriesCode: string;
+  defaultUom: string;
   valuationMethod: "MOVING_AVERAGE" | "FIFO";
   preventNegativeStock: boolean;
   allowNegativeOverride: boolean;
@@ -47,11 +50,13 @@ export function InventorySettingsClient({
   workflows,
   labelTemplates,
   companySettings,
+  warehouses,
 }: {
   fields: Field[];
   workflows: Workflow[];
   labelTemplates: LabelTemplate[];
   companySettings: CompanySettings;
+  warehouses: Array<{ id: string; code: string; name: string }>;
 }) {
   const [tab, setTab] = useState<"company" | "fields" | "workflow" | "labels">("company");
   const [busy, setBusy] = useState(false);
@@ -174,6 +179,9 @@ export function InventorySettingsClient({
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        defaultWarehouseId: String(form.get("defaultWarehouseId") || "") || null,
+        documentSeriesCode: String(form.get("documentSeriesCode") || "") || null,
+        defaultUom: String(form.get("defaultUom") || "pcs"),
         valuationMethod: String(form.get("valuationMethod") || "MOVING_AVERAGE"),
         preventNegativeStock: form.get("preventNegativeStock") === "on",
         allowNegativeOverride: form.get("allowNegativeOverride") === "on",
@@ -213,7 +221,41 @@ export function InventorySettingsClient({
 
       {tab === "company" && (
         <div className="space-y-3">
-          <form onSubmit={saveCompanySettings} className="surface-1 grid gap-3 p-4 sm:grid-cols-2">
+          <form onSubmit={saveCompanySettings} className="surface-1 grid gap-3 p-4 sm:grid-cols-3">
+            <label className="text-sm">
+              Default warehouse
+              <select
+                name="defaultWarehouseId"
+                defaultValue={companySettings.defaultWarehouseId ?? ""}
+                className="focus-ring mt-1 h-9 w-full rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm"
+              >
+                <option value="">No default</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.code} - {warehouse.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm">
+              Document series key
+              <input
+                name="documentSeriesCode"
+                defaultValue={companySettings.documentSeriesCode}
+                className="focus-ring mt-1 h-9 w-full rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm"
+              />
+            </label>
+
+            <label className="text-sm">
+              Default UOM
+              <input
+                name="defaultUom"
+                defaultValue={companySettings.defaultUom}
+                className="focus-ring mt-1 h-9 w-full rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm"
+              />
+            </label>
+
             <label className="text-sm">
               Valuation method
               <select
@@ -250,12 +292,12 @@ export function InventorySettingsClient({
               Allow override by authorized users
             </label>
 
-            <label className="inline-flex items-center gap-2 text-sm sm:col-span-2">
+            <label className="inline-flex items-center gap-2 text-sm sm:col-span-3">
               <input name="trackByLocation" type="checkbox" defaultChecked={companySettings.trackByLocation} />
               Track stock by location
             </label>
 
-            <Button type="submit" className="sm:col-span-2" disabled={busy}>
+            <Button type="submit" className="sm:col-span-3" disabled={busy}>
               {busy ? "Saving..." : "Save Inventory Settings"}
             </Button>
           </form>

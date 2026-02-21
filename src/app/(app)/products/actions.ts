@@ -6,8 +6,19 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
 import { normalizeSku } from "@/domain/inventory/sku";
+import { PlatformError } from "@/modules/platform/domain/errors";
+import { getPlatformContextForServerAction } from "@/modules/platform/application/server-action-context";
+import { allocateCompanyRequiredSeriesNumber } from "@/modules/platform/application/company-numbering.service";
 
-const ProductSchema = z.object({
+const ProductCreateSchema = z.object({
+  sku: z.string().trim().optional().or(z.literal("")),
+  name: z.string().min(2, "Name is required"),
+  uom: z.string().min(1, "UOM is required"),
+  price: z.string().optional().or(z.literal("")),
+  brandId: z.string().optional(),
+});
+
+const ProductUpdateSchema = z.object({
   sku: z.string().min(1, "SKU is required"),
   name: z.string().min(2, "Name is required"),
   uom: z.string().min(1, "UOM is required"),
@@ -34,7 +45,7 @@ function isMissingSchemaError(error: unknown): boolean {
 export async function createProduct(formData: FormData) {
   const companyId = await getCompanyIdOrUserId();
 
-  const parsed = ProductSchema.safeParse({
+  const parsed = ProductCreateSchema.safeParse({
     sku: formData.get("sku"),
     name: formData.get("name"),
     uom: formData.get("uom"),
@@ -46,8 +57,24 @@ export async function createProduct(formData: FormData) {
     return { ok: false, error: parsed.error.flatten().fieldErrors };
   }
 
-  const { sku, name, uom, price, brandId } = parsed.data;
-  const normalizedSku = normalizeSku(sku);
+  const { sku: manualSku, name, uom, price, brandId } = parsed.data;
+  if (manualSku?.trim()) {
+    return { ok: false, error: { sku: ["SKU is system-generated; manual SKU is not allowed"] } };
+  }
+
+  const platformCtx = await getPlatformContextForServerAction();
+  let generatedSku: string;
+  try {
+    const allocated = await allocateCompanyRequiredSeriesNumber(platformCtx, { key: "SKU" });
+    generatedSku = allocated.number;
+  } catch (error) {
+    if (error instanceof PlatformError) {
+      return { ok: false, error: { _form: [error.message] } };
+    }
+    throw error;
+  }
+
+  const normalizedSku = normalizeSku(generatedSku);
 
   try {
     // Get or create brand (default to SIEMENS if not provided)
@@ -72,7 +99,7 @@ export async function createProduct(formData: FormData) {
       data: {
         companyId,
         brandId: finalBrandId,
-        sku,
+        sku: generatedSku,
         normalizedSku,
         name,
         uom,
@@ -95,7 +122,7 @@ export async function createProduct(formData: FormData) {
 export async function updateProduct(id: string, formData: FormData) {
   const companyId = await getCompanyIdOrUserId();
 
-  const parsed = ProductSchema.safeParse({
+  const parsed = ProductUpdateSchema.safeParse({
     sku: formData.get("sku"),
     name: formData.get("name"),
     uom: formData.get("uom"),

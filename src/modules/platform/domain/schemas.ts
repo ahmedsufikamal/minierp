@@ -13,6 +13,7 @@ import {
   ReportScheduleFrequency,
   ReportSourceType,
 } from "@prisma/client";
+import { companyCodeFormatKeys } from "@/modules/platform/domain/company-numbering";
 
 export const tenantCreateSchema = z.object({
   key: z.string().trim().min(2).max(64).regex(/^[a-z0-9-]+$/, "Tenant key must be lowercase letters, numbers, or hyphens"),
@@ -124,6 +125,33 @@ export const numberSeriesSchema = z.object({
 export const numberSeriesAllocateSchema = z.object({
   key: z.string().trim().min(1).max(80),
   companyId: z.string().trim().optional(),
+  fiscalYear: z.string().trim().max(20).optional(),
+  date: z.coerce.date().optional(),
+});
+
+export const companyCodeFormatKeySchema = z.enum(companyCodeFormatKeys);
+
+export const companyNumberingPatchSchema = z.object({
+  formats: z
+    .array(
+      z.object({
+        key: companyCodeFormatKeySchema,
+        pattern: z.string().trim().min(1).max(120).optional(),
+        resetPolicy: z.nativeEnum(NumberSeriesResetPolicy).optional(),
+        startAt: z.number().int().min(1).optional(),
+        padding: z.number().int().min(1).max(12).optional(),
+        isActive: z.boolean().optional(),
+      }),
+    )
+    .min(1),
+});
+
+export const companyNumberingPreviewSchema = z.object({
+  key: companyCodeFormatKeySchema,
+  pattern: z.string().trim().min(1).max(120).optional(),
+  resetPolicy: z.nativeEnum(NumberSeriesResetPolicy).optional(),
+  padding: z.number().int().min(1).max(12).optional(),
+  sequence: z.number().int().min(1).optional(),
   fiscalYear: z.string().trim().max(20).optional(),
   date: z.coerce.date().optional(),
 });

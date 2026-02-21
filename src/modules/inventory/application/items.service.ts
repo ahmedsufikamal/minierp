@@ -9,6 +9,9 @@ import {
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { writeInventoryAudit } from "@/modules/inventory/infrastructure/audit-log";
+import { allocateCompanyRequiredSeriesNumber } from "@/modules/platform/application/company-numbering.service";
+import { PlatformError } from "@/modules/platform/domain/errors";
+import type { PlatformRequestContext } from "@/modules/platform/domain/types";
 
 function pagination(page: number, limit: number) {
   const safePage = Math.max(1, page);
@@ -160,6 +163,20 @@ async function ensureBrand(ctx: InventoryRequestContext, brandId: string) {
   }
 }
 
+function toPlatformContext(ctx: InventoryRequestContext): PlatformRequestContext {
+  return {
+    requestId: ctx.requestId,
+    tenantId: ctx.tenantId ?? ctx.companyId,
+    companyId: ctx.companyId,
+    userId: ctx.userId,
+    role: ctx.role,
+    platformRole: "NONE",
+    permissions: ctx.iamPermissions ?? [],
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  };
+}
+
 export async function createInventoryItem(ctx: InventoryRequestContext, input: unknown) {
   const parsed = itemUpsertSchema.safeParse(input);
   if (!parsed.success) {
@@ -167,13 +184,29 @@ export async function createInventoryItem(ctx: InventoryRequestContext, input: u
   }
 
   const data = parsed.data;
+  if (data.sku?.trim()) {
+    throw new InventoryError("VALIDATION_ERROR", "sku is system-generated and cannot be provided manually");
+  }
   await ensureBrand(ctx, data.brandId);
   const setupRefs = await resolveSetupRefs(ctx, {
     itemGroupId: data.itemGroupId,
     uomId: data.uomId,
   });
 
-  const normalizedSku = normalizeSku(data.sku);
+  let generatedSku: string;
+  try {
+    const allocated = await allocateCompanyRequiredSeriesNumber(toPlatformContext(ctx), {
+      key: "SKU",
+    });
+    generatedSku = allocated.number;
+  } catch (error) {
+    if (error instanceof PlatformError) {
+      throw new InventoryError("VALIDATION_ERROR", error.message);
+    }
+    throw error;
+  }
+
+  const normalizedSku = normalizeSku(generatedSku);
 
   const conflict = await prisma.product.findUnique({
     where: {
@@ -195,7 +228,7 @@ export async function createInventoryItem(ctx: InventoryRequestContext, input: u
       data: {
         companyId: ctx.companyId,
         brandId: data.brandId,
-        sku: data.sku,
+        sku: generatedSku,
         normalizedSku,
         name: data.name,
         title: data.name,
@@ -230,14 +263,14 @@ export async function createInventoryItem(ctx: InventoryRequestContext, input: u
       where: {
         companyId_value: {
           companyId: ctx.companyId,
-          value: data.sku,
+          value: generatedSku,
         },
       },
       create: {
         companyId: ctx.companyId,
         itemId: item.id,
         kind: "SKU",
-        value: data.sku,
+        value: generatedSku,
         isPrimary: true,
       },
       update: {

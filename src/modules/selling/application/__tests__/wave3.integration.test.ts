@@ -143,6 +143,8 @@ maybeDescribe("selling wave3 integration", () => {
     await prisma.payment.deleteMany({ where: { companyId } });
     await prisma.salesInvoiceLine.deleteMany({ where: { invoice: { companyId } } });
     await prisma.salesInvoice.deleteMany({ where: { companyId } });
+    await prisma.numberSeriesCounter.deleteMany({ where: { series: { companyId } } });
+    await prisma.numberSeries.deleteMany({ where: { companyId } });
 
     await prisma.inventoryWarehouse.deleteMany({ where: { companyId } });
     await prisma.customer.deleteMany({ where: { companyId } });
@@ -172,7 +174,6 @@ maybeDescribe("selling wave3 integration", () => {
     expect(approvedOrder.lines[0]?.reservationId).toBeTruthy();
 
     const note = await createDeliveryNote(ctx, {
-      number: `${marker}-DN-001`,
       customerId,
       salesOrderId: order.id,
       sourceWarehouseId: warehouseId,

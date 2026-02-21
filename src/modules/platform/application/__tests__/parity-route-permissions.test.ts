@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => ({
   listAutomationRuns: vi.fn(),
   createAutomationRun: vi.fn(),
   resolveCustomizationRuntime: vi.fn(),
+  listCompanyNumberingMasterConfig: vi.fn(),
+  updateCompanyNumberingMasterConfig: vi.fn(),
+  previewCompanyNumberingPattern: vi.fn(),
 }));
 
 vi.mock("@/modules/platform/interface/context", () => ({
@@ -63,6 +66,12 @@ vi.mock("@/modules/platform/application/automation-runtime.service", () => ({
   createAutomationRun: mocks.createAutomationRun,
 }));
 
+vi.mock("@/modules/platform/application/company-numbering.service", () => ({
+  listCompanyNumberingMasterConfig: mocks.listCompanyNumberingMasterConfig,
+  updateCompanyNumberingMasterConfig: mocks.updateCompanyNumberingMasterConfig,
+  previewCompanyNumberingPattern: mocks.previewCompanyNumberingPattern,
+}));
+
 import { GET as buyingPayablesAgingGet } from "@/app/api/v1/buying/payables-aging/route";
 import { GET as sellingReceivablesAgingGet } from "@/app/api/v1/selling/receivables-aging/route";
 import { GET as projectsBillingGet, POST as projectsBillingPost } from "@/app/api/v1/projects/billing/route";
@@ -74,6 +83,8 @@ import { POST as fieldRulesPost } from "@/app/api/v1/platform/customization/fiel
 import { PATCH as automationRuleActionPatch } from "@/app/api/v1/platform/customization/automation-rules/[ruleId]/actions/route";
 import { POST as automationRunsPost } from "@/app/api/v1/platform/customization/automation-runs/route";
 import { GET as runtimeGet } from "@/app/api/v1/platform/customization/runtime/route";
+import { GET as companyNumberingGet, PATCH as companyNumberingPatch } from "@/app/api/v1/platform/company-numbering/route";
+import { POST as companyNumberingPreviewPost } from "@/app/api/v1/platform/company-numbering/preview/route";
 
 beforeEach(() => {
   mocks.getPlatformRequestContext.mockResolvedValue({
@@ -211,6 +222,40 @@ describe("new parity endpoint permission checks", () => {
     expect(mocks.applyAutomationRuleAction).not.toHaveBeenCalled();
     expect(mocks.createAutomationRun).not.toHaveBeenCalled();
     expect(mocks.resolveCustomizationRuntime).not.toHaveBeenCalled();
+  });
+
+  it("denies company numbering endpoints without permission", async () => {
+    await expectForbidden(
+      companyNumberingGet(new Request("http://localhost/api/v1/platform/company-numbering")),
+    );
+
+    await expectForbidden(
+      companyNumberingPatch(
+        new Request("http://localhost/api/v1/platform/company-numbering", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            formats: [{ key: "SKU", pattern: "SKU-{COMP}-{####}" }],
+          }),
+        }),
+      ),
+    );
+
+    await expectForbidden(
+      companyNumberingPreviewPost(
+        new Request("http://localhost/api/v1/platform/company-numbering/preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            key: "INVOICE",
+          }),
+        }),
+      ),
+    );
+
+    expect(mocks.listCompanyNumberingMasterConfig).not.toHaveBeenCalled();
+    expect(mocks.updateCompanyNumberingMasterConfig).not.toHaveBeenCalled();
+    expect(mocks.previewCompanyNumberingPattern).not.toHaveBeenCalled();
   });
 
   it("denies project billing writes without permission", async () => {

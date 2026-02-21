@@ -1,21 +1,15 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
-import { getCompanyIdOrUserId, getCurrentUser } from "@/lib/auth";
 import { getReorderSuggestions } from "@/modules/inventory/application/reorder.service";
+import { inventoryPermissions } from "@/modules/inventory/domain/types";
+import { getInventoryPageContext } from "@/modules/inventory/interface/page-context";
 import { ReorderClient } from "./reorder-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryReorderPage() {
-  const companyId = await getCompanyIdOrUserId();
-  const user = await getCurrentUser();
-
-  const ctx = {
-    requestId: "page-reorder",
-    companyId,
-    userId: user?.id ?? "unknown",
-    role: "INVENTORY_MANAGER" as const,
-  };
+  const ctx = await getInventoryPageContext(inventoryPermissions.itemRead);
+  const companyId = ctx.companyId;
 
   const [rules, suggestions, items, warehouses] = await Promise.all([
     prisma.inventoryReorderRule.findMany({

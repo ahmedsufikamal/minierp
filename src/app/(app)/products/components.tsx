@@ -34,7 +34,7 @@ export function AddProductCard({ brands }: { brands: Array<{ id: string; name: s
       <div className="flex items-center justify-between">
         <div>
           <div className="font-medium">Add product</div>
-          <div className="text-sm text-muted-foreground">SKU, UOM, and default selling price.</div>
+          <div className="text-sm text-muted-foreground">SKU is auto-generated from company numbering.</div>
         </div>
         <Button
           id="add-product"
@@ -68,12 +68,6 @@ export function AddProductCard({ brands }: { brands: Array<{ id: string; name: s
               </option>
             ))}
           </select>
-          <input
-            name="sku"
-            placeholder="SKU (e.g., P-001)"
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            required
-          />
           <input
             name="name"
             placeholder="Product name"

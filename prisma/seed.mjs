@@ -1059,55 +1059,93 @@ async function main() {
   }
 
   for (const companyId of [primaryCompany.company.id, secondaryCompany.company.id]) {
-    await prisma.companyMembership.upsert({
+    const ownerRoleId = ownerRoleByCompany.get(companyId);
+    const managerRoleId = managerRoleByCompany.get(companyId);
+    const activeOwner = await prisma.companyMembership.findFirst({
       where: {
-        userId_companyId: {
-          userId: ownerUser.id,
-          companyId,
-        },
-      },
-      create: {
-        userId: ownerUser.id,
         companyId,
         role: "OWNER",
-        roleId: ownerRoleByCompany.get(companyId),
         status: "ACTIVE",
-        isDefault: companyId === PRIMARY_COMPANY_ID,
-        joinedAt: new Date(),
       },
-      update: {
-        role: "OWNER",
-        roleId: ownerRoleByCompany.get(companyId),
-        status: "ACTIVE",
-        isDefault: companyId === PRIMARY_COMPANY_ID,
-        joinedAt: new Date(),
-      },
+      select: { userId: true },
     });
+    const effectiveOwnerUserId = activeOwner?.userId ?? ownerUser.id;
 
     await prisma.companyMembership.upsert({
       where: {
         userId_companyId: {
-          userId: managerUser.id,
+          userId: effectiveOwnerUserId,
           companyId,
         },
       },
       create: {
-        userId: managerUser.id,
+        userId: effectiveOwnerUserId,
         companyId,
-        role: "MANAGER",
-        roleId: managerRoleByCompany.get(companyId),
+        role: "OWNER",
+        roleId: ownerRoleId,
         status: "ACTIVE",
         isDefault: companyId === PRIMARY_COMPANY_ID,
         joinedAt: new Date(),
       },
       update: {
-        role: "MANAGER",
-        roleId: managerRoleByCompany.get(companyId),
+        role: "OWNER",
+        roleId: ownerRoleId,
         status: "ACTIVE",
         isDefault: companyId === PRIMARY_COMPANY_ID,
-        joinedAt: new Date(),
       },
     });
+
+    if (ownerUser.id !== effectiveOwnerUserId) {
+      await prisma.companyMembership.upsert({
+        where: {
+          userId_companyId: {
+            userId: ownerUser.id,
+            companyId,
+          },
+        },
+        create: {
+          userId: ownerUser.id,
+          companyId,
+          role: "MANAGER",
+          roleId: managerRoleId,
+          status: "ACTIVE",
+          isDefault: false,
+          joinedAt: new Date(),
+        },
+        update: {
+          role: "MANAGER",
+          roleId: managerRoleId,
+          status: "ACTIVE",
+          isDefault: false,
+        },
+      });
+    }
+
+    if (managerUser.id !== effectiveOwnerUserId) {
+      await prisma.companyMembership.upsert({
+        where: {
+          userId_companyId: {
+            userId: managerUser.id,
+            companyId,
+          },
+        },
+        create: {
+          userId: managerUser.id,
+          companyId,
+          role: "MANAGER",
+          roleId: managerRoleId,
+          status: "ACTIVE",
+          isDefault: companyId === PRIMARY_COMPANY_ID,
+          joinedAt: new Date(),
+        },
+        update: {
+          role: "MANAGER",
+          roleId: managerRoleId,
+          status: "ACTIVE",
+          isDefault: companyId === PRIMARY_COMPANY_ID,
+        },
+      });
+    }
   }
 
   await prisma.user.update({

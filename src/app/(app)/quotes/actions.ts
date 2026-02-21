@@ -7,6 +7,9 @@ import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { success, failure } from "@/lib/action-result";
 import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
+import { PlatformError } from "@/modules/platform/domain/errors";
+import { getPlatformContextForServerAction } from "@/modules/platform/application/server-action-context";
+import { allocateCompanyRequiredSeriesNumber } from "@/modules/platform/application/company-numbering.service";
 
 const LineSchema = z.object({
   productId: z.string().optional().nullable(),
@@ -17,7 +20,6 @@ const LineSchema = z.object({
 
 const CreateQuoteSchema = z.object({
   customerId: z.string().min(1),
-  number: z.string().min(1),
   quoteDate: z.string().optional(),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
@@ -37,7 +39,6 @@ export async function createQuote(formData: FormData): Promise<ActionResult> {
 
   const parsed = CreateQuoteSchema.safeParse({
     customerId: formData.get("customerId"),
-    number: formData.get("number"),
     quoteDate: formData.get("quoteDate"),
     validUntil: formData.get("validUntil"),
     notes: formData.get("notes"),
@@ -46,7 +47,12 @@ export async function createQuote(formData: FormData): Promise<ActionResult> {
 
   if (!parsed.success) return failure(parsed.error.flatten().fieldErrors);
 
-  const { customerId, number, quoteDate, validUntil, notes, linesJson } = parsed.data;
+  const manualNumber = String(formData.get("number") ?? "").trim();
+  if (manualNumber) {
+    return failure({ number: ["Quote number is system-generated; manual number is not allowed"] });
+  }
+
+  const { customerId, quoteDate, validUntil, notes, linesJson } = parsed.data;
 
   let linesRaw: unknown;
   try {
@@ -62,6 +68,21 @@ export async function createQuote(formData: FormData): Promise<ActionResult> {
 
   const quoteDateValue = toDateOrUndefined(quoteDate) ?? new Date();
   const validUntilValue = toDateOrUndefined(validUntil);
+  const platformCtx = await getPlatformContextForServerAction();
+
+  let generatedNumber: string;
+  try {
+    const allocated = await allocateCompanyRequiredSeriesNumber(platformCtx, {
+      key: "QUOTATION",
+      date: quoteDateValue,
+    });
+    generatedNumber = allocated.number;
+  } catch (error) {
+    if (error instanceof PlatformError) {
+      return failure(error.message);
+    }
+    throw error;
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -69,7 +90,7 @@ export async function createQuote(formData: FormData): Promise<ActionResult> {
         data: {
           companyId,
           customerId,
-          number,
+          number: generatedNumber,
           quoteDate: quoteDateValue,
           validUntil: validUntilValue ?? null,
           notes: notes?.trim() ? notes.trim() : null,
@@ -128,8 +149,11 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
   return success();
 }
 
-export async function convertQuoteToInvoice(quoteId: string, invoiceNumber: string): Promise<ActionResult> {
+export async function convertQuoteToInvoice(quoteId: string, invoiceNumber = ""): Promise<ActionResult> {
   const companyId = await getCompanyIdOrUserId();
+  if (invoiceNumber.trim()) {
+    return failure("Invoice number is system-generated; manual number is not allowed");
+  }
 
   const quote = await prisma.quote.findFirst({
     where: { id: quoteId, companyId },
@@ -141,17 +165,27 @@ export async function convertQuoteToInvoice(quoteId: string, invoiceNumber: stri
     return failure("Only DRAFT or ACCEPTED quotes can be converted");
   }
 
-  const existingInv = await prisma.salesInvoice.findFirst({
-    where: { companyId, number: invoiceNumber },
-  });
-  if (existingInv) return failure("Invoice number already exists");
+  const platformCtx = await getPlatformContextForServerAction();
+  let generatedInvoiceNumber: string;
+  try {
+    const allocated = await allocateCompanyRequiredSeriesNumber(platformCtx, {
+      key: "INVOICE",
+      date: quote.quoteDate,
+    });
+    generatedInvoiceNumber = allocated.number;
+  } catch (error) {
+    if (error instanceof PlatformError) {
+      return failure(error.message);
+    }
+    throw error;
+  }
 
   await prisma.$transaction(async (tx) => {
     const inv = await tx.salesInvoice.create({
       data: {
         companyId,
         customerId: quote.customerId,
-        number: invoiceNumber,
+        number: generatedInvoiceNumber,
         invoiceDate: quote.quoteDate,
         notes: quote.notes,
         status: "DRAFT",

@@ -7,6 +7,9 @@ import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { success, failure } from "@/lib/action-result";
 import { handlePrismaUniqueConflict } from "@/lib/prisma-errors";
+import { PlatformError } from "@/modules/platform/domain/errors";
+import { getPlatformContextForServerAction } from "@/modules/platform/application/server-action-context";
+import { allocateCompanyRequiredSeriesNumber } from "@/modules/platform/application/company-numbering.service";
 
 const LineSchema = z.object({
   productId: z.string().optional().nullable(),
@@ -17,7 +20,6 @@ const LineSchema = z.object({
 
 const CreateInvoiceSchema = z.object({
   customerId: z.string().min(1),
-  number: z.string().min(1),
   issueDate: z.string().nullish(),
   invoiceDate: z.string().nullish(),
   dueDate: z.string().nullish(),
@@ -36,7 +38,6 @@ export async function createInvoice(formData: FormData): Promise<ActionResult> {
 
   const parsed = CreateInvoiceSchema.safeParse({
     customerId: formData.get("customerId"),
-    number: formData.get("number"),
     issueDate: formData.get("issueDate"),
     invoiceDate: formData.get("invoiceDate"),
     dueDate: formData.get("dueDate"),
@@ -48,7 +49,12 @@ export async function createInvoice(formData: FormData): Promise<ActionResult> {
     return failure(parsed.error.flatten().fieldErrors);
   }
 
-  const { customerId, number, issueDate, invoiceDate, dueDate, notes, linesJson } = parsed.data;
+  const manualNumber = String(formData.get("number") ?? "").trim();
+  if (manualNumber) {
+    return failure({ number: ["Invoice number is system-generated; manual number is not allowed"] });
+  }
+
+  const { customerId, issueDate, invoiceDate, dueDate, notes, linesJson } = parsed.data;
 
   let linesRaw: unknown;
   try {
@@ -69,6 +75,21 @@ export async function createInvoice(formData: FormData): Promise<ActionResult> {
   const invoiceDateValue =
     toDateOrUndefined(issueDate) ?? toDateOrUndefined(invoiceDate) ?? new Date();
   const dueDateValue = toDateOrUndefined(dueDate);
+  const platformCtx = await getPlatformContextForServerAction();
+
+  let generatedNumber: string;
+  try {
+    const allocated = await allocateCompanyRequiredSeriesNumber(platformCtx, {
+      key: "INVOICE",
+      date: invoiceDateValue,
+    });
+    generatedNumber = allocated.number;
+  } catch (error) {
+    if (error instanceof PlatformError) {
+      return failure(error.message);
+    }
+    throw error;
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -76,7 +97,7 @@ export async function createInvoice(formData: FormData): Promise<ActionResult> {
         data: {
           companyId,
           customerId,
-          number,
+          number: generatedNumber,
           invoiceDate: invoiceDateValue,
           dueDate: dueDateValue ?? null,
           notes: notes?.trim() ? notes.trim() : null,

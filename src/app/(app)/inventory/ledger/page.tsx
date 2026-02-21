@@ -2,15 +2,17 @@ import Link from "next/link";
 import PageHeader from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
-import { getCompanyIdOrUserId } from "@/lib/auth";
 import { formatMoney } from "@/lib/utils";
+import { inventoryPermissions } from "@/modules/inventory/domain/types";
+import { getInventoryPageContext } from "@/modules/inventory/interface/page-context";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { searchParams?: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function InventoryLedgerPage(props: PageProps) {
-  const companyId = await getCompanyIdOrUserId();
+  const ctx = await getInventoryPageContext(inventoryPermissions.ledgerRead);
+  const companyId = ctx.companyId;
   const searchParams = (await props.searchParams) ?? {};
 
   const itemId = typeof searchParams.itemId === "string" ? searchParams.itemId : undefined;

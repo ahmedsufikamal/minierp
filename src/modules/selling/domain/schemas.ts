@@ -57,7 +57,7 @@ export const deliveryNoteLineSchema = z.object({
 });
 
 export const deliveryNoteCreateSchema = z.object({
-  number: z.string().trim().min(1),
+  number: z.string().trim().min(1).optional(),
   customerId: z.string().trim().min(1),
   salesOrderId: z.string().trim().optional().nullable(),
   sourceWarehouseId: z.string().trim().optional().nullable(),

@@ -81,6 +81,7 @@ export function NewInvoiceCard({
           {open ? "Close" : "New"}
         </Button>
       </div>
+      <p className="mt-2 text-xs text-muted-foreground">Invoice number is generated automatically.</p>
 
       {open ? (
         <form
@@ -110,13 +111,7 @@ export function NewInvoiceCard({
           }}
           className="mt-4 grid gap-3"
         >
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              name="number"
-              placeholder="INV-0001"
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              required
-            />
+          <div className="grid grid-cols-1 gap-3">
             <select
               name="customerId"
               className="w-full rounded-xl border px-3 py-2 text-sm bg-card"

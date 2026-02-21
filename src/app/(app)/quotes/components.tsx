@@ -72,6 +72,7 @@ export function NewQuoteCard({ customers, products }: { customers: Customer[]; p
           {open ? "Close" : "New"}
         </Button>
       </div>
+      <p className="mt-2 text-xs text-muted-foreground">Quote number is generated automatically.</p>
 
       {open ? (
         <form
@@ -90,13 +91,7 @@ export function NewQuoteCard({ customers, products }: { customers: Customer[]; p
           }}
           className="mt-4 grid gap-3"
         >
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              name="number"
-              placeholder="QUOTE-001"
-              className="w-full rounded-xl border px-3 py-2 text-sm"
-              required
-            />
+          <div className="grid grid-cols-1 gap-3">
             <select
               name="customerId"
               className="w-full rounded-xl border px-3 py-2 text-sm bg-card"
@@ -331,30 +326,19 @@ export function ConvertToInvoiceButton({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [invNumber, setInvNumber] = useState("");
 
   const canConvert = !converted && (status === "DRAFT" || status === "ACCEPTED");
 
   return (
     <div className="flex items-center gap-2">
-      {canConvert && (
-        <input
-          type="text"
-          placeholder="INV-001"
-          value={invNumber}
-          onChange={(e) => setInvNumber(e.target.value)}
-          className="rounded-lg border px-2 py-1 text-xs w-24"
-        />
-      )}
       <Button
         type="button"
-        disabled={pending || !canConvert || (canConvert && !invNumber.trim())}
+        disabled={pending || !canConvert}
         variant="utility"
         size="xs"
         onClick={() => {
-          if (!invNumber.trim()) return;
           start(async () => {
-            const res = await convertQuoteToInvoice(quoteId, invNumber.trim());
+            const res = await convertQuoteToInvoice(quoteId);
             if (res.ok) {
               toast.success("Invoice created from quote");
               router.refresh();

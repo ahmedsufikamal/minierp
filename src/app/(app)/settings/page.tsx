@@ -17,14 +17,6 @@ export default async function SettingsPage() {
       <SettingsForm
         defaults={{
           orgName: settings.orgName ?? "",
-          invoicePrefix: settings.invoicePrefix ?? "INV-",
-          invoiceNext: settings.invoiceNext ?? "1",
-          billPrefix: settings.billPrefix ?? "BILL-",
-          billNext: settings.billNext ?? "1",
-          quotePrefix: settings.quotePrefix ?? "QUOTE-",
-          quoteNext: settings.quoteNext ?? "1",
-          poPrefix: settings.poPrefix ?? "PO-",
-          poNext: settings.poNext ?? "1",
           defaultCurrency: settings.defaultCurrency ?? "BDT",
           taxRate: settings.taxRate ?? "",
         }}

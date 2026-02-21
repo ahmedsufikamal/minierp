@@ -23,7 +23,7 @@ export const itemListQuerySchema = paginationSchema.extend({
 });
 
 export const itemUpsertSchema = z.object({
-  sku: z.string().min(1),
+  sku: z.string().trim().min(1).optional(),
   name: z.string().min(1),
   description: z.string().optional().nullable(),
   brandId: z.string().min(1),
@@ -124,7 +124,7 @@ export const documentLineSchema = z.object({
 
 export const documentUpsertSchema = z.object({
   documentType: z.nativeEnum(InventoryDocumentType),
-  number: z.string().min(1),
+  number: z.string().min(1).optional(),
   documentDate: z.coerce.date().optional(),
   externalRef: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -146,6 +146,18 @@ export const documentActionSchema = z.object({
 export const warehouseSchema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
+  parentWarehouseId: z.string().min(1).optional().nullable(),
+  address: z
+    .object({
+      line1: z.string().trim().min(1).optional(),
+      line2: z.string().trim().optional(),
+      city: z.string().trim().optional(),
+      state: z.string().trim().optional(),
+      postalCode: z.string().trim().optional(),
+      country: z.string().trim().optional(),
+    })
+    .optional()
+    .nullable(),
   description: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
 });
@@ -263,6 +275,9 @@ export const ledgerQuerySchema = paginationSchema.extend({
 });
 
 export const inventoryCompanySettingsSchema = z.object({
+  defaultWarehouseId: z.string().trim().min(1).optional().nullable(),
+  documentSeriesCode: z.string().trim().min(1).max(80).optional().nullable(),
+  defaultUom: z.string().trim().min(1).max(32).default("pcs"),
   valuationMethod: z.enum(["MOVING_AVERAGE", "FIFO"]).default("MOVING_AVERAGE"),
   preventNegativeStock: z.boolean().default(true),
   allowNegativeOverride: z.boolean().default(false),

@@ -9,6 +9,8 @@ type Warehouse = {
   code: string;
   name: string;
   description: string | null;
+  parentWarehouse: { id: string; code: string; name: string } | null;
+  address: Record<string, unknown> | null;
   isActive: boolean;
   locations: Array<{
     id: string;
@@ -28,6 +30,17 @@ export function WarehousesClient({ rows }: { rows: Warehouse[] }) {
     setError(null);
 
     const form = new FormData(event.currentTarget);
+    const address = {
+      line1: String(form.get("addressLine1") || "").trim(),
+      line2: String(form.get("addressLine2") || "").trim(),
+      city: String(form.get("addressCity") || "").trim(),
+      state: String(form.get("addressState") || "").trim(),
+      postalCode: String(form.get("addressPostalCode") || "").trim(),
+      country: String(form.get("addressCountry") || "").trim(),
+    };
+    const addressPayload = Object.fromEntries(
+      Object.entries(address).filter(([, value]) => Boolean(value)),
+    );
 
     const response = await fetch("/api/v1/inventory/warehouses", {
       method: "POST",
@@ -35,6 +48,8 @@ export function WarehousesClient({ rows }: { rows: Warehouse[] }) {
       body: JSON.stringify({
         code: String(form.get("code") || ""),
         name: String(form.get("name") || ""),
+        parentWarehouseId: String(form.get("parentWarehouseId") || "") || null,
+        address: Object.keys(addressPayload).length > 0 ? addressPayload : null,
         description: String(form.get("description") || ""),
         isActive: true,
       }),
@@ -70,11 +85,29 @@ export function WarehousesClient({ rows }: { rows: Warehouse[] }) {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={onCreateWarehouse} className="surface-1 grid gap-2 p-4 sm:grid-cols-4">
+      <form onSubmit={onCreateWarehouse} className="surface-1 grid gap-2 p-4 sm:grid-cols-3">
         <input name="code" required placeholder="Code" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
         <input name="name" required placeholder="Name" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
+        <select
+          name="parentWarehouseId"
+          defaultValue=""
+          className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm"
+        >
+          <option value="">No parent</option>
+          {rows.map((warehouse) => (
+            <option key={warehouse.id} value={warehouse.id}>
+              {warehouse.code} - {warehouse.name}
+            </option>
+          ))}
+        </select>
         <input name="description" placeholder="Description" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
-        <Button type="submit" disabled={creating}>{creating ? "Creating..." : "Add Warehouse"}</Button>
+        <input name="addressLine1" placeholder="Address line 1" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
+        <input name="addressLine2" placeholder="Address line 2" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
+        <input name="addressCity" placeholder="City" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
+        <input name="addressState" placeholder="State" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
+        <input name="addressPostalCode" placeholder="Postal code" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
+        <input name="addressCountry" placeholder="Country" className="focus-ring h-9 rounded-md border border-border bg-[hsl(var(--surface-2))] px-2 text-sm" />
+        <Button type="submit" className="sm:col-span-3" disabled={creating}>{creating ? "Creating..." : "Add Warehouse"}</Button>
       </form>
       {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -85,6 +118,25 @@ export function WarehousesClient({ rows }: { rows: Warehouse[] }) {
               <div>
                 <h2 className="text-base font-semibold">{warehouse.code} - {warehouse.name}</h2>
                 <p className="text-sm text-muted-foreground">{warehouse.description || "No description"}</p>
+                {warehouse.parentWarehouse && (
+                  <p className="text-xs text-muted-foreground">
+                    Parent: {warehouse.parentWarehouse.code} - {warehouse.parentWarehouse.name}
+                  </p>
+                )}
+                {warehouse.address && (
+                  <p className="text-xs text-muted-foreground">
+                    Address: {[
+                      warehouse.address.line1,
+                      warehouse.address.line2,
+                      warehouse.address.city,
+                      warehouse.address.state,
+                      warehouse.address.postalCode,
+                      warehouse.address.country,
+                    ]
+                      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+                      .join(", ")}
+                  </p>
+                )}
               </div>
               <Button asChild variant="outline" size="sm">
                 <Link href={`/inventory/warehouses/${warehouse.id}`}>Open</Link>

@@ -55,7 +55,7 @@ export const posSalePaymentSchema = z.object({
 });
 
 export const posSaleCreateSchema = z.object({
-  number: z.string().trim().min(1).max(100),
+  number: z.string().trim().min(1).max(100).optional(),
   profileId: z.string().trim().min(1),
   shiftId: z.string().trim().optional().nullable(),
   customerId: z.string().trim().optional().nullable(),

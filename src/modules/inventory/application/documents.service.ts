@@ -5,6 +5,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { allocateSeriesNumber } from "@/modules/platform/application/numbering.service";
 import {
   documentActionSchema,
   documentListQuerySchema,
@@ -110,6 +111,7 @@ async function getInventorySettings(companyId: string) {
       trackByLocation: false,
       preventNegativeStock: true,
       allowNegativeOverride: false,
+      documentSeriesCode: "INV-DOC",
       costingMethod: "AVG",
       baseCurrency: "BDT",
       id: "default",
@@ -117,6 +119,42 @@ async function getInventorySettings(companyId: string) {
       updatedAt: new Date(0),
     }
   );
+}
+
+async function resolveDocumentNumber(
+  ctx: AppContext,
+  input: { number?: string; documentType: InventoryDocumentType },
+): Promise<string> {
+  const explicitNumber = input.number?.trim();
+  if (explicitNumber) return explicitNumber;
+
+  const settings = await getInventorySettings(ctx.companyId);
+  const seriesKey = settings.documentSeriesCode?.trim() || "INV-DOC";
+
+  try {
+    const allocated = await allocateSeriesNumber(
+      {
+        requestId: ctx.requestId,
+        tenantId: ctx.tenantId ?? ctx.companyId,
+        companyId: ctx.companyId,
+        userId: ctx.userId,
+        role: ctx.role,
+        platformRole: "NONE",
+        permissions: ctx.iamPermissions ?? [],
+      },
+      {
+        key: seriesKey,
+        companyId: ctx.companyId,
+        date: new Date(),
+      },
+    );
+
+    return allocated.number;
+  } catch {
+    const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+    const prefix = input.documentType.slice(0, 3);
+    return `${prefix}-${stamp}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+  }
 }
 
 export async function listInventoryDocuments(ctx: AppContext, input: unknown) {
@@ -252,13 +290,18 @@ export async function createInventoryDocument(ctx: AppContext, input: unknown) {
     throw new InventoryError("VALIDATION_ERROR", "Invalid document payload", parsed.error.flatten());
   }
 
+  const documentNumber = await resolveDocumentNumber(ctx, {
+    number: parsed.data.number,
+    documentType: parsed.data.documentType,
+  });
+
   assertDocumentSourceDestination(parsed.data);
 
   const existing = await prisma.inventoryDocument.findUnique({
     where: {
       companyId_number: {
         companyId: ctx.companyId,
-        number: parsed.data.number,
+        number: documentNumber,
       },
     },
     select: { id: true },
@@ -272,7 +315,7 @@ export async function createInventoryDocument(ctx: AppContext, input: unknown) {
     data: {
       companyId: ctx.companyId,
       documentType: parsed.data.documentType,
-      number: parsed.data.number,
+      number: documentNumber,
       documentDate: parsed.data.documentDate,
       externalRef: parsed.data.externalRef,
       notes: parsed.data.notes,
@@ -1459,11 +1502,55 @@ export async function listInventoryLedger(ctx: AppContext, input: unknown) {
     prisma.inventoryLedgerEntry.count({ where }),
   ]);
 
+  const balanceRows = rows.length
+    ? await prisma.inventoryStockBalance.findMany({
+        where: {
+          companyId: ctx.companyId,
+          OR: rows.map((row) => ({
+            itemId: row.itemId,
+            warehouseId: row.warehouseId,
+            locationId: row.locationId,
+          })),
+        },
+        select: {
+          itemId: true,
+          warehouseId: true,
+          locationId: true,
+          onHand: true,
+        },
+      })
+    : [];
+
+  const balanceCursor = new Map(
+    balanceRows.map((row) => [
+      `${row.itemId}:${row.warehouseId}:${row.locationId ?? "ROOT"}`,
+      row.onHand,
+    ]),
+  );
+
+  const enrichedRows = rows.map((row) => {
+    const key = `${row.itemId}:${row.warehouseId}:${row.locationId ?? "ROOT"}`;
+    const balanceQty = balanceCursor.get(key);
+    const qtyIn = row.quantityDelta > 0 ? row.quantityDelta : 0;
+    const qtyOut = row.quantityDelta < 0 ? Math.abs(row.quantityDelta) : 0;
+
+    if (typeof balanceQty === "number") {
+      balanceCursor.set(key, balanceQty - row.quantityDelta);
+    }
+
+    return {
+      ...row,
+      qtyIn,
+      qtyOut,
+      balanceQty: typeof balanceQty === "number" ? balanceQty : null,
+    };
+  });
+
   return {
     page: q.page,
     limit: q.limit,
     total,
-    rows,
+    rows: enrichedRows,
   };
 }
 

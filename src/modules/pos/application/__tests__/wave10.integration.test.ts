@@ -117,6 +117,8 @@ maybeDescribe("wave10 pos-portal integration", () => {
     await prisma.posProfile.deleteMany({ where: { companyId } });
 
     await prisma.portalConfig.deleteMany({ where: { companyId } });
+    await prisma.numberSeriesCounter.deleteMany({ where: { series: { companyId } } });
+    await prisma.numberSeries.deleteMany({ where: { companyId } });
 
     await prisma.inventoryWarehouse.deleteMany({ where: { companyId } });
     await prisma.customer.deleteMany({ where: { companyId } });
@@ -137,7 +139,6 @@ maybeDescribe("wave10 pos-portal integration", () => {
     });
 
     const sale = await createPosSale(ctx, {
-      number: `${marker}-SALE-001`,
       profileId: profile.id,
       shiftId: shift.id,
       customerId,

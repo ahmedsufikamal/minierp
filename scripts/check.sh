@@ -2,6 +2,7 @@
 set -euo pipefail
 
 npm run lint
+npm run inventory:tenancy:audit
 npm run typecheck
 npm run test:unit
 npm run build

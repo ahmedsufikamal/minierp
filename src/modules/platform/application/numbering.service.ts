@@ -2,6 +2,9 @@ import { NumberSeriesResetPolicy } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PlatformError } from "@/modules/platform/domain/errors";
 import type { NumberSeriesAllocationInput, PlatformRequestContext } from "@/modules/platform/domain/types";
+import { companyCodeFormatKeys, type CompanyCodeFormatKey } from "@/modules/platform/domain/company-numbering";
+
+const companyOnlyNumberingKeys = new Set<CompanyCodeFormatKey>(companyCodeFormatKeys);
 
 export function formatDateParts(value: Date): {
   yyyy: string;
@@ -95,6 +98,9 @@ export async function upsertNumberSeries(
 ) {
   validatePattern(input.pattern);
   const companyId = input.companyId ?? ctx.companyId;
+  if (companyId == null && companyOnlyNumberingKeys.has(input.key as CompanyCodeFormatKey)) {
+    throw new PlatformError("VALIDATION_ERROR", `Series key '${input.key}' must be company-scoped`);
+  }
 
   return prisma.numberSeries.upsert({
     where: {
@@ -130,15 +136,16 @@ export async function upsertNumberSeries(
 
 async function resolveSeries(
   ctx: PlatformRequestContext,
-  input: { key: string; companyId?: string | null },
+  input: { key: string; companyId?: string | null; allowTenantFallback?: boolean },
 ) {
   const companyId = input.companyId ?? ctx.companyId;
+  const allowTenantFallback = input.allowTenantFallback ?? true;
   const candidates = await prisma.numberSeries.findMany({
     where: {
       tenantId: ctx.tenantId,
       key: input.key,
       isActive: true,
-      OR: [{ companyId }, { companyId: null }],
+      ...(allowTenantFallback ? { OR: [{ companyId }, { companyId: null }] } : { companyId }),
     },
     orderBy: [{ companyId: "desc" }, { updatedAt: "desc" }],
     take: 5,
@@ -154,12 +161,17 @@ export async function allocateSeriesNumber(
   ctx: PlatformRequestContext,
   input: NumberSeriesAllocationInput,
 ): Promise<{ seriesId: string; value: number; number: string; periodKey: string }> {
+  const forceCompanyScope = companyOnlyNumberingKeys.has(input.key as CompanyCodeFormatKey);
   const series = await resolveSeries(ctx, {
     key: input.key,
     companyId: input.companyId,
+    allowTenantFallback: !input.strictCompanyScope && !forceCompanyScope,
   });
 
   if (!series) {
+    if (input.strictCompanyScope || forceCompanyScope) {
+      throw new PlatformError("NOT_FOUND", `Number series '${input.key}' not found for active company`);
+    }
     throw new PlatformError("NOT_FOUND", `Number series '${input.key}' not found`);
   }
 

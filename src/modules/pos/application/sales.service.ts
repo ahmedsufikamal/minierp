@@ -4,6 +4,7 @@ import {
   applyInventoryDocumentAction,
   createInventoryDocument,
 } from "@/modules/inventory/application/documents.service";
+import { allocateCompanyRequiredSeriesNumber } from "@/modules/platform/application/company-numbering.service";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { PlatformError } from "@/modules/platform/domain/errors";
 import type { PlatformRequestContext } from "@/modules/platform/domain/types";
@@ -218,6 +219,9 @@ export async function createPosSale(ctx: PlatformRequestContext, input: unknown)
   }
 
   const payload = parsed.data;
+  if (payload.number?.trim()) {
+    throw new PlatformError("VALIDATION_ERROR", "Spot sale number is system-generated");
+  }
 
   const profile = await assertProfile(ctx.companyId, payload.profileId);
   if (!profile.isActive) {
@@ -234,18 +238,24 @@ export async function createPosSale(ctx: PlatformRequestContext, input: unknown)
   ]);
 
   const totalAmountMinor = computeTotal(payload.lines);
+  const saleDate = payload.saleDate ?? new Date();
+  const allocated = await allocateCompanyRequiredSeriesNumber(ctx, {
+    key: "SPOT_SALE",
+    date: saleDate,
+  });
+  const generatedSaleNumber = allocated.number;
 
   try {
     return await prisma.posSale.create({
       data: {
         tenantId: ctx.tenantId,
         companyId: ctx.companyId,
-        number: payload.number,
+        number: generatedSaleNumber,
         profileId: payload.profileId,
         shiftId: payload.shiftId,
         status: PosSaleStatus.DRAFT,
         customerId: payload.customerId,
-        saleDate: payload.saleDate ?? new Date(),
+        saleDate,
         totalAmountMinor,
         currency: payload.currency,
         notes: payload.notes,
@@ -369,6 +379,14 @@ export async function applyPosSaleAction(
 
   const inventoryCtx = toInventoryContext(ctx);
   await postPosSaleInventory(inventoryCtx, sale, sale.profile.warehouseId);
+  const allocatedInvoiceNumber = sale.salesInvoiceId
+    ? null
+    : (
+        await allocateCompanyRequiredSeriesNumber(ctx, {
+          key: "INVOICE",
+          date: sale.saleDate,
+        })
+      ).number;
 
   await prisma.$transaction(async (tx) => {
     const invoice = sale.salesInvoiceId
@@ -376,7 +394,7 @@ export async function applyPosSaleAction(
       : await tx.salesInvoice.create({
           data: {
             companyId: ctx.companyId,
-            number: `${sale.number}-INV`,
+            number: allocatedInvoiceNumber!,
             customerId: sale.customerId!,
             invoiceDate: sale.saleDate,
             notes: `Generated from POS sale ${sale.number}`,

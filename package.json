@@ -7,6 +7,7 @@
     "node": ">=20.9.0"
   },
   "scripts": {
+    "predev": "npm run prisma:generate",
     "dev": "next dev",
     "build": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/minierp} next build",
     "start": "next start -p 3000",
@@ -24,6 +25,7 @@
     "parity:status": "node scripts/parity-status.mjs",
     "theme:audit": "node scripts/theme-audit.mjs",
     "tenancy:audit": "node scripts/tenancy-scope-audit.mjs",
+    "inventory:tenancy:audit": "node scripts/inventory-tenancy-audit.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -31,6 +33,7 @@
     "prisma:seed": "node prisma/seed.mjs",
     "iam:backfill": "node scripts/iam-backfill.mjs",
     "iam:master-admin:backfill": "node scripts/iam-master-admin-backfill.mjs",
+    "numbering:company:backfill": "node scripts/company-numbering-backfill.mjs",
     "iam:worker": "node scripts/iam-worker.mjs",
     "inventory:seed": "node prisma/seed.mjs",
     "typecheck": "tsc -p tsconfig.refactor.json --noEmit",

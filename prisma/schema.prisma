@@ -4104,6 +4104,10 @@ model AutomationRuleRun {
 model InventoryCompanySetting {
   id                    String   @id @default(cuid())
   companyId             String   @unique @map("orgId")
+  defaultWarehouseId    String?
+  defaultWarehouse      InventoryWarehouse? @relation("InventoryCompanyDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
+  documentSeriesCode    String?
+  defaultUom            String   @default("pcs")
   trackByLocation       Boolean  @default(false)
   preventNegativeStock  Boolean  @default(true)
   allowNegativeOverride Boolean  @default(false)
@@ -4116,6 +4120,9 @@ model InventoryCompanySetting {
 model InventoryWarehouse {
   id          String   @id @default(cuid())
   companyId   String   @map("orgId")
+  parentWarehouseId String?
+  parentWarehouse InventoryWarehouse? @relation("InventoryWarehouseHierarchy", fields: [parentWarehouseId], references: [id], onDelete: SetNull)
+  childWarehouses InventoryWarehouse[] @relation("InventoryWarehouseHierarchy")
   code        String
   name        String
   description String?
@@ -4144,9 +4151,11 @@ model InventoryWarehouse {
   subcontractingOrdersIssue         SubcontractingOrder[]        @relation("SubcontractingOrderIssueWarehouse")
   subcontractingReceiptsDestination SubcontractingReceipt[]      @relation("SubcontractingReceiptDestinationWarehouse")
   posProfiles                       PosProfile[]                 @relation("PosProfileWarehouse")
+  defaultForCompanySettings         InventoryCompanySetting[]    @relation("InventoryCompanyDefaultWarehouse")
 
   @@unique([companyId, code])
   @@index([companyId, isActive])
+  @@index([companyId, parentWarehouseId])
 }
 
 model InventoryWarehouseLocation {

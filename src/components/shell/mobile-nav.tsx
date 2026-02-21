@@ -10,13 +10,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { navGroups } from "@/components/shell/nav";
+import { navGroups, primaryNavItem } from "@/components/shell/nav";
 import { MiniERPLogo } from "@/components/minierp-logo";
 import { Menu } from "lucide-react";
 
 export function MobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
+  const PrimaryIcon = primaryNavItem.icon;
 
   return (
     <>
@@ -41,6 +43,25 @@ export function MobileNav() {
             </div>
             <nav className="flex-1 overflow-auto p-4">
               <div className="space-y-4">
+                <ul className="grid gap-1">
+                  <li>
+                    <Link
+                      href={primaryNavItem.href}
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                        "text-foreground/85 hover:bg-[hsl(var(--surface-interactive))] hover:text-foreground",
+                        isActive(primaryNavItem.href) &&
+                          "bg-[hsl(var(--surface-interactive))] font-medium text-foreground",
+                      )}
+                      data-testid="mobile-sidebar-dashboard-link"
+                      aria-current={isActive(primaryNavItem.href) ? "page" : undefined}
+                    >
+                      <PrimaryIcon className="h-4 w-4" />
+                      {primaryNavItem.label}
+                    </Link>
+                  </li>
+                </ul>
                 {navGroups.map((group) => (
                   <section key={group.title} className="space-y-1">
                     <h2 className="px-3 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -48,7 +69,7 @@ export function MobileNav() {
                     </h2>
                     <ul className="grid gap-1">
                       {group.items.map((item) => {
-                        const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+                        const active = isActive(item.href);
                         const Icon = item.icon;
                         return (
                           <li key={item.href}>

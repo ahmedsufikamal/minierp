@@ -2,7 +2,8 @@ import Link from "next/link";
 import PageHeader from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
-import { getCompanyIdOrUserId } from "@/lib/auth";
+import { inventoryPermissions } from "@/modules/inventory/domain/types";
+import { getInventoryPageContext } from "@/modules/inventory/interface/page-context";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,8 @@ function isMissingSchemaError(error: unknown): boolean {
 }
 
 export default async function InventoryDocumentsPage() {
-  const companyId = await getCompanyIdOrUserId();
+  const ctx = await getInventoryPageContext(inventoryPermissions.documentRead);
+  const companyId = ctx.companyId;
   const docsResult = await prisma.inventoryDocument
     .findMany({
       where: { companyId },

@@ -53,7 +53,6 @@ export function NewInventoryItemForm({ brands, customFields }: { brands: Brand[]
 
     const form = new FormData(event.currentTarget);
     const payload = {
-      sku: String(form.get("sku") || ""),
       name: String(form.get("name") || ""),
       description: String(form.get("description") || ""),
       brandId: String(form.get("brandId") || ""),
@@ -91,12 +90,8 @@ export function NewInventoryItemForm({ brands, customFields }: { brands: Brand[]
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="surface-1 p-4">
         <h2 className="mb-3 text-sm font-semibold">Base Fields</h2>
+        <p className="mb-3 text-xs text-muted-foreground">SKU is generated automatically from company numbering.</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            SKU
-            <input name="sku" required className="focus-ring mt-1 h-9 w-full rounded-md border border-border bg-[hsl(var(--surface-2))] px-2" />
-          </label>
-
           <label className="text-sm">
             Name
             <input name="name" required className="focus-ring mt-1 h-9 w-full rounded-md border border-border bg-[hsl(var(--surface-2))] px-2" />

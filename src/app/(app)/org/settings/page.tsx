@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/org/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 function normalizeMfaMode(value: string): "OPTIONAL" | "REQUIRED_FOR_ADMINS" | "REQUIRED_FOR_ALL" {
   if (value === "REQUIRED_FOR_ADMINS" || value === "REQUIRED_FOR_ALL") {
@@ -82,6 +83,16 @@ export default async function OrgSettingsPage() {
         <h1 className="text-2xl font-semibold">Organization settings</h1>
         <p className="text-sm text-muted-foreground">Branding, domains, and authentication policies.</p>
       </div>
+
+      <section className="rounded-lg border p-4">
+        <h2 className="font-medium">Company Numbering</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage SKU and document code formats for this company.
+        </p>
+        <Link href="/org/settings/company-numbering" className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
+          Open company numbering →
+        </Link>
+      </section>
 
       <form action={submitSettings} className="space-y-6 rounded-lg border p-4">
         <section className="space-y-3">

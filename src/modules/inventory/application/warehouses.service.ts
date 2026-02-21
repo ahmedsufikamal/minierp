@@ -1,13 +1,71 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { locationSchema, warehouseSchema } from "@/modules/inventory/application/schemas";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { writeInventoryAudit } from "@/modules/inventory/infrastructure/audit-log";
 
+function mergeWarehouseMetadata(
+  existing: unknown,
+  address: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  } | null | undefined,
+) {
+  const base = existing && typeof existing === "object" && !Array.isArray(existing)
+    ? { ...(existing as Record<string, unknown>) }
+    : {};
+  if (address === undefined) {
+    return base;
+  }
+  if (address === null) {
+    delete base.address;
+    return base;
+  }
+  base.address = address;
+  return base;
+}
+
+async function assertParentWarehouseBelongsToCompany(
+  ctx: InventoryRequestContext,
+  parentWarehouseId: string,
+  selfWarehouseId?: string,
+) {
+  if (selfWarehouseId && parentWarehouseId === selfWarehouseId) {
+    throw new InventoryError("VALIDATION_ERROR", "Warehouse cannot be its own parent");
+  }
+
+  const parent = await prisma.inventoryWarehouse.findFirst({
+    where: {
+      id: parentWarehouseId,
+      companyId: ctx.companyId,
+    },
+    select: {
+      id: true,
+      parentWarehouseId: true,
+    },
+  });
+
+  if (!parent) {
+    throw new InventoryError("VALIDATION_ERROR", "Invalid parentWarehouseId for this company");
+  }
+
+  if (selfWarehouseId && parent.parentWarehouseId === selfWarehouseId) {
+    throw new InventoryError("VALIDATION_ERROR", "Parent warehouse cycle detected");
+  }
+}
+
 export async function listWarehouses(ctx: InventoryRequestContext) {
   return prisma.inventoryWarehouse.findMany({
     where: { companyId: ctx.companyId },
     include: {
+      parentWarehouse: {
+        select: { id: true, code: true, name: true },
+      },
       locations: {
         orderBy: [{ path: "asc" }, { code: "asc" }],
       },
@@ -35,13 +93,22 @@ export async function createWarehouse(ctx: InventoryRequestContext, input: unkno
     throw new InventoryError("CONFLICT", "Warehouse code already exists");
   }
 
+  if (parsed.data.parentWarehouseId) {
+    await assertParentWarehouseBelongsToCompany(ctx, parsed.data.parentWarehouseId);
+  }
+
   const created = await prisma.inventoryWarehouse.create({
     data: {
       companyId: ctx.companyId,
       code: parsed.data.code,
       name: parsed.data.name,
+      parentWarehouseId: parsed.data.parentWarehouseId ?? null,
       description: parsed.data.description,
       isActive: parsed.data.isActive,
+      metadata: mergeWarehouseMetadata(
+        undefined,
+        parsed.data.address,
+      ) as Prisma.InputJsonValue,
     },
   });
 
@@ -68,9 +135,27 @@ export async function updateWarehouse(ctx: InventoryRequestContext, warehouseId:
     throw new InventoryError("NOT_FOUND", "Warehouse not found");
   }
 
+  if (parsed.data.parentWarehouseId) {
+    await assertParentWarehouseBelongsToCompany(ctx, parsed.data.parentWarehouseId, warehouseId);
+  }
+
   const writeResult = await prisma.inventoryWarehouse.updateMany({
     where: { id: warehouseId, companyId: ctx.companyId },
-    data: parsed.data,
+    data: {
+      code: parsed.data.code,
+      name: parsed.data.name,
+      parentWarehouseId: parsed.data.parentWarehouseId,
+      description: parsed.data.description,
+      isActive: parsed.data.isActive,
+      ...(parsed.data.address !== undefined
+        ? {
+            metadata: mergeWarehouseMetadata(
+              existing.metadata,
+              parsed.data.address,
+            ) as Prisma.InputJsonValue,
+          }
+        : {}),
+    },
   });
   if (writeResult.count === 0) {
     throw new InventoryError("NOT_FOUND", "Warehouse not found");

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { saveSettings } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,14 +11,6 @@ import { toast } from "sonner";
 
 type Defaults = {
   orgName: string;
-  invoicePrefix: string;
-  invoiceNext: string;
-  billPrefix: string;
-  billNext: string;
-  quotePrefix: string;
-  quoteNext: string;
-  poPrefix: string;
-  poNext: string;
   defaultCurrency: string;
   taxRate: string;
 };
@@ -76,41 +69,14 @@ export function SettingsForm({ defaults }: { defaults: Defaults }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border p-4 space-y-4">
+      <div className="rounded-2xl border p-4 space-y-2">
         <h3 className="font-medium">Number sequences</h3>
         <p className="text-sm text-muted-foreground">
-          Prefix and next number for new documents. Next is incremented when you use it (manual for now).
+          Number sequence management has moved to Company Numbering under organization settings.
         </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Invoices</Label>
-            <div className="flex gap-2 mt-1">
-              <Input name="invoicePrefix" defaultValue={defaults.invoicePrefix} placeholder="INV-" />
-              <Input name="invoiceNext" defaultValue={defaults.invoiceNext} placeholder="1" />
-            </div>
-          </div>
-          <div>
-            <Label>Bills</Label>
-            <div className="flex gap-2 mt-1">
-              <Input name="billPrefix" defaultValue={defaults.billPrefix} placeholder="BILL-" />
-              <Input name="billNext" defaultValue={defaults.billNext} placeholder="1" />
-            </div>
-          </div>
-          <div>
-            <Label>Quotes</Label>
-            <div className="flex gap-2 mt-1">
-              <Input name="quotePrefix" defaultValue={defaults.quotePrefix} placeholder="QUOTE-" />
-              <Input name="quoteNext" defaultValue={defaults.quoteNext} placeholder="1" />
-            </div>
-          </div>
-          <div>
-            <Label>Purchase orders</Label>
-            <div className="flex gap-2 mt-1">
-              <Input name="poPrefix" defaultValue={defaults.poPrefix} placeholder="PO-" />
-              <Input name="poNext" defaultValue={defaults.poNext} placeholder="1" />
-            </div>
-          </div>
-        </div>
+        <Link href="/org/settings/company-numbering" className="text-sm font-medium text-primary hover:underline">
+          Open Company Numbering →
+        </Link>
       </div>
 
       <Button type="submit" disabled={pending}>

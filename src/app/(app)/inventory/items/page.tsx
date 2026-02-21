@@ -1,7 +1,9 @@
 import { InventoryCustomFieldEntityType, InventoryPresetScope } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, getCompanyIdOrUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import PageHeader from "@/components/page-header";
+import { inventoryPermissions } from "@/modules/inventory/domain/types";
+import { getInventoryPageContext } from "@/modules/inventory/interface/page-context";
 import { InventoryItemsWorkbench } from "./items-workbench";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +14,8 @@ function isMissingSchemaError(error: unknown): boolean {
 }
 
 export default async function InventoryItemsPage() {
-  const companyId = await getCompanyIdOrUserId();
+  const ctx = await getInventoryPageContext(inventoryPermissions.itemRead);
+  const companyId = ctx.companyId;
   const user = await getCurrentUser();
 
   const withMissingSchemaFallback = async <T,>(
