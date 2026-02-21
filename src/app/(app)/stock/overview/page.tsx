@@ -1,3 +1,5 @@
-import InventoryOverviewPage from "@/app/(app)/inventory/page";
+import { redirect } from "next/navigation";
 
-export default InventoryOverviewPage;
+export default function StockOverviewCompatibilityRedirect() {
+  redirect("/stock");
+}

@@ -19,7 +19,7 @@ async function signUp(
   await page.getByPlaceholder("company-slug").fill(input.companySlug);
   await page.getByPlaceholder("Strong password (12+ chars)").fill(STRONG_PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/);
+  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
 }
 
 async function cleanupByMarker(marker: string) {

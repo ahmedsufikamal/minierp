@@ -1,0 +1,37 @@
+
+> minierp-clerk-nextjs@0.3.0 predev
+> npm run prisma:generate
+
+
+> minierp-clerk-nextjs@0.3.0 prisma:generate
+> prisma generate
+
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 1.14s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+
+> minierp-clerk-nextjs@0.3.0 dev
+> next dev --port 3103
+
+▲ Next.js 16.1.4 (Turbopack)
+- Local:         http://localhost:3103
+- Network:       http://192.168.68.100:3103
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 1395ms
+ GET /stock 307 in 4.2s (compile: 2.0s, proxy.ts: 1242ms, render: 896ms)
+ GET /stock/items 307 in 244ms (compile: 147ms, proxy.ts: 5ms, render: 92ms)
+ GET /stock/settings 307 in 211ms (compile: 113ms, proxy.ts: 4ms, render: 94ms)
+ GET /api/stock/workspace/metrics 401 in 284ms (compile: 266ms, proxy.ts: 4ms, render: 14ms)
+ GET /api/stock/items?page=1&page_size=20 401 in 148ms (compile: 139ms, proxy.ts: 5ms, render: 5ms)
+ GET /api/stock/settings/comments 401 in 118ms (compile: 111ms, proxy.ts: 3ms, render: 4ms)
+ GET /api/health 200 in 315ms (compile: 295ms, proxy.ts: 4ms, render: 15ms)

@@ -1,0 +1,39 @@
+
+> minierp-clerk-nextjs@0.3.0 test:unit
+> vitest run --exclude '**/*.integration.test.ts' --exclude '**/*.e2e.test.ts'
+
+
+ RUN  v2.1.9 /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp
+
+ ✓ src/components/__tests__/theme-preference-sync.test.ts (4 tests) 5ms
+ ✓ src/application/inventory/__tests__/import-service.test.ts (2 tests) 7ms
+ ✓ src/modules/inventory/application/__tests__/workflow-permissions.test.ts (5 tests) 6ms
+ ✓ src/lib/__tests__/auth-current-user-safe.test.ts (2 tests) 8ms
+ ✓ src/app/(app)/inventory/__tests__/inventory-action-permissions.test.ts (8 tests) 58ms
+ ✓ src/lib/__tests__/excel-import.test.ts (25 tests) 16ms
+ ✓ src/modules/accounting/application/__tests__/invariants.test.ts (5 tests) 7ms
+ ✓ src/components/ui/button.test.ts (3 tests) 6ms
+ ✓ src/modules/inventory/domain/__tests__/posting.test.ts (4 tests) 4ms
+ ✓ src/modules/iam/application/__tests__/policy.test.ts (5 tests) 4ms
+ ✓ src/modules/platform/application/__tests__/row-scope.service.test.ts (3 tests) 9ms
+ ✓ src/modules/platform/application/__tests__/numbering.service.test.ts (3 tests) 8ms
+ ✓ src/modules/accounting/application/__tests__/payment-entries.service.test.ts (3 tests) 7ms
+ ✓ src/modules/iam/application/__tests__/master-admin-policy.test.ts (5 tests) 9ms
+ ✓ src/modules/iam/application/__tests__/level-policy.test.ts (4 tests) 9ms
+ ✓ src/modules/platform/application/__tests__/parity-route-permissions.test.ts (5 tests) 30ms
+ ✓ src/modules/iam/application/__tests__/principal-resolver.test.ts (4 tests) 8ms
+ ✓ src/lib/__tests__/auth-server-action-permissions.test.ts (8 tests) 9ms
+ ✓ src/modules/inventory/domain/__tests__/custom-fields.test.ts (3 tests) 6ms
+ ✓ src/modules/inventory/domain/__tests__/reorder.test.ts (2 tests) 5ms
+ ✓ src/modules/iam/infrastructure/__tests__/totp.test.ts (3 tests) 9ms
+ ✓ src/modules/iam/application/__tests__/invite-token.test.ts (2 tests) 7ms
+ ✓ src/components/shell/__tests__/nav.test.ts (3 tests) 6ms
+ ✓ src/modules/platform/application/__tests__/company-numbering.service.test.ts (2 tests) 5ms
+ ✓ src/modules/platform/application/__tests__/audit-ledger.service.test.ts (2 tests) 6ms
+ ✓ src/modules/accounting/application/__tests__/reporting.test.ts (3 tests) 3ms
+
+ Test Files  26 passed (26)
+      Tests  118 passed (118)
+   Start at  18:45:27
+   Duration  3.58s (transform 2.17s, setup 0ms, collect 9.98s, tests 258ms, environment 7ms, prepare 3.75s)
+

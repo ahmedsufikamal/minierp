@@ -775,6 +775,12 @@ model Product {
   trackSerial       Boolean         @default(false)
   trackBatch        Boolean         @default(false)
   lowStockThreshold Int? // optional: warn when stock below this
+  assignedTo        String?
+  createdBy         String?
+  isTemplate        Boolean         @default(false)
+  variantOfId       String?
+  variantOf         Product?        @relation("ProductVariants", fields: [variantOfId], references: [id], onDelete: SetNull)
+  variants          Product[]       @relation("ProductVariants")
   isActive          Boolean         @default(true)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -800,6 +806,7 @@ model Product {
   balances                   StockBalance[]
   ledger                     StockLedger[]
   inventoryItemIdentifiers   InventoryItemIdentifier[]
+  inventoryTags              InventoryItemTag[]
   inventoryDocumentLines     InventoryDocumentLine[]
   inventoryLedgerEntries     InventoryLedgerEntry[]
   inventoryStockBalances     InventoryStockBalance[]
@@ -813,6 +820,11 @@ model Product {
   @@index([companyId, normalizedSku])
   @@index([companyId, itemGroupId])
   @@index([companyId, uomId])
+  @@index([companyId, updatedAt])
+  @@index([companyId, assignedTo])
+  @@index([companyId, createdBy])
+  @@index([companyId, variantOfId])
+  @@index([companyId, isActive, isTemplate])
 }
 
 model SalesInvoice {
@@ -4730,6 +4742,33 @@ model InventoryAuditLog {
 
   @@index([companyId, createdAt])
   @@index([companyId, entityType, entityId])
+}
+
+model InventorySettingComment {
+  id        String   @id @default(cuid())
+  companyId String   @map("orgId")
+  userId    String
+  comment   String
+  isEdited  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, createdAt])
+  @@index([companyId, userId, createdAt])
+}
+
+model InventoryItemTag {
+  id        String   @id @default(cuid())
+  companyId String   @map("orgId")
+  itemId    String
+  item      Product  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag       String
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, itemId, tag])
+  @@index([companyId, tag])
+  @@index([companyId, itemId])
 }
 
 model InventoryNotification {

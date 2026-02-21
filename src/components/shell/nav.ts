@@ -102,7 +102,7 @@ export const navGroups: NavGroup[] = [
   {
     title: "Stock",
     items: [
-      { href: "/stock/overview", label: "Overview", icon: Boxes },
+      { href: "/stock", label: "Overview", icon: Boxes },
       { href: "/stock/items", label: "Items", icon: Package },
       { href: "/stock/warehouses", label: "Warehouses", icon: Building2 },
       { href: "/stock/documents", label: "Documents", icon: ClipboardCheck },

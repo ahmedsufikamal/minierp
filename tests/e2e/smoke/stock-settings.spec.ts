@@ -10,7 +10,7 @@ async function signIn(page: Page, email: string) {
   await page.getByPlaceholder("you@company.com").fill(email);
   await page.getByPlaceholder("Password").fill(STRONG_PASSWORD);
   await page.getByRole("button", { name: "Sign in with password" }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/);
+  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
 }
 
 async function seedCompanyUser(input: { email: string; name: string; role: "MANAGER" | "MEMBER" }) {
@@ -34,6 +34,8 @@ async function seedCompanyUser(input: { email: string; name: string; role: "MANA
       userId: user.id,
       companyId: DEFAULT_COMPANY_ID,
       role: input.role,
+      userTypeLevel: input.role === "MEMBER" ? 3 : 4,
+      userTypeLabel: input.role === "MEMBER" ? "GENERAL_USER" : "ADMINISTRATOR_USER",
       status: "ACTIVE",
       isDefault: true,
       joinedAt: new Date(),
@@ -84,7 +86,7 @@ test.describe("smoke: stock settings", () => {
       const saveButton = page.getByRole("button", { name: "Save Stock Settings" });
       await expect(saveButton).toBeEnabled();
       await saveButton.click();
-      await expect(page.getByText("Stock settings updated")).toBeVisible();
+      await expect(page.getByText("Stock settings updated").first()).toBeVisible();
 
       await page.reload();
       await page.getByRole("button", { name: "Stock Validations" }).click();

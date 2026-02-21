@@ -1,0 +1,21 @@
+
+> minierp-clerk-nextjs@0.3.0 prisma:seed
+> node prisma/seed.mjs
+
+Seed failed PrismaClientInitializationError: 
+Invalid `prisma.iamPermission.upsert()` invocation:
+
+
+Can't reach database server at `127.0.0.1:5432`
+
+Please make sure your database server is running at `127.0.0.1:5432`.
+    at ei.handleRequestError (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:121:7568)
+    at ei.handleAndLogRequestError (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:121:6593)
+    at ei.request (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:121:6300)
+    at async a (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/@prisma/client/runtime/library.js:130:9551)
+    at async ensurePermissionCatalog (file:///Users/sufi-mac-pro/Documents/2.%20Other%20Drive/0000.%20WebDesign/minierp/prisma/seed.mjs:299:5)
+    at async main (file:///Users/sufi-mac-pro/Documents/2.%20Other%20Drive/0000.%20WebDesign/minierp/prisma/seed.mjs:1033:3) {
+  clientVersion: '6.19.2',
+  errorCode: undefined,
+  retryable: undefined
+}

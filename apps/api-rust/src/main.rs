@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::{
     postgres::PgPoolOptions,
-    types::{chrono::NaiveDateTime, Json as SqlJson},
+    types::{chrono::{NaiveDateTime, Utc}, Json as SqlJson},
     FromRow, PgPool,
 };
 use std::{
@@ -263,6 +263,156 @@ struct StockSettingsResponse {
     data: StockSettingsView,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct MoneyAmountView {
+    amount: i64,
+    currency: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockWorkspaceMetricsView {
+    total_stock_value: MoneyAmountView,
+    total_warehouses: i64,
+    total_active_items: i64,
+    last_synced_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockWorkspaceMetricsResponse {
+    ok: bool,
+    data: StockWorkspaceMetricsView,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockWarehouseValuePoint {
+    warehouse_id: String,
+    warehouse_name: String,
+    stock_value: MoneyAmountView,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockWarehouseValueView {
+    last_synced_at: String,
+    series: Vec<StockWarehouseValuePoint>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockWarehouseValueResponse {
+    ok: bool,
+    data: StockWarehouseValueView,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockQuickAccessView {
+    items_available: i64,
+    delivery_note_to_bill: i64,
+    material_request_pending: i64,
+    purchase_receipt_to_bill: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockQuickAccessResponse {
+    ok: bool,
+    data: StockQuickAccessView,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockListItemView {
+    id: String,
+    item_name: String,
+    status: String,
+    item_group: Option<String>,
+    item_code: String,
+    updated_at: String,
+    has_variants: bool,
+    variant_of: Option<String>,
+    assigned_to: Option<String>,
+    created_by: Option<String>,
+    tags: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockItemsListData {
+    total: i64,
+    page: i64,
+    page_size: i64,
+    items: Vec<StockListItemView>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockItemsListResponse {
+    ok: bool,
+    data: StockItemsListData,
+}
+
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
+struct StockItemsQuery {
+    page: Option<i64>,
+    page_size: Option<i64>,
+    id: Option<String>,
+    query: Option<String>,
+    item_group: Option<String>,
+    has_variants: Option<bool>,
+    variant_of: Option<String>,
+    assigned_to: Option<String>,
+    created_by: Option<String>,
+    tags: Option<String>,
+    sort: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockSettingsCommentView {
+    id: String,
+    user_id: String,
+    comment: String,
+    created_at: String,
+    updated_at: String,
+    is_edited: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockSettingsCommentsData {
+    rows: Vec<StockSettingsCommentView>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockSettingsCommentsResponse {
+    ok: bool,
+    data: StockSettingsCommentsData,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockSettingsCommentResponse {
+    ok: bool,
+    data: StockSettingsCommentView,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+struct StockSettingsCommentCreateRequest {
+    comment: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockSettingsActivityView {
+    id: String,
+    r#type: String,
+    message: String,
+    actor_user_id: Option<String>,
+    created_at: String,
+    metadata: Option<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockSettingsActivityData {
+    rows: Vec<StockSettingsActivityView>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+struct StockSettingsActivityResponse {
+    ok: bool,
+    data: StockSettingsActivityData,
+}
+
 #[derive(Debug, Deserialize, ToSchema)]
 struct StockSettingsPatchRequest {
     item_naming_by: Option<String>,
@@ -410,6 +560,7 @@ struct InventoryRequestContext {
     request_id: String,
     role: String,
     user_level: i32,
+    #[allow(dead_code)]
     permissions: Vec<String>,
 }
 
@@ -490,6 +641,61 @@ struct StockSettingsDbRow {
     freeze_stocks_older_than_days: i32,
     version: i64,
     updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, FromRow)]
+struct WorkspaceMetricsDbRow {
+    total_stock_value: i64,
+    total_warehouses: i64,
+    total_active_items: i64,
+    last_synced_at: NaiveDateTime,
+}
+
+#[derive(Debug, FromRow)]
+struct WarehouseStockValueDbRow {
+    warehouse_id: String,
+    warehouse_name: String,
+    stock_value: i64,
+}
+
+#[derive(Debug, FromRow)]
+struct StockItemsDbRow {
+    id: String,
+    item_name: String,
+    status: String,
+    item_group: Option<String>,
+    item_code: String,
+    updated_at: NaiveDateTime,
+    has_variants: bool,
+    variant_of: Option<String>,
+    assigned_to: Option<String>,
+    created_by: Option<String>,
+}
+
+#[derive(Debug, FromRow)]
+struct ItemTagDbRow {
+    item_id: String,
+    tag: String,
+}
+
+#[derive(Debug, FromRow)]
+struct StockSettingsCommentDbRow {
+    id: String,
+    user_id: String,
+    comment: String,
+    created_at: NaiveDateTime,
+    updated_at: NaiveDateTime,
+    is_edited: bool,
+}
+
+#[derive(Debug, FromRow)]
+struct StockSettingsActivityDbRow {
+    id: String,
+    entry_type: String,
+    message: String,
+    actor_user_id: Option<String>,
+    created_at: NaiveDateTime,
+    metadata: Option<Value>,
 }
 
 fn api_error(
@@ -625,12 +831,22 @@ fn map_warehouse(
 }
 
 fn has_stock_settings_write_permission(ctx: &InventoryRequestContext) -> bool {
-    if ctx.user_level >= 5 {
-        return true;
+    ctx.user_level >= 4
+}
+
+fn sanitize_optional_query(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn normalize_sort(sort: Option<&str>) -> &'static str {
+    match sort.unwrap_or("last_updated_desc").trim() {
+        "name_asc" => "name_asc",
+        "name_desc" => "name_desc",
+        _ => "last_updated_desc",
     }
-    ctx.permissions
-        .iter()
-        .any(|value| value == "inventory.settings.write" || value == "inventory.write")
 }
 
 fn parse_user_level(headers: &HeaderMap) -> i32 {
@@ -948,8 +1164,8 @@ async fn get_or_create_stock_settings_row(
 
     sqlx::query(
         r#"
-        INSERT INTO "InventoryCompanySetting" ("id", "orgId", "updatedBy")
-        VALUES (md5(random()::text || clock_timestamp()::text), $1, $2)
+        INSERT INTO "InventoryCompanySetting" ("id", "orgId", "updatedBy", "updatedAt")
+        VALUES (md5(random()::text || clock_timestamp()::text), $1, $2, NOW())
         ON CONFLICT ("orgId") DO NOTHING
         "#,
     )
@@ -1701,6 +1917,744 @@ async fn put_stock_settings(
     let expected = payload.version;
     let next = validate_and_build_put(payload);
     write_stock_settings(state, headers, expected, next).await
+}
+
+async fn get_stock_workspace_metrics(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<Json<StockWorkspaceMetricsResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let ctx = resolve_inventory_context(&headers, &state)?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            "Database is not configured",
+        )
+    })?;
+
+    let row = sqlx::query_as::<_, WorkspaceMetricsDbRow>(
+        r#"
+        SELECT
+          COALESCE(SUM(sb."onHand" * COALESCE(sb."avgCostMinor", p."unitCostMinor", 0)), 0)::bigint AS total_stock_value,
+          (SELECT COUNT(1)::bigint FROM "InventoryWarehouse" w WHERE w."orgId" = $1 AND w."isActive" = TRUE) AS total_warehouses,
+          (SELECT COUNT(1)::bigint FROM "Product" p2 WHERE p2."orgId" = $1 AND p2."isActive" = TRUE) AS total_active_items,
+          COALESCE(MAX(sb."updatedAt"), NOW()) AS last_synced_at
+        FROM "InventoryStockBalance" sb
+        INNER JOIN "Product" p ON p."id" = sb."itemId"
+        WHERE sb."orgId" = $1
+        "#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to load stock workspace metrics");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load stock workspace metrics",
+        )
+    })?;
+
+    Ok(Json(StockWorkspaceMetricsResponse {
+        ok: true,
+        data: StockWorkspaceMetricsView {
+            total_stock_value: MoneyAmountView {
+                amount: row.total_stock_value,
+                currency: "BDT".to_string(),
+            },
+            total_warehouses: row.total_warehouses,
+            total_active_items: row.total_active_items,
+            last_synced_at: format_timestamp(row.last_synced_at),
+        },
+    }))
+}
+
+async fn get_stock_workspace_warehouse_stock_value(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<Json<StockWarehouseValueResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let ctx = resolve_inventory_context(&headers, &state)?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            "Database is not configured",
+        )
+    })?;
+
+    let rows = sqlx::query_as::<_, WarehouseStockValueDbRow>(
+        r#"
+        SELECT
+          w."id" AS warehouse_id,
+          w."name" AS warehouse_name,
+          COALESCE(SUM(sb."onHand" * COALESCE(sb."avgCostMinor", p."unitCostMinor", 0)), 0)::bigint AS stock_value
+        FROM "InventoryWarehouse" w
+        LEFT JOIN "InventoryStockBalance" sb ON sb."warehouseId" = w."id" AND sb."orgId" = w."orgId"
+        LEFT JOIN "Product" p ON p."id" = sb."itemId"
+        WHERE w."orgId" = $1 AND w."isActive" = TRUE
+        GROUP BY w."id", w."name"
+        ORDER BY w."name" ASC
+        "#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to load warehouse stock value");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load warehouse stock value",
+        )
+    })?;
+
+    let last_synced = sqlx::query_scalar::<_, Option<NaiveDateTime>>(
+        r#"SELECT MAX("updatedAt") FROM "InventoryStockBalance" WHERE "orgId" = $1"#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to read stock sync time");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load warehouse stock value",
+        )
+    })?
+    .unwrap_or_else(|| Utc::now().naive_utc());
+
+    Ok(Json(StockWarehouseValueResponse {
+        ok: true,
+        data: StockWarehouseValueView {
+            last_synced_at: format_timestamp(last_synced),
+            series: rows
+                .into_iter()
+                .map(|row| StockWarehouseValuePoint {
+                    warehouse_id: row.warehouse_id,
+                    warehouse_name: row.warehouse_name,
+                    stock_value: MoneyAmountView {
+                        amount: row.stock_value,
+                        currency: "BDT".to_string(),
+                    },
+                })
+                .collect(),
+        },
+    }))
+}
+
+async fn get_stock_workspace_quick_access(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<Json<StockQuickAccessResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let ctx = resolve_inventory_context(&headers, &state)?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            "Database is not configured",
+        )
+    })?;
+
+    let items_available = sqlx::query_scalar::<_, i64>(
+        r#"SELECT COUNT(1)::bigint FROM "Product" WHERE "orgId" = $1 AND "isActive" = TRUE"#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to count items for quick access");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load quick access data",
+        )
+    })?;
+
+    let delivery_note_to_bill = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(1)::bigint
+        FROM "DeliveryNote"
+        WHERE "orgId" = $1 AND "status" IN ('POSTED', 'APPROVED')
+        "#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to count delivery notes for quick access");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load quick access data",
+        )
+    })?;
+
+    let material_request_pending = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(1)::bigint
+        FROM "MaterialRequest"
+        WHERE "orgId" = $1 AND "status" IN ('DRAFT', 'SUBMITTED', 'APPROVED', 'PARTIALLY_ORDERED')
+        "#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to count material requests for quick access");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load quick access data",
+        )
+    })?;
+
+    let purchase_receipt_to_bill = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(1)::bigint
+        FROM "PurchaseReceipt"
+        WHERE "orgId" = $1 AND "status" IN ('POSTED', 'APPROVED')
+        "#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to count purchase receipts for quick access");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load quick access data",
+        )
+    })?;
+
+    Ok(Json(StockQuickAccessResponse {
+        ok: true,
+        data: StockQuickAccessView {
+            items_available,
+            delivery_note_to_bill,
+            material_request_pending,
+            purchase_receipt_to_bill,
+        },
+    }))
+}
+
+async fn list_stock_items(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(query): Query<StockItemsQuery>,
+) -> Result<Json<StockItemsListResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let ctx = resolve_inventory_context(&headers, &state)?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            "Database is not configured",
+        )
+    })?;
+
+    let page = query.page.unwrap_or(1).max(1);
+    let page_size = query.page_size.unwrap_or(20).clamp(1, 2500);
+    let offset = (page - 1) * page_size;
+    let sort = normalize_sort(query.sort.as_deref());
+
+    let id_filter = sanitize_optional_query(query.id.as_deref()).map(|v| format!("%{v}%"));
+    let text_filter = sanitize_optional_query(query.query.as_deref()).map(|v| format!("%{v}%"));
+    let item_group_filter = sanitize_optional_query(query.item_group.as_deref());
+    let variant_of_filter = sanitize_optional_query(query.variant_of.as_deref());
+    let assigned_to_filter = sanitize_optional_query(query.assigned_to.as_deref());
+    let created_by_filter = sanitize_optional_query(query.created_by.as_deref());
+    let has_variants_filter = query.has_variants;
+    let tags_filter: Vec<String> = sanitize_optional_query(query.tags.as_deref())
+        .map(|raw| {
+            raw.split(',')
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let mut count_builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+        r#"
+        SELECT COUNT(1)::bigint
+        FROM "Product" p
+        LEFT JOIN "SetupItemGroup" ig ON ig."id" = p."itemGroupId"
+        WHERE p."orgId" = 
+        "#,
+    );
+    count_builder.push_bind(&ctx.company_id);
+
+    if let Some(value) = id_filter.as_deref() {
+        count_builder.push(r#" AND p."id" ILIKE "#).push_bind(value);
+    }
+    if let Some(value) = text_filter.as_deref() {
+        count_builder
+            .push(r#" AND (p."sku" ILIKE "#)
+            .push_bind(value)
+            .push(r#" OR p."name" ILIKE "#)
+            .push_bind(value)
+            .push(r#" OR COALESCE(p."description", '') ILIKE "#)
+            .push_bind(value)
+            .push(")");
+    }
+    if let Some(value) = item_group_filter.as_deref() {
+        count_builder
+            .push(r#" AND (ig."name" ILIKE "#)
+            .push_bind(format!("%{value}%"))
+            .push(r#" OR p."itemGroupId" = "#)
+            .push_bind(value)
+            .push(")");
+    }
+    if let Some(value) = variant_of_filter.as_deref() {
+        count_builder.push(r#" AND p."variantOfId" = "#).push_bind(value);
+    }
+    if let Some(value) = assigned_to_filter.as_deref() {
+        count_builder.push(r#" AND p."assignedTo" ILIKE "#).push_bind(format!("%{value}%"));
+    }
+    if let Some(value) = created_by_filter.as_deref() {
+        count_builder.push(r#" AND p."createdBy" ILIKE "#).push_bind(format!("%{value}%"));
+    }
+    if let Some(has_variants) = has_variants_filter {
+        if has_variants {
+            count_builder.push(
+                r#" AND (p."isTemplate" = TRUE OR EXISTS (
+                    SELECT 1 FROM "Product" pv WHERE pv."orgId" = p."orgId" AND pv."variantOfId" = p."id"
+                  ))"#,
+            );
+        } else {
+            count_builder.push(
+                r#" AND p."isTemplate" = FALSE AND NOT EXISTS (
+                    SELECT 1 FROM "Product" pv WHERE pv."orgId" = p."orgId" AND pv."variantOfId" = p."id"
+                  )"#,
+            );
+        }
+    }
+    if !tags_filter.is_empty() {
+        count_builder
+            .push(
+                r#" AND EXISTS (
+                    SELECT 1
+                    FROM "InventoryItemTag" it
+                    WHERE it."orgId" = p."orgId"
+                      AND it."itemId" = p."id"
+                      AND it."tag" = ANY("#,
+            )
+            .push_bind(tags_filter.clone())
+            .push(r#")
+                )"#);
+    }
+
+    let total = count_builder
+        .build_query_scalar::<i64>()
+        .fetch_one(pool)
+        .await
+        .map_err(|error| {
+            warn!(error = %error, request_id = %ctx.request_id, "failed to count stock items");
+            api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "INTERNAL_ERROR",
+                "Failed to count stock items",
+            )
+        })?;
+
+    let mut rows_builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+        r#"
+        SELECT
+          p."id" AS id,
+          p."name" AS item_name,
+          CASE
+            WHEN p."isTemplate" = TRUE THEN 'TEMPLATE'
+            WHEN p."isActive" = TRUE THEN 'ENABLED'
+            ELSE 'DISABLED'
+          END AS status,
+          ig."name" AS item_group,
+          p."sku" AS item_code,
+          p."updatedAt" AS updated_at,
+          (p."isTemplate" = TRUE OR EXISTS (
+              SELECT 1 FROM "Product" pv WHERE pv."orgId" = p."orgId" AND pv."variantOfId" = p."id"
+            )) AS has_variants,
+          p."variantOfId" AS variant_of,
+          p."assignedTo" AS assigned_to,
+          p."createdBy" AS created_by
+        FROM "Product" p
+        LEFT JOIN "SetupItemGroup" ig ON ig."id" = p."itemGroupId"
+        WHERE p."orgId" = 
+        "#,
+    );
+    rows_builder.push_bind(&ctx.company_id);
+
+    if let Some(value) = id_filter.as_deref() {
+        rows_builder.push(r#" AND p."id" ILIKE "#).push_bind(value);
+    }
+    if let Some(value) = text_filter.as_deref() {
+        rows_builder
+            .push(r#" AND (p."sku" ILIKE "#)
+            .push_bind(value)
+            .push(r#" OR p."name" ILIKE "#)
+            .push_bind(value)
+            .push(r#" OR COALESCE(p."description", '') ILIKE "#)
+            .push_bind(value)
+            .push(")");
+    }
+    if let Some(value) = item_group_filter.as_deref() {
+        rows_builder
+            .push(r#" AND (ig."name" ILIKE "#)
+            .push_bind(format!("%{value}%"))
+            .push(r#" OR p."itemGroupId" = "#)
+            .push_bind(value)
+            .push(")");
+    }
+    if let Some(value) = variant_of_filter.as_deref() {
+        rows_builder.push(r#" AND p."variantOfId" = "#).push_bind(value);
+    }
+    if let Some(value) = assigned_to_filter.as_deref() {
+        rows_builder.push(r#" AND p."assignedTo" ILIKE "#).push_bind(format!("%{value}%"));
+    }
+    if let Some(value) = created_by_filter.as_deref() {
+        rows_builder.push(r#" AND p."createdBy" ILIKE "#).push_bind(format!("%{value}%"));
+    }
+    if let Some(has_variants) = has_variants_filter {
+        if has_variants {
+            rows_builder.push(
+                r#" AND (p."isTemplate" = TRUE OR EXISTS (
+                    SELECT 1 FROM "Product" pv WHERE pv."orgId" = p."orgId" AND pv."variantOfId" = p."id"
+                  ))"#,
+            );
+        } else {
+            rows_builder.push(
+                r#" AND p."isTemplate" = FALSE AND NOT EXISTS (
+                    SELECT 1 FROM "Product" pv WHERE pv."orgId" = p."orgId" AND pv."variantOfId" = p."id"
+                  )"#,
+            );
+        }
+    }
+    if !tags_filter.is_empty() {
+        rows_builder
+            .push(
+                r#" AND EXISTS (
+                    SELECT 1
+                    FROM "InventoryItemTag" it
+                    WHERE it."orgId" = p."orgId"
+                      AND it."itemId" = p."id"
+                      AND it."tag" = ANY("#,
+            )
+            .push_bind(tags_filter.clone())
+            .push(r#")
+                )"#);
+    }
+
+    match sort {
+        "name_asc" => rows_builder.push(r#" ORDER BY p."name" ASC, p."updatedAt" DESC"#),
+        "name_desc" => rows_builder.push(r#" ORDER BY p."name" DESC, p."updatedAt" DESC"#),
+        _ => rows_builder.push(r#" ORDER BY p."updatedAt" DESC"#),
+    };
+    rows_builder
+        .push(" LIMIT ")
+        .push_bind(page_size)
+        .push(" OFFSET ")
+        .push_bind(offset);
+
+    let rows = rows_builder
+        .build_query_as::<StockItemsDbRow>()
+        .fetch_all(pool)
+        .await
+        .map_err(|error| {
+            warn!(error = %error, request_id = %ctx.request_id, "failed to list stock items");
+            api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "INTERNAL_ERROR",
+                "Failed to load stock items",
+            )
+        })?;
+
+    let item_ids = rows.iter().map(|row| row.id.clone()).collect::<Vec<_>>();
+    let tag_rows = if item_ids.is_empty() {
+        Vec::new()
+    } else {
+        sqlx::query_as::<_, ItemTagDbRow>(
+            r#"
+            SELECT "itemId" AS item_id, "tag" AS tag
+            FROM "InventoryItemTag"
+            WHERE "orgId" = $1 AND "itemId" = ANY($2::text[])
+            ORDER BY "createdAt" ASC
+            "#,
+        )
+        .bind(&ctx.company_id)
+        .bind(&item_ids)
+        .fetch_all(pool)
+        .await
+        .map_err(|error| {
+            warn!(error = %error, request_id = %ctx.request_id, "failed to load stock item tags");
+            api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "INTERNAL_ERROR",
+                "Failed to load stock items",
+            )
+        })?
+    };
+
+    let mut tags_by_item: HashMap<String, Vec<String>> = HashMap::new();
+    for tag in tag_rows {
+        tags_by_item.entry(tag.item_id).or_default().push(tag.tag);
+    }
+
+    let items = rows
+        .into_iter()
+        .map(|row| StockListItemView {
+            id: row.id.clone(),
+            item_name: row.item_name,
+            status: row.status,
+            item_group: row.item_group,
+            item_code: row.item_code,
+            updated_at: format_timestamp(row.updated_at),
+            has_variants: row.has_variants,
+            variant_of: row.variant_of,
+            assigned_to: row.assigned_to,
+            created_by: row.created_by,
+            tags: tags_by_item.remove(&row.id).unwrap_or_default(),
+        })
+        .collect::<Vec<_>>();
+
+    Ok(Json(StockItemsListResponse {
+        ok: true,
+        data: StockItemsListData {
+            total,
+            page,
+            page_size,
+            items,
+        },
+    }))
+}
+
+async fn list_stock_settings_comments(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<Json<StockSettingsCommentsResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let ctx = resolve_inventory_context(&headers, &state)?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            "Database is not configured",
+        )
+    })?;
+
+    let rows = sqlx::query_as::<_, StockSettingsCommentDbRow>(
+        r#"
+        SELECT
+          "id" AS id,
+          "userId" AS user_id,
+          "comment" AS comment,
+          "createdAt" AS created_at,
+          "updatedAt" AS updated_at,
+          "isEdited" AS is_edited
+        FROM "InventorySettingComment"
+        WHERE "orgId" = $1
+        ORDER BY "createdAt" DESC
+        LIMIT 200
+        "#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to list stock settings comments");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load stock settings comments",
+        )
+    })?;
+
+    Ok(Json(StockSettingsCommentsResponse {
+        ok: true,
+        data: StockSettingsCommentsData {
+            rows: rows
+                .into_iter()
+                .map(|row| StockSettingsCommentView {
+                    id: row.id,
+                    user_id: row.user_id,
+                    comment: row.comment,
+                    created_at: format_timestamp(row.created_at),
+                    updated_at: format_timestamp(row.updated_at),
+                    is_edited: row.is_edited,
+                })
+                .collect(),
+        },
+    }))
+}
+
+async fn create_stock_settings_comment(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(payload): Json<StockSettingsCommentCreateRequest>,
+) -> Result<Json<StockSettingsCommentResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let ctx = resolve_inventory_context(&headers, &state)?;
+    if !has_stock_settings_write_permission(&ctx) {
+        return Err(api_error(
+            StatusCode::FORBIDDEN,
+            "FORBIDDEN",
+            "Stock settings comments require level 4 or higher",
+        ));
+    }
+
+    let comment = payload.comment.trim();
+    if comment.is_empty() {
+        return Err(api_error(
+            StatusCode::BAD_REQUEST,
+            "VALIDATION_ERROR",
+            "comment is required",
+        ));
+    }
+    if comment.len() > 4000 {
+        return Err(api_error(
+            StatusCode::BAD_REQUEST,
+            "VALIDATION_ERROR",
+            "comment must be <= 4000 characters",
+        ));
+    }
+
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            "Database is not configured",
+        )
+    })?;
+
+    let row = sqlx::query_as::<_, StockSettingsCommentDbRow>(
+        r#"
+        INSERT INTO "InventorySettingComment" (
+          "id", "orgId", "userId", "comment", "isEdited", "createdAt", "updatedAt"
+        )
+        VALUES ($1, $2, $3, $4, FALSE, NOW(), NOW())
+        RETURNING
+          "id" AS id,
+          "userId" AS user_id,
+          "comment" AS comment,
+          "createdAt" AS created_at,
+          "updatedAt" AS updated_at,
+          "isEdited" AS is_edited
+        "#,
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(&ctx.company_id)
+    .bind(&ctx.user_id)
+    .bind(comment)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to create stock settings comment");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to create stock settings comment",
+        )
+    })?;
+
+    let inserted_comment_id = row.id.clone();
+    let inserted_comment_text = row.comment.clone();
+    let _ = sqlx::query(
+        r#"
+        INSERT INTO "InventoryAuditLog" (
+          "id", "orgId", "actorUserId", "action", "entityType", "entityId",
+          "before", "after", "diff", "requestId", "ipAddress", "userAgent", "metadata", "createdAt"
+        )
+        VALUES (
+          $1, $2, $3, 'STOCK_SETTINGS_COMMENT_ADDED', 'InventoryCompanySetting', $2,
+          NULL, $4, NULL, $5, NULL, NULL, $6, NOW()
+        )
+        "#,
+    )
+    .bind(Uuid::new_v4().to_string())
+    .bind(&ctx.company_id)
+    .bind(&ctx.user_id)
+    .bind(json!({"comment": inserted_comment_text, "commentId": inserted_comment_id}))
+    .bind(&ctx.request_id)
+    .bind(SqlJson(json!({"commentId": inserted_comment_id})))
+    .execute(pool)
+    .await;
+
+    Ok(Json(StockSettingsCommentResponse {
+        ok: true,
+        data: StockSettingsCommentView {
+            id: row.id,
+            user_id: row.user_id,
+            comment: row.comment,
+            created_at: format_timestamp(row.created_at),
+            updated_at: format_timestamp(row.updated_at),
+            is_edited: row.is_edited,
+        },
+    }))
+}
+
+async fn list_stock_settings_activity(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<Json<StockSettingsActivityResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let ctx = resolve_inventory_context(&headers, &state)?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "DB_UNAVAILABLE",
+            "Database is not configured",
+        )
+    })?;
+
+    let rows = sqlx::query_as::<_, StockSettingsActivityDbRow>(
+        r#"
+        SELECT
+          "id" AS id,
+          CASE
+            WHEN "action" = 'STOCK_SETTINGS_UPDATED' THEN 'SETTINGS_UPDATED'
+            WHEN "action" = 'STOCK_SETTINGS_COMMENT_ADDED' THEN 'COMMENT_ADDED'
+            ELSE "action"
+          END AS entry_type,
+          CASE
+            WHEN "action" = 'STOCK_SETTINGS_UPDATED' THEN 'Stock settings updated'
+            WHEN "action" = 'STOCK_SETTINGS_COMMENT_ADDED' THEN 'Comment added'
+            ELSE COALESCE("action", 'Activity')
+          END AS message,
+          "actorUserId" AS actor_user_id,
+          "createdAt" AS created_at,
+          "metadata" AS metadata
+        FROM "InventoryAuditLog"
+        WHERE "orgId" = $1
+          AND "action" IN ('STOCK_SETTINGS_UPDATED', 'STOCK_SETTINGS_COMMENT_ADDED')
+        ORDER BY "createdAt" DESC
+        LIMIT 300
+        "#,
+    )
+    .bind(&ctx.company_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| {
+        warn!(error = %error, request_id = %ctx.request_id, "failed to list stock settings activity");
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "Failed to load stock settings activity",
+        )
+    })?;
+
+    Ok(Json(StockSettingsActivityResponse {
+        ok: true,
+        data: StockSettingsActivityData {
+            rows: rows
+                .into_iter()
+                .map(|row| StockSettingsActivityView {
+                    id: row.id,
+                    r#type: row.entry_type,
+                    message: row.message,
+                    actor_user_id: row.actor_user_id,
+                    created_at: format_timestamp(row.created_at),
+                    metadata: row.metadata,
+                })
+                .collect(),
+        },
+    }))
 }
 
 #[utoipa::path(
@@ -3317,6 +4271,27 @@ fn build_router(state: Arc<AppState>) -> Router {
                 .put(put_stock_settings),
         )
         .route(
+            "/api/stock/settings/comments",
+            get(list_stock_settings_comments).post(create_stock_settings_comment),
+        )
+        .route(
+            "/api/stock/settings/activity",
+            get(list_stock_settings_activity),
+        )
+        .route(
+            "/api/stock/workspace/metrics",
+            get(get_stock_workspace_metrics),
+        )
+        .route(
+            "/api/stock/workspace/warehouse-stock-value",
+            get(get_stock_workspace_warehouse_stock_value),
+        )
+        .route(
+            "/api/stock/workspace/quick-access",
+            get(get_stock_workspace_quick_access),
+        )
+        .route("/api/stock/items", get(list_stock_items))
+        .route(
             "/api/v1/inventory/items",
             get(list_inventory_items).post(create_inventory_item),
         )
@@ -3483,15 +4458,14 @@ mod tests {
     }
 
     #[test]
-    fn settings_write_permission_accepts_required_aliases() {
-        let with_direct = ctx_with_permissions(&["inventory.settings.write"]);
-        assert!(has_stock_settings_write_permission(&with_direct));
-
-        let with_alias = ctx_with_permissions(&["inventory.write"]);
-        assert!(has_stock_settings_write_permission(&with_alias));
-
-        let denied = ctx_with_permissions(&["inventory.read"]);
+    fn settings_write_permission_requires_level_4_or_higher() {
+        let mut denied = ctx_with_permissions(&["inventory.settings.write"]);
+        denied.user_level = 3;
         assert!(!has_stock_settings_write_permission(&denied));
+
+        let mut allowed = ctx_with_permissions(&[]);
+        allowed.user_level = 4;
+        assert!(has_stock_settings_write_permission(&allowed));
     }
 
     #[test]

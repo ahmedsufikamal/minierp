@@ -31,12 +31,24 @@ async function signUp(
   await page.getByPlaceholder("company-slug").fill(input.companySlug);
   await page.getByPlaceholder("Strong password (12+ chars)").fill(STRONG_PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/);
+  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
 }
 
 async function expectHtmlThemeClass(page: Page, expectedClass: "light" | "dark") {
   await expect
-    .poll(async () => page.evaluate((themeClass) => document.documentElement.classList.contains(themeClass), expectedClass))
+    .poll(
+      async () => {
+        try {
+          return await page.evaluate(
+            (themeClass) => Boolean(document.documentElement?.classList.contains(themeClass)),
+            expectedClass,
+          );
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 15_000 },
+    )
     .toBe(true);
 }
 

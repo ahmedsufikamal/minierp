@@ -54,7 +54,7 @@ const nextConfig: NextConfig = {
       { source: "/purchase-orders", destination: "/buying/purchase-orders", permanent: false },
       { source: "/bills", destination: "/buying/purchase-invoices", permanent: false },
       { source: "/payments", destination: "/accounting/payment-entries", permanent: false },
-      { source: "/inventory", destination: "/stock/overview", permanent: false },
+      { source: "/inventory", destination: "/stock", permanent: false },
       { source: "/inventory/items", destination: "/stock/items", permanent: false },
       { source: "/inventory/warehouses", destination: "/stock/warehouses", permanent: false },
       { source: "/inventory/documents", destination: "/stock/documents", permanent: false },

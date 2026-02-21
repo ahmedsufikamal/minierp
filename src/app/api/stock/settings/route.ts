@@ -3,6 +3,7 @@ import { getInventoryRequestContext } from "@/modules/inventory/interface/contex
 import { assertInventoryPermissionForContext } from "@/modules/inventory/interface/permissions";
 import { jsonError } from "@/modules/inventory/interface/http";
 import { proxyStockSettingsToRust } from "@/modules/inventory/interface/rust-stock-settings-proxy";
+import { InventoryError } from "@/modules/inventory/domain/errors";
 
 function applyContextResponseHeaders(
   response: Response,
@@ -28,7 +29,10 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const ctx = await getInventoryRequestContext(request);
-    assertInventoryPermissionForContext(ctx, inventoryPermissions.settingsWrite);
+    assertInventoryPermissionForContext(ctx, inventoryPermissions.settingsRead);
+    if ((ctx.userTypeLevel ?? 3) < 4) {
+      throw new InventoryError("FORBIDDEN", "Stock settings update requires level 4 or higher");
+    }
     const response = await proxyStockSettingsToRust({
       request,
       ctx,
@@ -43,7 +47,10 @@ export async function PATCH(request: Request) {
 export async function PUT(request: Request) {
   try {
     const ctx = await getInventoryRequestContext(request);
-    assertInventoryPermissionForContext(ctx, inventoryPermissions.settingsWrite);
+    assertInventoryPermissionForContext(ctx, inventoryPermissions.settingsRead);
+    if ((ctx.userTypeLevel ?? 3) < 4) {
+      throw new InventoryError("FORBIDDEN", "Stock settings update requires level 4 or higher");
+    }
     const response = await proxyStockSettingsToRust({
       request,
       ctx,

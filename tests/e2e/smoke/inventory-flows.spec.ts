@@ -160,7 +160,7 @@ test.describe("smoke: inventory critical flows", () => {
         companyName: `${marker} Company`,
         companySlug,
       });
-      await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/);
+      await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
 
       const bridgeResult = await page.evaluate(async () => {
         const response = await fetch("/api/auth/session/bridge", { method: "POST" });
