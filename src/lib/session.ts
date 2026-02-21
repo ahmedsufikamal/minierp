@@ -16,18 +16,10 @@ function isIamV2Enabled(): boolean {
   return process.env.IAM_V2_ENABLED === "1";
 }
 
-function isLegacyFallbackEnabled(): boolean {
-  const explicit = process.env.IAM_LEGACY_FALLBACK_ENABLED;
-  if (explicit === "1") return true;
-  if (explicit === "0") return false;
-  return true;
-}
-
 function isDualWriteLegacySessionEnabled(): boolean {
   const explicit = process.env.IAM_DUAL_WRITE_LEGACY_SESSION;
   if (explicit === "1") return true;
-  if (explicit === "0") return false;
-  return true;
+  return false;
 }
 
 export type { SessionPayload } from "@/lib/legacy-session-token";
@@ -116,31 +108,6 @@ export async function verifySession() {
     const token = cookieStore.get("iam_session")?.value;
     const provider = getIdentityProvider();
     const principal = await provider.verifySession(token);
-
-    if (!principal && isLegacyFallbackEnabled()) {
-      const legacyToken = cookieStore.get("session")?.value;
-      const payload = await decrypt(legacyToken);
-      if (payload?.userId) {
-        return {
-          isAuth: true,
-          userId: payload.userId,
-          companyId: payload.companyId,
-          email: payload.email,
-          name: payload.name,
-          role: undefined,
-          platformRole: "NONE",
-          permissions: [],
-          sessionId: `legacy:${payload.userId}`,
-          stepUpVerifiedAt: null,
-          mfaRequired: false,
-          mustResetPassword: false,
-          isImpersonating: false,
-          impersonatorUserId: null,
-          impersonationExpiresAt: null,
-          deviceFingerprint: null,
-        };
-      }
-    }
 
     if (!principal?.userId) {
       redirect("/auth/sign-in");

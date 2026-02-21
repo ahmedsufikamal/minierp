@@ -5,6 +5,7 @@ import {
   resolvePrincipalFromTokens,
   type PrincipalResolverDependencies,
 } from "@/modules/iam/application/principal-resolver";
+import { USER_TYPE_LEVEL } from "@/modules/iam/application/level-policy";
 
 function makePrincipal(overrides: Partial<IamPrincipal> = {}): IamPrincipal {
   return {
@@ -14,6 +15,9 @@ function makePrincipal(overrides: Partial<IamPrincipal> = {}): IamPrincipal {
     platformRole: "NONE",
     activeCompanyId: "org-1",
     membershipRole: "OWNER",
+    userTypeLevel: USER_TYPE_LEVEL.MASTER_USER,
+    effectiveLevel: USER_TYPE_LEVEL.MASTER_USER,
+    activeMembershipStatus: "ACTIVE",
     permissions: ["admin.settings"],
     sessionId: "sess-1",
     stepUpVerifiedAt: null,
@@ -62,7 +66,30 @@ describe("principal resolver", () => {
     expect(deps.loadLegacyPrincipal).not.toHaveBeenCalled();
   });
 
-  it("falls back to legacy session when IAM session is missing", async () => {
+  it("does not fall back to legacy session unless explicitly enabled", async () => {
+    const deps = createDeps();
+    const payload = makePayload();
+    const legacyPrincipal = makePrincipal({ sessionId: "legacy:user-1" });
+
+    vi.mocked(deps.verifyIamSessionToken).mockResolvedValue(null);
+    vi.mocked(deps.decryptLegacySession).mockResolvedValue(payload);
+    vi.mocked(deps.loadLegacyPrincipal).mockResolvedValue(legacyPrincipal);
+
+    const result = await resolvePrincipalFromTokens(
+      {
+        iamSessionToken: "invalid-iam",
+        legacySessionToken: "legacy-cookie",
+      },
+      { allowLegacyFallback: false },
+      deps,
+    );
+
+    expect(result.source).toBeNull();
+    expect(result.principal).toBeNull();
+    expect(deps.decryptLegacySession).not.toHaveBeenCalled();
+  });
+
+  it("can still fall back to legacy when explicitly enabled", async () => {
     const deps = createDeps();
     const payload = makePayload();
     const legacyPrincipal = makePrincipal({ sessionId: "legacy:user-1" });

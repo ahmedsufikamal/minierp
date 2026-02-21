@@ -1,0 +1,210 @@
+
+> minierp-clerk-nextjs@0.3.0 test:unit
+> vitest run --exclude '**/*.integration.test.ts' --exclude '**/*.e2e.test.ts'
+
+
+ RUN  v2.1.9 /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp
+
+ ✓ src/components/__tests__/theme-preference-sync.test.ts (4 tests) 4ms
+ ✓ src/lib/__tests__/auth-current-user-safe.test.ts (2 tests) 10ms
+ ✓ src/application/inventory/__tests__/import-service.test.ts (2 tests) 9ms
+ ❯ src/modules/platform/application/__tests__/row-scope.service.test.ts (0 test)
+ ❯ src/modules/iam/application/__tests__/master-admin-policy.test.ts (0 test)
+ ❯ src/lib/__tests__/auth-server-action-permissions.test.ts (0 test)
+ ❯ src/modules/iam/application/__tests__/principal-resolver.test.ts (0 test)
+ ✓ src/modules/inventory/application/__tests__/workflow-permissions.test.ts (5 tests) 9ms
+ ❯ src/modules/platform/application/__tests__/parity-route-permissions.test.ts (0 test)
+ ✓ src/app/(app)/inventory/__tests__/inventory-action-permissions.test.ts (8 tests) 117ms
+ ✓ src/lib/__tests__/excel-import.test.ts (25 tests) 38ms
+ ✓ src/modules/accounting/application/__tests__/invariants.test.ts (5 tests) 13ms
+ ✓ src/components/ui/button.test.ts (3 tests) 7ms
+ ✓ src/modules/inventory/domain/__tests__/posting.test.ts (4 tests) 7ms
+ ✓ src/modules/iam/application/__tests__/level-policy.test.ts (4 tests) 16ms
+ ❯ src/modules/accounting/application/__tests__/payment-entries.service.test.ts (0 test)
+ ❯ src/modules/iam/application/__tests__/policy.test.ts (0 test)
+ ❯ src/modules/platform/application/__tests__/numbering.service.test.ts (0 test)
+ ✓ src/modules/inventory/domain/__tests__/custom-fields.test.ts (3 tests) 9ms
+ ✓ src/modules/inventory/domain/__tests__/reorder.test.ts (2 tests) 8ms
+ ❯ src/modules/platform/application/__tests__/company-numbering.service.test.ts (0 test)
+ ❯ src/modules/platform/application/__tests__/audit-ledger.service.test.ts (0 test)
+ ✓ src/modules/iam/infrastructure/__tests__/totp.test.ts (3 tests) 9ms
+ ✓ src/modules/iam/application/__tests__/invite-token.test.ts (2 tests) 6ms
+ ❯ src/modules/accounting/application/__tests__/reporting.test.ts (0 test)
+ ✓ src/components/shell/__tests__/nav.test.ts (3 tests) 7ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 11 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/__tests__/auth-server-action-permissions.test.ts [ src/lib/__tests__/auth-server-action-permissions.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/lib/auth.ts:3:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  src/modules/accounting/application/__tests__/payment-entries.service.test.ts [ src/modules/accounting/application/__tests__/payment-entries.service.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/accounting/application/payment-entries.service.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  src/modules/accounting/application/__tests__/reporting.test.ts [ src/modules/accounting/application/__tests__/reporting.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/accounting/application/reporting.service.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  src/modules/iam/application/__tests__/master-admin-policy.test.ts [ src/modules/iam/application/__tests__/master-admin-policy.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/iam/application/master-admin.ts:1:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  src/modules/iam/application/__tests__/policy.test.ts [ src/modules/iam/application/__tests__/policy.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/iam/application/policy.ts:1:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+ FAIL  src/modules/iam/application/__tests__/principal-resolver.test.ts [ src/modules/iam/application/__tests__/principal-resolver.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/iam/application/principal-resolver.ts:3:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/11]⎯
+
+ FAIL  src/modules/platform/application/__tests__/audit-ledger.service.test.ts [ src/modules/platform/application/__tests__/audit-ledger.service.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/platform/application/audit-ledger.service.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/11]⎯
+
+ FAIL  src/modules/platform/application/__tests__/company-numbering.service.test.ts [ src/modules/platform/application/__tests__/company-numbering.service.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/platform/application/company-numbering.service.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/11]⎯
+
+ FAIL  src/modules/platform/application/__tests__/numbering.service.test.ts [ src/modules/platform/application/__tests__/numbering.service.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/platform/application/numbering.service.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/11]⎯
+
+ FAIL  src/modules/platform/application/__tests__/parity-route-permissions.test.ts [ src/modules/platform/application/__tests__/parity-route-permissions.test.ts ]
+TypeError: Cannot convert undefined or null to object
+ ❯ Module.getEnumValues ../../../2.%20Other%20Drive/0000.%20WebDesign/minierp/node_modules/zod/v4/core/util.js:14:34
+ ❯ ../../../2.%20Other%20Drive/0000.%20WebDesign/minierp/node_modules/zod/v4/core/schemas.js:1521:25
+ ❯ Function.init ../../../2.%20Other%20Drive/0000.%20WebDesign/minierp/node_modules/zod/v4/core/core.js:21:9
+ ❯ ../../../2.%20Other%20Drive/0000.%20WebDesign/minierp/node_modules/zod/v4/classic/schemas.js:747:19
+ ❯ init ../../../2.%20Other%20Drive/0000.%20WebDesign/minierp/node_modules/zod/v4/core/core.js:21:9
+ ❯ new ZodEnum ../../../2.%20Other%20Drive/0000.%20WebDesign/minierp/node_modules/zod/v4/core/core.js:40:9
+ ❯ Module.nativeEnum ../../../2.%20Other%20Drive/0000.%20WebDesign/minierp/node_modules/zod/v4/classic/schemas.js:803:12
+ ❯ src/modules/buying/domain/schemas.ts:17:13
+     15| export const materialRequestListQuerySchema = paginationSchema.extend({
+     16|   q: z.string().trim().optional(),
+     17|   status: z.nativeEnum(MaterialRequestStatus).optional(),
+       |             ^
+     18| });
+     19| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/11]⎯
+
+ FAIL  src/modules/platform/application/__tests__/row-scope.service.test.ts [ src/modules/platform/application/__tests__/row-scope.service.test.ts ]
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+ ❯ new PrismaClient node_modules/.prisma/client/default.js:43:11
+ ❯ src/lib/prisma.ts:29:12
+     27|   (() => {
+     28|     const adapter = new PrismaPg(getPool());
+     29|     return new PrismaClient({ adapter });
+       |            ^
+     30|   })();
+     31| 
+ ❯ src/lib/prisma.ts:30:3
+ ❯ src/modules/platform/application/row-scope.service.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/11]⎯
+
+ Test Files  11 failed | 15 passed (26)
+      Tests  75 passed (75)
+   Start at  16:32:43
+   Duration  4.30s (transform 2.46s, setup 0ms, collect 3.72s, tests 269ms, environment 10ms, prepare 6.18s)
+

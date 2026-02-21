@@ -15,6 +15,12 @@ import {
   assertDirectStatusChangeAllowed,
   transferMasterAdmin,
 } from "@/modules/iam/application/master-admin";
+import {
+  assertCanManageTargetLevel,
+  getUserTypeLabelForLevel,
+  mapRoleToUserTypeLevel,
+  normalizeUserTypeLevel,
+} from "@/modules/iam/application/level-policy";
 import { IamError } from "@/modules/iam/domain/errors";
 import { createOrgSchema, invitePayloadSchema, roleUpsertSchema } from "@/modules/iam/interface/schemas";
 import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
@@ -101,6 +107,8 @@ export async function createOrgAction(formData: FormData) {
       companyId: company.id,
       role: "OWNER",
       roleId: ownerRole?.id ?? null,
+      userTypeLevel: 5,
+      userTypeLabel: "MASTER_USER",
       status: "ACTIVE",
       isDefault: false,
       joinedAt: new Date(),
@@ -281,6 +289,8 @@ export async function changeMemberRoleAction(formData: FormData) {
   const companyId = String(formData.get("companyId") || "");
   const userId = String(formData.get("userId") || "");
   const roleId = String(formData.get("roleId") || "");
+  const requestedLevelRaw = formData.get("userTypeLevel");
+  const requestedLevel = requestedLevelRaw === null ? undefined : Number(requestedLevelRaw);
 
   if (!companyId || !userId || !roleId) {
     return { ok: false, error: "Missing required fields" };
@@ -292,7 +302,7 @@ export async function changeMemberRoleAction(formData: FormData) {
   const [membership, role] = await Promise.all([
     prisma.companyMembership.findUnique({
       where: { userId_companyId: { userId, companyId } },
-      select: { role: true, status: true },
+      select: { role: true, status: true, userTypeLevel: true },
     }),
     prisma.iamRole.findUnique({
       where: { id: roleId },
@@ -306,19 +316,118 @@ export async function changeMemberRoleAction(formData: FormData) {
     return { ok: false, error: "Invalid role for active tenant" };
   }
 
+  const currentLevel = normalizeUserTypeLevel(membership.userTypeLevel, mapRoleToUserTypeLevel(membership.role));
+  const nextLevel = Number.isFinite(requestedLevel)
+    ? normalizeUserTypeLevel(requestedLevel, currentLevel)
+    : mapRoleToUserTypeLevel(role.name);
+
   try {
+    assertCanManageTargetLevel(principal.effectiveLevel, currentLevel);
+    assertCanManageTargetLevel(principal.effectiveLevel, nextLevel);
     assertDirectRoleChangeAllowed({
       currentRole: membership.role,
       currentStatus: membership.status,
       nextRole: role.name,
     });
     await getIdentityProvider().setRole({ companyId, userId, roleId });
+    if (nextLevel !== mapRoleToUserTypeLevel(role.name)) {
+      await prisma.companyMembership.update({
+        where: { userId_companyId: { userId, companyId } },
+        data: {
+          userTypeLevel: nextLevel,
+          userTypeLabel: getUserTypeLabelForLevel(nextLevel),
+        },
+      });
+    }
   } catch (error) {
     if (error instanceof IamError) {
       return { ok: false, error: error.message };
     }
     throw error;
   }
+
+  revalidatePath("/org/members");
+  return { ok: true };
+}
+
+export async function setMemberPermissionOverridesAction(formData: FormData) {
+  const principal = await requirePermission("admin.members");
+  await requireStepUp();
+  const companyId = String(formData.get("companyId") || "");
+  const userId = String(formData.get("userId") || "");
+  const permissionCsv = String(formData.get("permissionKeys") || "");
+
+  if (!companyId || !userId) {
+    return { ok: false, error: "Missing required fields" };
+  }
+  if (companyId !== principal.activeCompanyId) {
+    return { ok: false, error: "Cross-tenant permission update is not allowed" };
+  }
+
+  const membership = await prisma.companyMembership.findUnique({
+    where: { userId_companyId: { userId, companyId } },
+    select: { role: true, userTypeLevel: true, status: true },
+  });
+  if (!membership) {
+    return { ok: false, error: "Membership not found" };
+  }
+
+  const targetLevel = normalizeUserTypeLevel(membership.userTypeLevel, mapRoleToUserTypeLevel(membership.role));
+  try {
+    assertCanManageTargetLevel(principal.effectiveLevel, targetLevel);
+  } catch (error) {
+    if (error instanceof IamError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
+  }
+
+  if (targetLevel !== 3) {
+    return { ok: false, error: "Permission overrides are supported for level 3 users only" };
+  }
+
+  const keys = [...new Set(permissionCsv.split(",").map((value) => value.trim()).filter(Boolean))];
+  const permissions = await prisma.iamPermission.findMany({
+    where: { key: { in: keys } },
+    select: { id: true, key: true },
+  });
+  if (permissions.length !== keys.length) {
+    const found = new Set(permissions.map((permission) => permission.key));
+    const missing = keys.filter((key) => !found.has(key));
+    return { ok: false, error: `Unknown permissions: ${missing.join(", ")}` };
+  }
+
+  const previous = await prisma.companyMembershipPermission.findMany({
+    where: { userId, companyId },
+    select: { permission: { select: { key: true } } },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.companyMembershipPermission.deleteMany({
+      where: { userId, companyId },
+    });
+
+    for (const permission of permissions) {
+      await tx.companyMembershipPermission.create({
+        data: {
+          userId,
+          companyId,
+          permissionId: permission.id,
+          createdBy: principal.userId,
+        },
+      });
+    }
+  });
+
+  await writeIamAudit({
+    action: "POLICY_UPDATED",
+    companyId,
+    actorUserId: principal.userId,
+    entityType: "CompanyMembershipPermission",
+    entityId: `${userId}:${companyId}`,
+    before: { permissionKeys: previous.map((row) => row.permission.key) },
+    after: { permissionKeys: keys },
+  });
 
   revalidatePath("/org/members");
   return { ok: true };
@@ -343,13 +452,17 @@ export async function setMemberStatusAction(formData: FormData) {
 
   const membership = await prisma.companyMembership.findUnique({
     where: { userId_companyId: { userId, companyId } },
-    select: { role: true, status: true },
+    select: { role: true, status: true, userTypeLevel: true },
   });
   if (!membership) {
     return { ok: false, error: "Membership not found" };
   }
 
   try {
+    assertCanManageTargetLevel(
+      principal.effectiveLevel,
+      normalizeUserTypeLevel(membership.userTypeLevel, mapRoleToUserTypeLevel(membership.role)),
+    );
     assertDirectStatusChangeAllowed({
       currentRole: membership.role,
       currentStatus: membership.status,
@@ -395,13 +508,17 @@ export async function removeMemberAction(formData: FormData) {
 
   const membership = await prisma.companyMembership.findUnique({
     where: { userId_companyId: { userId, companyId } },
-    select: { role: true, status: true },
+    select: { role: true, status: true, userTypeLevel: true },
   });
   if (!membership) {
     return { ok: false, error: "Membership not found" };
   }
 
   try {
+    assertCanManageTargetLevel(
+      principal.effectiveLevel,
+      normalizeUserTypeLevel(membership.userTypeLevel, mapRoleToUserTypeLevel(membership.role)),
+    );
     assertDirectMembershipRemovalAllowed({
       currentRole: membership.role,
       currentStatus: membership.status,

@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { IamError } from "@/modules/iam/domain/errors";
+import { mapRoleToUserTypeLevel } from "@/modules/iam/application/level-policy";
 
 function parseHost(host: string | null): string | null {
   if (!host) return null;
@@ -69,15 +70,52 @@ export async function resolveTenantFromRequest(): Promise<string | null> {
   return null;
 }
 
-export async function requireMembership(userId: string, companyId: string): Promise<{ role: string; roleId: string | null }> {
-  const membership = await prisma.companyMembership.findUnique({
-    where: { userId_companyId: { userId, companyId } },
-    select: { role: true, roleId: true, status: true },
-  });
+export async function requireMembership(
+  userId: string,
+  companyId: string,
+): Promise<{ role: string; roleId: string | null; userTypeLevel: number; status: "ACTIVE" | "INVITED" | "SUSPENDED" }> {
+  let membership:
+    | {
+        role: string;
+        roleId: string | null;
+        status: "ACTIVE" | "INVITED" | "SUSPENDED";
+        userTypeLevel: number;
+      }
+    | null = null;
+
+  try {
+    membership = await prisma.companyMembership.findUnique({
+      where: { userId_companyId: { userId, companyId } },
+      select: { role: true, roleId: true, status: true, userTypeLevel: true },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === "P2021" || error.code === "P2022")
+    ) {
+      const fallback = await prisma.companyMembership.findUnique({
+        where: { userId_companyId: { userId, companyId } },
+        select: { role: true, roleId: true, status: true },
+      });
+      membership = fallback
+        ? {
+            ...fallback,
+            userTypeLevel: mapRoleToUserTypeLevel(fallback.role),
+          }
+        : null;
+    } else {
+      throw error;
+    }
+  }
 
   if (!membership || membership.status !== "ACTIVE") {
     throw new IamError("FORBIDDEN", "No membership for active tenant");
   }
 
-  return { role: membership.role, roleId: membership.roleId ?? null };
+  return {
+    role: membership.role,
+    roleId: membership.roleId ?? null,
+    userTypeLevel: membership.userTypeLevel,
+    status: membership.status,
+  };
 }

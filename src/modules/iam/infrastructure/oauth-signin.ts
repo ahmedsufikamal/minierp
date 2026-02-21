@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { defaultRoleDescriptions, defaultRolePermissions, type PermissionKey } from "@/modules/iam/domain/permissions";
 import { IamError } from "@/modules/iam/domain/errors";
 import { assertAuthMethodAllowed } from "@/modules/iam/application/policy";
+import { getUserTypeLabelForLevel, mapRoleToUserTypeLevel } from "@/modules/iam/application/level-policy";
 import { createSessionRecord, setSessionCookie } from "@/modules/iam/infrastructure/session";
 import { exchangeOAuthCode, type OAuthProvider } from "@/modules/iam/infrastructure/oauth";
 import { verifyOAuthState } from "@/modules/iam/infrastructure/oauth-state";
@@ -127,6 +128,8 @@ export async function completeOAuthSignIn(input: {
         companyId: company.id,
         role: "OWNER",
         roleId: ownerRole?.id ?? null,
+        userTypeLevel: mapRoleToUserTypeLevel("OWNER"),
+        userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel("OWNER")),
         status: "ACTIVE",
         isDefault: true,
         joinedAt: new Date(),

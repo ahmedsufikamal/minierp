@@ -35,7 +35,15 @@ function isSchemaMismatch(error: unknown): boolean {
 
 async function resolveUserContext(
   request: Request,
-): Promise<{ userId: string; role: string; companyId: string; tenantId?: string; iamPermissions?: string[]; responseHeaders?: Record<string, string> }> {
+): Promise<{
+  userId: string;
+  role: string;
+  companyId: string;
+  tenantId?: string;
+  userTypeLevel?: 2 | 3 | 4 | 5 | 9;
+  iamPermissions?: string[];
+  responseHeaders?: Record<string, string>;
+}> {
   if (hasApiKeyCredential(request)) {
     try {
       const auth = await authenticateApiKeyRequest(request, "inventory");
@@ -44,6 +52,7 @@ async function resolveUserContext(
         role: "COMPANY_ADMIN",
         companyId: auth.companyId,
         tenantId: auth.companyId,
+        userTypeLevel: 4,
         iamPermissions: [],
         responseHeaders: getApiKeyCompatibilityHeaders(auth),
       };
@@ -67,7 +76,7 @@ async function resolveUserContext(
       iamSessionToken: parseCookie(cookieHeader, "iam_session"),
       legacySessionToken: parseCookie(cookieHeader, "session"),
     },
-    { allowLegacyFallback: true },
+    { allowLegacyFallback: false },
   );
 
   if (!resolved.principal) {
@@ -80,7 +89,7 @@ async function resolveUserContext(
     try {
       const membership = await prisma.companyMembership.findUnique({
         where: { userId_companyId: { userId: principal.userId, companyId: requestedCompanyId } },
-        select: { role: true, companyId: true, status: true },
+        select: { role: true, companyId: true, status: true, userTypeLevel: true },
       });
       if (!membership || membership.status !== "ACTIVE") {
         throw new InventoryError("FORBIDDEN", "No access to requested company");
@@ -90,6 +99,7 @@ async function resolveUserContext(
         role: membership.role,
         companyId: membership.companyId,
         tenantId: membership.companyId,
+        userTypeLevel: membership.userTypeLevel as 2 | 3 | 4 | 5 | 9,
         iamPermissions: principal.permissions,
         responseHeaders: undefined,
       };
@@ -104,6 +114,7 @@ async function resolveUserContext(
         role: principal.membershipRole,
         companyId: principal.activeCompanyId,
         tenantId: principal.activeCompanyId,
+        userTypeLevel: principal.effectiveLevel,
         iamPermissions: principal.permissions,
         responseHeaders: undefined,
       };
@@ -115,6 +126,7 @@ async function resolveUserContext(
     role: principal.membershipRole,
     companyId: requestedCompanyId,
     tenantId: requestedCompanyId,
+    userTypeLevel: principal.effectiveLevel,
     iamPermissions: principal.permissions,
     responseHeaders: undefined,
   };
@@ -143,6 +155,7 @@ export async function getInventoryRequestContext(request: Request): Promise<Inve
     tenantId: resolved.tenantId,
     companyId: resolved.companyId,
     userId: resolved.userId,
+    userTypeLevel: resolved.userTypeLevel,
     role: mapUserRoleToInventoryRole(resolved.role),
     iamPermissions: resolved.iamPermissions,
     responseHeaders: resolved.responseHeaders,

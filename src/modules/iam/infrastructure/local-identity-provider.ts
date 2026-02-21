@@ -12,6 +12,7 @@ import {
   parseMfaPolicy,
 } from "@/modules/iam/application/policy";
 import { isSelfServeOrgCreationEnabled } from "@/modules/iam/application/feature-flags";
+import { getUserTypeLabelForLevel, mapRoleToUserTypeLevel } from "@/modules/iam/application/level-policy";
 import { assertDirectRoleChangeAllowed } from "@/modules/iam/application/master-admin";
 import { hasPermission } from "@/modules/iam/application/rbac";
 import {
@@ -374,6 +375,8 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
           companyId,
           role: "MEMBER",
           roleId: memberRole?.id ?? null,
+          userTypeLevel: mapRoleToUserTypeLevel("MEMBER"),
+          userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel("MEMBER")),
           status: "ACTIVE",
           isDefault: true,
           joinedAt: new Date(),
@@ -406,6 +409,8 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
           companyId,
           role: "OWNER",
           roleId: ownerRole?.id ?? null,
+          userTypeLevel: mapRoleToUserTypeLevel("OWNER"),
+          userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel("OWNER")),
           status: "ACTIVE",
           isDefault: true,
           joinedAt: new Date(),
@@ -1317,6 +1322,8 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
           companyId: invitation.companyId,
           role: resolvedRoleName,
           roleId: resolvedRoleId,
+          userTypeLevel: mapRoleToUserTypeLevel(resolvedRoleName),
+          userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel(resolvedRoleName)),
           status: "ACTIVE",
           joinedAt: new Date(),
         },
@@ -1324,6 +1331,8 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
           status: "ACTIVE",
           role: resolvedRoleName,
           roleId: resolvedRoleId,
+          userTypeLevel: mapRoleToUserTypeLevel(resolvedRoleName),
+          userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel(resolvedRoleName)),
           joinedAt: new Date(),
         },
       }),
@@ -1502,6 +1511,8 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       data: {
         role: role.name,
         roleId: role.id,
+        userTypeLevel: mapRoleToUserTypeLevel(role.name),
+        userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel(role.name)),
       },
     });
 

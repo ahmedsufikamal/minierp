@@ -1,0 +1,17 @@
+
+> minierp-clerk-nextjs@0.3.0 postinstall
+> npm run prisma:generate
+
+
+> minierp-clerk-nextjs@0.3.0 prisma:generate
+> prisma generate
+
+Loaded Prisma config from prisma.config.ts.
+
+Error: EPERM: operation not permitted, utime '/Users/sufi-mac-pro/.cache/prisma/master/c2990dca591cba766e3b7ef5d9e8a84796e47ab7/darwin/libquery-engine'
+npm error code 1
+npm error path /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp
+npm error command failed
+npm error command sh -c npm run prisma:generate
+npm error Log files were not written due to an error writing to the directory: /Users/sufi-mac-pro/.npm/_logs
+npm error You can rerun the command with `--loglevel=verbose` to see the logs in your terminal

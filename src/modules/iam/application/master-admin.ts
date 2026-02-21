@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { IamError } from "@/modules/iam/domain/errors";
 import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
 import { isMasterAdminEnforcementEnabled } from "@/modules/iam/application/feature-flags";
+import { getUserTypeLabelForLevel, mapRoleToUserTypeLevel } from "@/modules/iam/application/level-policy";
 
 export const MASTER_ADMIN_ROLE_NAME = "OWNER";
 export const MASTER_ADMIN_LABEL = "Master Admin";
@@ -117,6 +118,8 @@ export async function transferMasterAdmin(input: {
       data: {
         role: ADMIN_ROLE_NAME,
         roleId: adminRole?.id ?? null,
+        userTypeLevel: mapRoleToUserTypeLevel(ADMIN_ROLE_NAME),
+        userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel(ADMIN_ROLE_NAME)),
       },
     });
 
@@ -125,6 +128,8 @@ export async function transferMasterAdmin(input: {
       data: {
         role: MASTER_ADMIN_ROLE_NAME,
         roleId: ownerRole?.id ?? null,
+        userTypeLevel: mapRoleToUserTypeLevel(MASTER_ADMIN_ROLE_NAME),
+        userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel(MASTER_ADMIN_ROLE_NAME)),
         status: "ACTIVE",
       },
     });

@@ -49,6 +49,7 @@ export async function proxyStockSettingsToRust(params: {
   headers.set("x-minierp-company-id", params.ctx.companyId);
   headers.set("x-minierp-tenant-id", params.ctx.tenantId ?? params.ctx.companyId);
   headers.set("x-minierp-user-id", params.ctx.userId);
+  headers.set("x-minierp-user-level", String(params.ctx.userTypeLevel ?? 3));
   headers.set("x-minierp-role", params.ctx.role);
   headers.set(
     "x-minierp-permissions",

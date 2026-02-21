@@ -1,0 +1,7 @@
+
+> minierp-clerk-nextjs@0.3.0 prisma:generate
+> prisma generate
+
+Loaded Prisma config from prisma.config.ts.
+
+Error: request to https://binaries.prisma.sh/all_commits/c2990dca591cba766e3b7ef5d9e8a84796e47ab7/darwin/libquery_engine.dylib.node.gz.sha256 failed, reason: getaddrinfo ENOTFOUND binaries.prisma.sh

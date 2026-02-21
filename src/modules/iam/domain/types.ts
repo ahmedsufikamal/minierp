@@ -3,6 +3,13 @@ import type { PermissionKey } from "@/modules/iam/domain/permissions";
 export type PlatformRole = "SUPER_ADMIN" | "SUPPORT" | "NONE";
 export type MembershipStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
 export type TenantStatus = "ACTIVE" | "DISABLED" | "PENDING_DELETION";
+export type UserTypeLevel = 2 | 3 | 4 | 5 | 9;
+export type UserTypeLabel =
+  | "SUPPORT_USER"
+  | "GENERAL_USER"
+  | "ADMINISTRATOR_USER"
+  | "MASTER_USER"
+  | "SUPER_USER";
 export type AuthMethod =
   | "PASSWORD"
   | "MAGIC_LINK"
@@ -46,6 +53,9 @@ export interface IamPrincipal {
   platformRole: PlatformRole;
   activeCompanyId: string;
   membershipRole: string;
+  userTypeLevel: UserTypeLevel;
+  effectiveLevel: UserTypeLevel;
+  activeMembershipStatus: MembershipStatus;
   permissions: PermissionKey[];
   sessionId: string;
   stepUpVerifiedAt?: Date | null;

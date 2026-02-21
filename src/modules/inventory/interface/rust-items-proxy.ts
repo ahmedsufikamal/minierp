@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 
+function toPermissionsHeader(input: { granted: string[] | undefined }): string {
+  const values = new Set<string>();
+  (input.granted ?? []).forEach((permission) => {
+    if (typeof permission === "string" && permission.trim().length > 0) {
+      values.add(permission.trim());
+    }
+  });
+  return [...values].join(",");
+}
+
 function resolveRustBaseUrl(): string | null {
   const raw = process.env.RUST_API_BASE_URL?.trim();
   if (!raw) return null;
@@ -43,6 +53,9 @@ export async function proxyInventoryItemsToRust(params: {
   headers.set("x-minierp-company-id", params.ctx.companyId);
   headers.set("x-minierp-tenant-id", params.ctx.tenantId ?? params.ctx.companyId);
   headers.set("x-minierp-user-id", params.ctx.userId);
+  headers.set("x-minierp-role", params.ctx.role);
+  headers.set("x-minierp-user-level", String(params.ctx.userTypeLevel ?? 3));
+  headers.set("x-minierp-permissions", toPermissionsHeader({ granted: params.ctx.iamPermissions }));
   headers.set("x-request-id", params.ctx.requestId);
   headers.set("x-forwarded-proto", "https");
 

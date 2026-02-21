@@ -1,0 +1,86 @@
+
+> minierp-clerk-nextjs@0.3.0 typecheck
+> tsc -p tsconfig.refactor.json --noEmit
+
+src/app/(app)/dashboard/page.tsx(58,65): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(60,77): error TS7006: Parameter 'invoice' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(61,41): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(61,46): error TS7006: Parameter 'line' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(73,11): error TS7006: Parameter 'balance' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(80,14): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(84,30): error TS7006: Parameter 'invoice' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(86,41): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/app/(app)/dashboard/page.tsx(86,46): error TS7006: Parameter 'line' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(61,6): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(61,11): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(61,43): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(61,46): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(65,6): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(65,11): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(65,39): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(65,42): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(93,56): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(98,59): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(100,56): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(105,55): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(107,52): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(108,40): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(110,8): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(110,13): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(110,45): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(110,48): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(116,56): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(117,38): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(119,8): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(119,13): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(119,41): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(119,44): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(135,26): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(137,47): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(138,37): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(138,40): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(161,23): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(163,41): error TS7006: Parameter 'bill' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(164,38): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/(app)/reports/page.tsx(164,41): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/app/auth-actions.ts(33,29): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/app/auth-actions.ts(34,6): error TS18046: 'error' is of type 'unknown'.
+src/app/auth-actions.ts(34,32): error TS18046: 'error' is of type 'unknown'.
+src/lib/auth.ts(13,29): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/lib/auth.ts(14,6): error TS18046: 'error' is of type 'unknown'.
+src/lib/auth.ts(14,32): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/application/master-admin.ts(64,51): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/modules/iam/application/policy.ts(119,40): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/modules/iam/application/principal-resolver.ts(30,29): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/modules/iam/application/principal-resolver.ts(31,6): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/application/principal-resolver.ts(31,32): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/application/rbac.ts(25,34): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/iam/application/rbac.ts(44,31): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/modules/iam/application/rbac.ts(47,32): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/modules/iam/application/tenant-context.ts(14,29): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/modules/iam/application/tenant-context.ts(15,6): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/application/tenant-context.ts(15,32): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/application/tenant-context.ts(93,31): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/modules/iam/application/tenant-context.ts(94,8): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/application/tenant-context.ts(94,34): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/audit.ts(2,23): error TS2305: Module '"@prisma/client"' has no exported member 'IamAuditAction'.
+src/modules/iam/infrastructure/audit.ts(5,12): error TS2694: Namespace '"/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/.prisma/client/default".Prisma' has no exported member 'InputJsonValue'.
+src/modules/iam/infrastructure/audit.ts(6,12): error TS2694: Namespace '"/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/.prisma/client/default".Prisma' has no exported member 'NullableJsonNullValueInput'.
+src/modules/iam/infrastructure/audit.ts(12,19): error TS2339: Property 'JsonNull' does not exist on type 'typeof Prisma'.
+src/modules/iam/infrastructure/audit.ts(14,26): error TS2694: Namespace '"/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/node_modules/.prisma/client/default".Prisma' has no exported member 'InputJsonValue'.
+src/modules/iam/infrastructure/local-identity-provider.ts(45,29): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/modules/iam/infrastructure/local-identity-provider.ts(46,6): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/local-identity-provider.ts(46,32): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/local-identity-provider.ts(175,50): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/modules/iam/infrastructure/local-identity-provider.ts(1095,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/modules/iam/infrastructure/local-identity-provider.ts(1153,33): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/modules/iam/infrastructure/local-identity-provider.ts(1154,10): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/local-identity-provider.ts(1154,36): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/local-identity-provider.ts(1185,22): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/modules/iam/infrastructure/local-identity-provider.ts(1394,22): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/modules/iam/infrastructure/session.ts(18,29): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/modules/iam/infrastructure/session.ts(19,6): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/session.ts(19,32): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/session.ts(300,31): error TS2339: Property 'PrismaClientKnownRequestError' does not exist on type 'typeof Prisma'.
+src/modules/iam/infrastructure/session.ts(301,8): error TS18046: 'error' is of type 'unknown'.
+src/modules/iam/infrastructure/session.ts(301,34): error TS18046: 'error' is of type 'unknown'.

@@ -409,6 +409,7 @@ struct InventoryRequestContext {
     user_id: String,
     request_id: String,
     role: String,
+    user_level: i32,
     permissions: Vec<String>,
 }
 
@@ -624,9 +625,19 @@ fn map_warehouse(
 }
 
 fn has_stock_settings_write_permission(ctx: &InventoryRequestContext) -> bool {
+    if ctx.user_level >= 5 {
+        return true;
+    }
     ctx.permissions
         .iter()
         .any(|value| value == "inventory.settings.write" || value == "inventory.write")
+}
+
+fn parse_user_level(headers: &HeaderMap) -> i32 {
+    header_value(headers, "x-minierp-user-level")
+        .and_then(|raw| raw.parse::<i32>().ok())
+        .filter(|value| [2, 3, 4, 5, 9].contains(value))
+        .unwrap_or(3)
 }
 
 fn parse_if_match(headers: &HeaderMap) -> Option<i64> {
@@ -1201,6 +1212,7 @@ fn resolve_inventory_context(
         header_value(headers, "x-request-id").unwrap_or_else(|| Uuid::new_v4().to_string());
     let role =
         header_value(headers, "x-minierp-role").unwrap_or_else(|| "WAREHOUSE_OPERATOR".to_string());
+    let user_level = parse_user_level(headers);
     let permissions = parse_permissions(headers);
 
     Ok(InventoryRequestContext {
@@ -1209,6 +1221,7 @@ fn resolve_inventory_context(
         user_id,
         request_id,
         role,
+        user_level,
         permissions,
     })
 }
@@ -3413,6 +3426,7 @@ mod tests {
             user_id: "user-1".to_string(),
             request_id: "req-1".to_string(),
             role: "COMPANY_OWNER".to_string(),
+            user_level: 4,
             permissions: permissions
                 .iter()
                 .map(|value| (*value).to_string())
@@ -3478,6 +3492,13 @@ mod tests {
 
         let denied = ctx_with_permissions(&["inventory.read"]);
         assert!(!has_stock_settings_write_permission(&denied));
+    }
+
+    #[test]
+    fn settings_write_permission_allows_master_level_without_explicit_permission() {
+        let mut ctx = ctx_with_permissions(&[]);
+        ctx.user_level = 5;
+        assert!(has_stock_settings_write_permission(&ctx));
     }
 
     async fn maybe_pool() -> Option<PgPool> {

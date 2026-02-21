@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp
+
+ ✓ src/modules/iam/application/__tests__/level-policy.test.ts (4 tests) 8ms
+ ✓ src/lib/__tests__/auth-current-user-safe.test.ts (2 tests) 6ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  16:38:02
+   Duration  1.78s (transform 201ms, setup 0ms, collect 331ms, tests 14ms, environment 1ms, prepare 413ms)
+

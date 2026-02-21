@@ -66,7 +66,7 @@ export async function GET(request: Request) {
       windowSeconds: safeInt(process.env.IAM_INVITE_ACCEPT_RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3600),
     });
 
-    const resolved = await resolvePrincipalFromCookies({ allowLegacyFallback: true });
+    const resolved = await resolvePrincipalFromCookies();
     if (!resolved.principal) {
       const nextPath = `/api/invites/accept?token=${encodeURIComponent(token)}`;
       const provider = getIdentityProvider();

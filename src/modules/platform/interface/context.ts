@@ -48,7 +48,7 @@ async function resolveUserContext(
       iamSessionToken: parseCookie(cookieHeader, "iam_session"),
       legacySessionToken: parseCookie(cookieHeader, "session"),
     },
-    { allowLegacyFallback: true },
+    { allowLegacyFallback: false },
   );
 
   if (!resolved.principal) {

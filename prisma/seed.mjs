@@ -7,6 +7,16 @@ const prisma = new PrismaClient();
 const SYSTEM_SEED_OWNER_EMAIL = process.env.SEED_OWNER_EMAIL || "owner@demo.local";
 const SYSTEM_SEED_MANAGER_EMAIL = process.env.SEED_MANAGER_EMAIL || "manager@demo.local";
 const SYSTEM_SEED_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || "ChangeMe!123";
+const IAM_DEMO_USERS_ENABLED =
+  process.env.IAM_DEMO_USERS_ENABLED === "1" && process.env.NODE_ENV !== "production";
+const IAM_DEMO_PASSWORD = process.env.IAM_DEMO_PASSWORD || "";
+const DEMO_LEVEL_EMAILS = {
+  level9: process.env.IAM_DEMO_LEVEL9_EMAIL || "level9.super@demo.local",
+  level5: process.env.IAM_DEMO_LEVEL5_EMAIL || "level5.master@demo.local",
+  level4: process.env.IAM_DEMO_LEVEL4_EMAIL || "level4.admin@demo.local",
+  level3: process.env.IAM_DEMO_LEVEL3_EMAIL || "level3.general@demo.local",
+  level2: process.env.IAM_DEMO_LEVEL2_EMAIL || "level2.support@demo.local",
+};
 
 const TENANT_KEY = process.env.SEED_TENANT_KEY || "demo-tenant";
 const TENANT_NAME = process.env.SEED_TENANT_NAME || "Demo Tenant";
@@ -89,6 +99,20 @@ function monthStartUtc(year, monthIndex) {
 
 function monthEndUtc(year, monthIndex) {
   return new Date(Date.UTC(year, monthIndex + 1, 0));
+}
+
+function mapRoleToUserTypeLevel(role, platformRole = "NONE") {
+  if (platformRole === "SUPER_ADMIN") return 9;
+  switch ((role || "").toUpperCase()) {
+    case "OWNER":
+      return 5;
+    case "ADMIN":
+      return 4;
+    case "SUPPORT":
+      return 2;
+    default:
+      return 3;
+  }
 }
 
 const permissionCatalog = [
@@ -315,8 +339,8 @@ async function ensureRoleCatalog(companyId) {
   }
 }
 
-async function ensureUser(email, name, role, companyId, platformRole = "NONE") {
-  const passwordHash = await bcrypt.hash(SYSTEM_SEED_PASSWORD, 10);
+async function ensureUser(email, name, role, companyId, platformRole = "NONE", password = SYSTEM_SEED_PASSWORD) {
+  const passwordHash = await bcrypt.hash(password, 10);
   const normalizedEmail = email.trim().toLowerCase();
 
   return prisma.user.upsert({
@@ -1063,6 +1087,8 @@ async function main() {
 
   const ownerRoleByCompany = new Map();
   const managerRoleByCompany = new Map();
+  const adminRoleByCompany = new Map();
+  const memberRoleByCompany = new Map();
 
   for (const companyId of [primaryCompany.company.id, secondaryCompany.company.id]) {
     const ownerRole = await prisma.iamRole.findUnique({
@@ -1073,9 +1099,19 @@ async function main() {
       where: { companyId_name: { companyId, name: "MANAGER" } },
       select: { id: true },
     });
+    const adminRole = await prisma.iamRole.findUnique({
+      where: { companyId_name: { companyId, name: "ADMIN" } },
+      select: { id: true },
+    });
+    const memberRole = await prisma.iamRole.findUnique({
+      where: { companyId_name: { companyId, name: "MEMBER" } },
+      select: { id: true },
+    });
 
     ownerRoleByCompany.set(companyId, ownerRole?.id || null);
     managerRoleByCompany.set(companyId, managerRole?.id || null);
+    adminRoleByCompany.set(companyId, adminRole?.id || null);
+    memberRoleByCompany.set(companyId, memberRole?.id || null);
   }
 
   for (const companyId of [primaryCompany.company.id, secondaryCompany.company.id]) {
@@ -1103,6 +1139,11 @@ async function main() {
         companyId,
         role: "OWNER",
         roleId: ownerRoleId,
+        userTypeLevel: mapRoleToUserTypeLevel(
+          "OWNER",
+          effectiveOwnerUserId === ownerUser.id ? "SUPER_ADMIN" : "NONE",
+        ),
+        userTypeLabel: effectiveOwnerUserId === ownerUser.id ? "SUPER_USER" : "MASTER_USER",
         status: "ACTIVE",
         isDefault: companyId === PRIMARY_COMPANY_ID,
         joinedAt: new Date(),
@@ -1110,6 +1151,11 @@ async function main() {
       update: {
         role: "OWNER",
         roleId: ownerRoleId,
+        userTypeLevel: mapRoleToUserTypeLevel(
+          "OWNER",
+          effectiveOwnerUserId === ownerUser.id ? "SUPER_ADMIN" : "NONE",
+        ),
+        userTypeLabel: effectiveOwnerUserId === ownerUser.id ? "SUPER_USER" : "MASTER_USER",
         status: "ACTIVE",
         isDefault: companyId === PRIMARY_COMPANY_ID,
       },
@@ -1128,6 +1174,8 @@ async function main() {
           companyId,
           role: "MANAGER",
           roleId: managerRoleId,
+          userTypeLevel: mapRoleToUserTypeLevel("MANAGER", "SUPER_ADMIN"),
+          userTypeLabel: "SUPER_USER",
           status: "ACTIVE",
           isDefault: false,
           joinedAt: new Date(),
@@ -1135,6 +1183,8 @@ async function main() {
         update: {
           role: "MANAGER",
           roleId: managerRoleId,
+          userTypeLevel: mapRoleToUserTypeLevel("MANAGER", "SUPER_ADMIN"),
+          userTypeLabel: "SUPER_USER",
           status: "ACTIVE",
           isDefault: false,
         },
@@ -1154,6 +1204,8 @@ async function main() {
           companyId,
           role: "MANAGER",
           roleId: managerRoleId,
+          userTypeLevel: mapRoleToUserTypeLevel("MANAGER"),
+          userTypeLabel: "GENERAL_USER",
           status: "ACTIVE",
           isDefault: companyId === PRIMARY_COMPANY_ID,
           joinedAt: new Date(),
@@ -1161,6 +1213,8 @@ async function main() {
         update: {
           role: "MANAGER",
           roleId: managerRoleId,
+          userTypeLevel: mapRoleToUserTypeLevel("MANAGER"),
+          userTypeLabel: "GENERAL_USER",
           status: "ACTIVE",
           isDefault: companyId === PRIMARY_COMPANY_ID,
         },
@@ -1187,6 +1241,124 @@ async function main() {
       platformRole: "NONE",
     },
   });
+
+  if (IAM_DEMO_USERS_ENABLED) {
+    if (!IAM_DEMO_PASSWORD) {
+      throw new Error("IAM_DEMO_PASSWORD is required when IAM_DEMO_USERS_ENABLED=1");
+    }
+
+    const demoUsers = [
+      {
+        level: 9,
+        email: DEMO_LEVEL_EMAILS.level9,
+        name: "Demo Level 9 Super User",
+        role: "ADMIN",
+        platformRole: "SUPER_ADMIN",
+      },
+      {
+        level: 5,
+        email: DEMO_LEVEL_EMAILS.level5,
+        name: "Demo Level 5 Master User",
+        role: "ADMIN",
+        platformRole: "NONE",
+      },
+      {
+        level: 4,
+        email: DEMO_LEVEL_EMAILS.level4,
+        name: "Demo Level 4 Administrator User",
+        role: "ADMIN",
+        platformRole: "NONE",
+      },
+      {
+        level: 3,
+        email: DEMO_LEVEL_EMAILS.level3,
+        name: "Demo Level 3 General User",
+        role: "MEMBER",
+        platformRole: "NONE",
+      },
+      {
+        level: 2,
+        email: DEMO_LEVEL_EMAILS.level2,
+        name: "Demo Level 2 Support User",
+        role: "MEMBER",
+        platformRole: "SUPPORT",
+      },
+    ];
+
+    for (const demoUser of demoUsers) {
+      const user = await ensureUser(
+        demoUser.email,
+        demoUser.name,
+        demoUser.role,
+        PRIMARY_COMPANY_ID,
+        demoUser.platformRole,
+        IAM_DEMO_PASSWORD,
+      );
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          activeCompanyId: PRIMARY_COMPANY_ID,
+          companyId: PRIMARY_COMPANY_ID,
+          status: "ACTIVE",
+          platformRole: demoUser.platformRole,
+        },
+      });
+
+      for (const companyId of [PRIMARY_COMPANY_ID, SECONDARY_COMPANY_ID]) {
+        const roleId =
+          demoUser.role === "ADMIN"
+            ? adminRoleByCompany.get(companyId)
+            : memberRoleByCompany.get(companyId);
+
+        await prisma.companyMembership.upsert({
+          where: {
+            userId_companyId: {
+              userId: user.id,
+              companyId,
+            },
+          },
+          create: {
+            userId: user.id,
+            companyId,
+            role: demoUser.role,
+            roleId: roleId ?? null,
+            userTypeLevel: demoUser.level,
+            userTypeLabel:
+              demoUser.level === 9
+                ? "SUPER_USER"
+                : demoUser.level === 5
+                  ? "MASTER_USER"
+                  : demoUser.level === 4
+                    ? "ADMINISTRATOR_USER"
+                    : demoUser.level === 2
+                      ? "SUPPORT_USER"
+                      : "GENERAL_USER",
+            status: "ACTIVE",
+            isDefault: companyId === PRIMARY_COMPANY_ID,
+            joinedAt: new Date(),
+          },
+          update: {
+            role: demoUser.role,
+            roleId: roleId ?? null,
+            userTypeLevel: demoUser.level,
+            userTypeLabel:
+              demoUser.level === 9
+                ? "SUPER_USER"
+                : demoUser.level === 5
+                  ? "MASTER_USER"
+                  : demoUser.level === 4
+                    ? "ADMINISTRATOR_USER"
+                    : demoUser.level === 2
+                      ? "SUPPORT_USER"
+                      : "GENERAL_USER",
+            status: "ACTIVE",
+            isDefault: companyId === PRIMARY_COMPANY_ID,
+          },
+        });
+      }
+    }
+  }
 
   const roleProfile = await prisma.roleProfile.upsert({
     where: {
@@ -1707,6 +1879,8 @@ async function main() {
     companies: [primaryCompany.company.id, secondaryCompany.company.id],
     users: [ownerUser.email, managerUser.email],
     defaultPassword: SYSTEM_SEED_PASSWORD,
+    demoLevelUsersEnabled: IAM_DEMO_USERS_ENABLED,
+    demoLevelUsers: IAM_DEMO_USERS_ENABLED ? DEMO_LEVEL_EMAILS : undefined,
   });
 }
 

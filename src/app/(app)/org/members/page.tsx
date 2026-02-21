@@ -6,12 +6,14 @@ import {
   inviteMemberAction,
   removeMemberAction,
   resendInviteAction,
+  setMemberPermissionOverridesAction,
   setMemberStatusAction,
   transferMasterAdminAction,
 } from "@/app/(app)/org/actions";
 import { MASTER_ADMIN_ROLE_NAME, getTenantRoleLabel } from "@/modules/iam/application/master-admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { normalizeUserTypeLevel } from "@/modules/iam/application/level-policy";
 
 export default async function OrgMembersPage() {
   const principal = await requirePermissionPage("admin.members", "/org/members");
@@ -78,7 +80,17 @@ export default async function OrgMembersPage() {
     "use server";
     await transferMasterAdminAction(formData);
   };
+  const submitSetMemberPermissionOverrides = async (formData: FormData) => {
+    "use server";
+    await setMemberPermissionOverridesAction(formData);
+  };
   const assignableRoles = roles.filter((role) => role.name !== MASTER_ADMIN_ROLE_NAME);
+  const editableLevels = [
+    { value: 5, label: "Level 5 · Master User" },
+    { value: 4, label: "Level 4 · Administrator" },
+    { value: 3, label: "Level 3 · General User" },
+    { value: 2, label: "Level 2 · Support User" },
+  ] as const;
 
   return (
     <div className="space-y-6">
@@ -132,9 +144,13 @@ export default async function OrgMembersPage() {
           <div key={membership.id} className="rounded-lg border p-4">
             {(() => {
               const isMasterAdmin = membership.role === MASTER_ADMIN_ROLE_NAME && membership.status === "ACTIVE";
+              const membershipLevel = normalizeUserTypeLevel(membership.userTypeLevel, 3);
               return (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
+                    <span className="mb-1 inline-flex rounded bg-muted px-2 py-0.5 text-[11px] font-medium">
+                      Level {membershipLevel}
+                    </span>
                     <p className="font-medium">
                       {membership.user.name}
                       {isMasterAdmin ? (
@@ -142,7 +158,9 @@ export default async function OrgMembersPage() {
                       ) : null}
                     </p>
                     <p className="text-sm text-muted-foreground">{membership.user.email}</p>
-                    <p className="text-xs text-muted-foreground">Role: {getTenantRoleLabel(membership.role)} · Status: {membership.status}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Role: {getTenantRoleLabel(membership.role)} · Status: {membership.status}
+                    </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -153,6 +171,15 @@ export default async function OrgMembersPage() {
                         <select name="roleId" defaultValue={membership.roleId ?? ""} className="h-9 rounded-md border border-border bg-transparent px-3">
                           {assignableRoles.map((role) => (
                             <option key={role.id} value={role.id}>{getTenantRoleLabel(role.name)}</option>
+                          ))}
+                        </select>
+                        <select
+                          name="userTypeLevel"
+                          defaultValue={String(membershipLevel)}
+                          className="h-9 rounded-md border border-border bg-transparent px-3"
+                        >
+                          {editableLevels.map((level) => (
+                            <option key={level.value} value={level.value}>{level.label}</option>
                           ))}
                         </select>
                         <Button type="submit" variant="outline">Update role</Button>
@@ -191,6 +218,17 @@ export default async function OrgMembersPage() {
                       </form>
                     ) : null}
                   </div>
+                  {membershipLevel === 3 && !isMasterAdmin ? (
+                    <form action={submitSetMemberPermissionOverrides} className="mt-3 flex w-full items-center gap-2">
+                      <input type="hidden" name="companyId" value={membership.companyId} />
+                      <input type="hidden" name="userId" value={membership.userId} />
+                      <Input
+                        name="permissionKeys"
+                        placeholder="Comma-separated permission keys (e.g. inventory.item.read,inventory.document.read)"
+                      />
+                      <Button type="submit" variant="outline">Save permissions</Button>
+                    </form>
+                  ) : null}
                 </div>
               );
             })()}

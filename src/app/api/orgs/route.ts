@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requirePlatformAdmin } from "@/modules/iam";
 import { isSelfServeOrgCreationEnabled } from "@/modules/iam/application/feature-flags";
+import { getUserTypeLabelForLevel, mapRoleToUserTypeLevel } from "@/modules/iam/application/level-policy";
 import { IamError } from "@/modules/iam/domain/errors";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
 import { assertSameOrigin } from "@/modules/iam/interface/origin";
@@ -16,6 +17,7 @@ export async function GET() {
       select: {
         companyId: true,
         role: true,
+        userTypeLevel: true,
         isDefault: true,
         company: {
           select: {
@@ -34,6 +36,7 @@ export async function GET() {
       name: o.company.name,
       slug: o.company.slug,
       role: o.role,
+      userTypeLevel: o.userTypeLevel,
       isDefault: o.isDefault,
       status: o.company.status,
       primaryDomain: o.company.primaryDomain,
@@ -105,6 +108,8 @@ export async function POST(request: Request) {
         companyId: company.id,
         role: "OWNER",
         roleId: ownerRole?.id ?? null,
+        userTypeLevel: mapRoleToUserTypeLevel("OWNER"),
+        userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel("OWNER")),
         status: "ACTIVE",
         isDefault: false,
         joinedAt: new Date(),
@@ -112,6 +117,8 @@ export async function POST(request: Request) {
       update: {
         role: "OWNER",
         roleId: ownerRole?.id ?? null,
+        userTypeLevel: mapRoleToUserTypeLevel("OWNER"),
+        userTypeLabel: getUserTypeLabelForLevel(mapRoleToUserTypeLevel("OWNER")),
         status: "ACTIVE",
       },
     });

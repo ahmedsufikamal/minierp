@@ -2,8 +2,16 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { IamError, isIamError } from "@/modules/iam/domain/errors";
 import type { IamPrincipal } from "@/modules/iam/domain/types";
-import type { PermissionKey } from "@/modules/iam/domain/permissions";
+import { permissionCatalog, type PermissionKey } from "@/modules/iam/domain/permissions";
 import { hasPermission } from "@/modules/iam/application/rbac";
+import {
+  type AuthzAction,
+  USER_TYPE_LEVEL,
+  assertCanManageTargetLevel,
+  assertPermissionAllowedByLevel,
+  isOrgAdminOrHigher,
+  permissionToModuleAction,
+} from "@/modules/iam/application/level-policy";
 import { resolveTenantFromRequest, requireMembership } from "@/modules/iam/application/tenant-context";
 import { resolvePrincipalFromCookies } from "@/modules/iam/application/principal-resolver";
 
@@ -62,11 +70,21 @@ export async function requireTenantMembership(): Promise<IamPrincipal> {
     ...principal,
     activeCompanyId: companyId,
     membershipRole: membership.role,
+    userTypeLevel: membership.userTypeLevel as 2 | 3 | 4 | 5 | 9,
+    effectiveLevel:
+      principal.platformRole === "SUPER_ADMIN"
+        ? USER_TYPE_LEVEL.SUPER_USER
+        : (membership.userTypeLevel as 2 | 3 | 4 | 5 | 9),
+    activeMembershipStatus: membership.status,
   };
 }
 
 export async function requirePermission(permission: PermissionKey): Promise<IamPrincipal> {
   const principal = await requireTenantMembership();
+  if (principal.effectiveLevel === USER_TYPE_LEVEL.SUPER_USER || principal.effectiveLevel === USER_TYPE_LEVEL.MASTER_USER) {
+    return principal;
+  }
+  assertPermissionAllowedByLevel(principal.effectiveLevel, permission);
   const allowed = await hasPermission(principal.userId, principal.activeCompanyId, permission);
   if (!allowed) {
     throw new IamError("FORBIDDEN", `Missing permission: ${permission}`);
@@ -84,7 +102,7 @@ export async function requirePermissionPage(permission: PermissionKey, nextPath:
 
 export async function requirePlatformAdmin(): Promise<IamPrincipal> {
   const principal = await requireAuth();
-  if (principal.platformRole !== "SUPER_ADMIN") {
+  if (principal.effectiveLevel !== USER_TYPE_LEVEL.SUPER_USER) {
     throw new IamError("FORBIDDEN", "Platform admin access required");
   }
   return principal;
@@ -116,6 +134,10 @@ export async function requireStepUp(maxAgeMinutes = 10): Promise<IamPrincipal> {
 export async function canUI(permission: PermissionKey): Promise<boolean> {
   try {
     const principal = await requireTenantMembership();
+    if (principal.effectiveLevel === USER_TYPE_LEVEL.SUPER_USER || principal.effectiveLevel === USER_TYPE_LEVEL.MASTER_USER) {
+      return true;
+    }
+    assertPermissionAllowedByLevel(principal.effectiveLevel, permission);
     return hasPermission(principal.userId, principal.activeCompanyId, permission);
   } catch {
     return false;
@@ -128,4 +150,53 @@ export async function setActiveCompany(userId: string, companyId: string): Promi
     where: { id: userId },
     data: { activeCompanyId: companyId },
   });
+}
+
+export async function requireMinLevel(level: 2 | 3 | 4 | 5 | 9): Promise<IamPrincipal> {
+  const principal = await requireTenantMembership();
+  if (principal.effectiveLevel < level) {
+    throw new IamError("FORBIDDEN", `Requires level ${level} or higher`);
+  }
+  return principal;
+}
+
+export async function requireOrgAdminOrHigher(): Promise<IamPrincipal> {
+  const principal = await requireTenantMembership();
+  if (!isOrgAdminOrHigher(principal.effectiveLevel)) {
+    throw new IamError("FORBIDDEN", "Organization admin level required");
+  }
+  return principal;
+}
+
+export function assertManageableLevel(actor: IamPrincipal, targetLevel: 2 | 3 | 4 | 5 | 9): void {
+  assertCanManageTargetLevel(actor.effectiveLevel, targetLevel);
+}
+
+export async function requireSuperUser(): Promise<IamPrincipal> {
+  return requireMinLevel(9);
+}
+
+export async function requirePermissionForAction(moduleName: string, action: AuthzAction): Promise<IamPrincipal> {
+  const candidates = (Object.keys(permissionCatalog) as PermissionKey[]).filter((permission) => {
+    const parsed = permissionToModuleAction(permission);
+    return parsed.module === moduleName && parsed.action === action;
+  });
+
+  if (candidates.length === 0) {
+    throw new IamError("FORBIDDEN", `No permission mapping found for ${moduleName}.${action}`);
+  }
+
+  let lastError: unknown = null;
+  for (const permission of candidates) {
+    try {
+      return await requirePermission(permission);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError instanceof IamError) {
+    throw lastError;
+  }
+  throw new IamError("FORBIDDEN", `Missing permission for ${moduleName}.${action}`);
 }

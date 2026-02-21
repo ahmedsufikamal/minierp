@@ -3611,6 +3611,8 @@ model CompanyMembership {
   role         String
   roleId       String?
   roleRef      IamRole?            @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  userTypeLevel Int                @default(3)
+  userTypeLabel String?
   status       IamMembershipStatus @default(ACTIVE)
   isDefault    Boolean             @default(false)
   joinedAt     DateTime?
@@ -3618,9 +3620,13 @@ model CompanyMembership {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
+  permissionOverrides CompanyMembershipPermission[]
+
   @@unique([userId, companyId])
   @@index([companyId, roleId])
   @@index([companyId, role])
+  @@index([companyId, userTypeLevel, status])
+  @@index([userId, companyId, status])
 }
 
 model TenantMembership {
@@ -4779,6 +4785,7 @@ model IamPermission {
   updatedAt   DateTime @updatedAt
 
   roles IamRolePermission[]
+  membershipOverrides CompanyMembershipPermission[]
 
   @@index([module])
 }
@@ -4812,6 +4819,22 @@ model IamRolePermission {
 
   @@unique([roleId, permissionId])
   @@index([permissionId])
+}
+
+model CompanyMembershipPermission {
+  id           String            @id @default(cuid())
+  userId       String
+  companyId    String
+  permissionId String
+  permission   IamPermission     @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  membership   CompanyMembership @relation(fields: [userId, companyId], references: [userId, companyId], onDelete: Cascade)
+  createdBy    String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([userId, companyId, permissionId])
+  @@index([companyId, userId])
+  @@index([companyId, permissionId])
 }
 
 model IamInvitation {

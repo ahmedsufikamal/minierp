@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionCookieDomain } from "@/lib/runtime-env";
 import { hashToken, randomToken } from "@/modules/iam/infrastructure/crypto";
 import { parseMfaPolicy, parseSessionPolicy } from "@/modules/iam/application/policy";
+import { mapRoleToUserTypeLevel, resolveEffectiveUserTypeLevel } from "@/modules/iam/application/level-policy";
 import { getPermissionsForUserCompany } from "@/modules/iam/application/rbac";
 import type { IamPrincipal } from "@/modules/iam/domain/types";
 import { IamError } from "@/modules/iam/domain/errors";
@@ -282,10 +283,37 @@ export async function verifySessionToken(sessionToken: string): Promise<IamPrinc
     return null;
   }
 
-  const membership = await prisma.companyMembership.findUnique({
-    where: { userId_companyId: { userId: session.userId, companyId: session.companyId } },
-    select: { role: true, status: true },
-  });
+  let membership:
+    | {
+        role: string;
+        status: "ACTIVE" | "INVITED" | "SUSPENDED";
+        userTypeLevel: number;
+      }
+    | null = null;
+  try {
+    membership = await prisma.companyMembership.findUnique({
+      where: { userId_companyId: { userId: session.userId, companyId: session.companyId } },
+      select: { role: true, status: true, userTypeLevel: true },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === "P2021" || error.code === "P2022")
+    ) {
+      const fallback = await prisma.companyMembership.findUnique({
+        where: { userId_companyId: { userId: session.userId, companyId: session.companyId } },
+        select: { role: true, status: true },
+      });
+      membership = fallback
+        ? {
+            ...fallback,
+            userTypeLevel: mapRoleToUserTypeLevel(fallback.role),
+          }
+        : null;
+    } else {
+      throw error;
+    }
+  }
 
   if (!membership || membership.status !== "ACTIVE") return null;
   const mfaPolicy = parseMfaPolicy(session.company?.mfaPolicy);
@@ -295,6 +323,11 @@ export async function verifySessionToken(sessionToken: string): Promise<IamPrinc
   const mfaRequired = mfaRequiredByPolicy && !session.stepUpVerifiedAt;
 
   const permissions = await getPermissionsForUserCompany(session.userId, session.companyId);
+  const effectiveLevel = resolveEffectiveUserTypeLevel({
+    platformRole: session.user.platformRole,
+    membershipRole: membership.role,
+    membershipLevel: membership.userTypeLevel,
+  });
   const deviceFingerprint = crypto
     .createHash("sha256")
     .update(`${session.ip ?? "unknown"}|${session.userAgent ?? "unknown"}`)
@@ -307,6 +340,9 @@ export async function verifySessionToken(sessionToken: string): Promise<IamPrinc
       platformRole: session.user.platformRole,
       activeCompanyId: session.companyId,
       membershipRole: membership.role,
+      userTypeLevel: membership.userTypeLevel as 2 | 3 | 4 | 5 | 9,
+      effectiveLevel,
+      activeMembershipStatus: membership.status,
       permissions,
       sessionId: session.id,
       stepUpVerifiedAt: session.stepUpVerifiedAt,

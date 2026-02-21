@@ -10,8 +10,22 @@ export async function getPermissionsForUserCompany(userId: string, companyId: st
 
   if (!membership) return [];
 
+  const membershipOverrides = await prisma.companyMembershipPermission.findMany({
+    where: { userId, companyId },
+    select: {
+      permission: {
+        select: { key: true },
+      },
+    },
+  });
+
   if (!membership.roleId) {
-    return (defaultRolePermissions[membership.role] ?? []) as PermissionKey[];
+    const defaults = (defaultRolePermissions[membership.role] ?? []) as PermissionKey[];
+    const merged = new Set<PermissionKey>(defaults);
+    membershipOverrides.forEach((item) => {
+      merged.add(item.permission.key as PermissionKey);
+    });
+    return [...merged];
   }
 
   const role = await prisma.iamRole.findUnique({
@@ -25,9 +39,16 @@ export async function getPermissionsForUserCompany(userId: string, companyId: st
     },
   });
 
-  if (!role) return (defaultRolePermissions[membership.role] ?? []) as PermissionKey[];
+  const merged = new Set<PermissionKey>(
+    (role
+      ? role.permissions.map((p) => p.permission.key as PermissionKey)
+      : (defaultRolePermissions[membership.role] ?? []) as PermissionKey[]),
+  );
+  membershipOverrides.forEach((item) => {
+    merged.add(item.permission.key as PermissionKey);
+  });
 
-  return role.permissions.map((p) => p.permission.key as PermissionKey);
+  return [...merged];
 }
 
 export async function hasPermission(userId: string, companyId: string, permission: PermissionKey): Promise<boolean> {

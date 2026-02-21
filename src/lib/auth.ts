@@ -105,7 +105,7 @@ async function loadCurrentUserFromSession(session: CurrentUserSessionShape) {
 }
 
 export async function getCurrentUserSafe() {
-  const resolved = await resolvePrincipalFromCookies({ allowLegacyFallback: true });
+  const resolved = await resolvePrincipalFromCookies();
   if (!resolved.principal?.userId) {
     return null;
   }

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSessionToken, type SessionPayload } from "@/lib/legacy-session-token";
+import { mapRoleToUserTypeLevel, resolveEffectiveUserTypeLevel } from "@/modules/iam/application/level-policy";
 import type { IamPrincipal } from "@/modules/iam/domain/types";
 import { getPermissionsForUserCompany } from "@/modules/iam/application/rbac";
 import { verifySessionToken } from "@/modules/iam/infrastructure/session";
@@ -34,8 +35,7 @@ function isSchemaMismatch(error: unknown): boolean {
 export function isLegacyFallbackEnabled(): boolean {
   const explicit = process.env.IAM_LEGACY_FALLBACK_ENABLED;
   if (explicit === "1") return true;
-  if (explicit === "0") return false;
-  return true;
+  return false;
 }
 
 export async function buildLegacyPrincipalFromSession(payload: SessionPayload): Promise<IamPrincipal | null> {
@@ -110,7 +110,7 @@ export async function buildLegacyPrincipalFromSession(payload: SessionPayload): 
               companyId: { in: candidateCompanyIds },
             },
             orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-            select: { companyId: true, role: true },
+            select: { companyId: true, role: true, status: true, userTypeLevel: true },
           })
         : null) ??
       (await prisma.companyMembership.findFirst({
@@ -119,7 +119,7 @@ export async function buildLegacyPrincipalFromSession(payload: SessionPayload): 
           status: "ACTIVE",
         },
         orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-        select: { companyId: true, role: true },
+        select: { companyId: true, role: true, status: true, userTypeLevel: true },
       }));
 
     if (!membership) {
@@ -135,6 +135,13 @@ export async function buildLegacyPrincipalFromSession(payload: SessionPayload): 
       platformRole: user.platformRole,
       activeCompanyId: membership.companyId,
       membershipRole: membership.role,
+      userTypeLevel: (membership.userTypeLevel ?? mapRoleToUserTypeLevel(membership.role)) as 2 | 3 | 4 | 5 | 9,
+      effectiveLevel: resolveEffectiveUserTypeLevel({
+        platformRole: user.platformRole,
+        membershipRole: membership.role,
+        membershipLevel: membership.userTypeLevel,
+      }),
+      activeMembershipStatus: membership.status,
       permissions,
       sessionId: `legacy:${payload.userId}`,
       stepUpVerifiedAt: null,
@@ -153,6 +160,13 @@ export async function buildLegacyPrincipalFromSession(payload: SessionPayload): 
       platformRole: user.platformRole,
       activeCompanyId: payload.companyId ?? user.activeCompanyId ?? user.companyId,
       membershipRole: user.role,
+      userTypeLevel: mapRoleToUserTypeLevel(user.role),
+      effectiveLevel: resolveEffectiveUserTypeLevel({
+        platformRole: user.platformRole,
+        membershipRole: user.role,
+        membershipLevel: mapRoleToUserTypeLevel(user.role),
+      }),
+      activeMembershipStatus: "ACTIVE",
       permissions: [],
       sessionId: `legacy:${payload.userId}`,
       stepUpVerifiedAt: null,
