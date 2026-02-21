@@ -1,21 +1,21 @@
-   Compiling api-rust v0.1.0 (/Users/sufi-mac-pro/Documents/2. Other Drive/0000. WebDesign/minierp/apps/api-rust)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.53s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
      Running unittests src/main.rs (target/debug/deps/api_rust-6e53f2993ba62321)
 
-running 4 tests
-test tests::stock_settings_validation_accepts_valid_payload ... ok
+running 5 tests
 test tests::settings_write_permission_accepts_required_aliases ... ok
-test tests::stock_settings_validation_rejects_invalid_ranges_and_enums ... ok
+test tests::stock_settings_validation_accepts_valid_payload ... ok
 test tests::if_match_header_is_parsed_as_integer ... ok
+test tests::stock_settings_validation_rejects_invalid_ranges_and_enums ... ok
+test tests::stock_settings_db_flow_respects_version_updates ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
      Running unittests src/lib.rs (target/debug/deps/domain-49b27b982804922a)
 
 running 4 tests
-test tests::rejects_empty_id ... ok
-test tests::validates_currency ... ok
 test tests::parses_ids ... ok
+test tests::validates_currency ... ok
+test tests::rejects_empty_id ... ok
 test tests::validates_doctype ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

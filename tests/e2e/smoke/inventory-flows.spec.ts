@@ -103,7 +103,7 @@ async function createWarehouse(
 
 async function cleanupInventoryMarker(marker: string) {
   const users = await prisma.user.findMany({
-    where: { email: { contains: marker } },
+    where: { email: { startsWith: marker } },
     select: { id: true, activeCompanyId: true },
   });
 
@@ -150,7 +150,6 @@ test.describe("smoke: inventory critical flows", () => {
     const marker = `inv-smoke-${Date.now()}`;
     const ownerEmail = `${marker}@example.com`;
     const companySlug = `${marker}-company`;
-    const sku = `${marker}-sku`;
     const warehouseA = `${marker}-wh-a`;
     const warehouseB = `${marker}-wh-b`;
 
@@ -205,7 +204,6 @@ test.describe("smoke: inventory critical flows", () => {
       // 1) Create Item
       const createItemResponse = await page.request.post("/api/v1/inventory/items", {
         data: {
-          sku,
           name: `${marker} Item`,
           description: "",
           brandId: brand.id,

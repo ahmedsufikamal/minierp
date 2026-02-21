@@ -37,7 +37,7 @@ async function signIn(page: Page, email: string) {
 
 async function cleanupByMarker(marker: string) {
   const companies = await prisma.company.findMany({
-    where: { slug: { contains: marker } },
+    where: { slug: { startsWith: marker } },
     select: { id: true },
   });
   const companyIds = companies.map((company) => company.id);
@@ -80,13 +80,13 @@ async function cleanupByMarker(marker: string) {
   }
 
   await prisma.iamSession.deleteMany({
-    where: { user: { email: { contains: marker } } },
+    where: { user: { email: { startsWith: marker } } },
   });
   await prisma.companyMembership.deleteMany({
-    where: { user: { email: { contains: marker } } },
+    where: { user: { email: { startsWith: marker } } },
   });
   await prisma.user.deleteMany({
-    where: { email: { contains: marker } },
+    where: { email: { startsWith: marker } },
   });
 }
 
@@ -98,7 +98,6 @@ test.describe("smoke: critical ERP flows", () => {
     const mainSlug = `${marker}-main`;
     const productName = `${marker}-item`;
     const customerName = `${marker}-customer`;
-    const invoiceNumber = `INV-${Date.now()}`;
 
     try {
       // 1) Sign up then sign in using the normal auth flow.
@@ -165,14 +164,36 @@ test.describe("smoke: critical ERP flows", () => {
 
       // 4) Create an item/product.
       await page.goto("/products");
-      await page.locator("#add-product").click();
-      await page.getByPlaceholder("SKU (e.g., P-001)").fill(`SKU-${Date.now()}`);
-      await page.getByPlaceholder("Product name").fill(productName);
-      await page.getByPlaceholder("UOM (pcs, kg)").fill("pcs");
-      await page.getByPlaceholder("Default price").fill("120");
-      const addProductForm = page.locator('form:has(input[name="sku"])').first();
-      await expect(addProductForm).toBeVisible();
-      await addProductForm.getByRole("button", { name: "Create" }).click();
+      const brand = await prisma.brand.create({
+        data: {
+          companyId: ownerUser.activeCompanyId,
+          name: `${marker}-brand`,
+        },
+        select: { id: true },
+      });
+      const createItemResponse = await page.request.post("/api/v1/inventory/items", {
+        data: {
+          name: productName,
+          description: "",
+          brandId: brand.id,
+          uom: "pcs",
+          unitCostMinor: 12000,
+          priceCents: 12000,
+          trackSerial: false,
+          trackBatch: false,
+          lowStockThreshold: 0,
+          isActive: true,
+          identifiers: [],
+          customFields: {},
+        },
+      });
+      const createItemBody = (await createItemResponse.json().catch(() => ({}))) as {
+        ok?: boolean;
+        data?: { id?: string };
+        error?: { message?: string };
+      };
+      expect(createItemResponse.ok(), createItemBody.error?.message ?? "item create failed").toBeTruthy();
+      expect(createItemBody.ok).toBe(true);
       await expect
         .poll(
           async () =>
@@ -219,11 +240,13 @@ test.describe("smoke: critical ERP flows", () => {
       }
 
       // 5) Create an invoice.
+      const beforeInvoiceCount = await prisma.salesInvoice.count({
+        where: { companyId: ownerUser.activeCompanyId },
+      });
       await page.goto(`/invoices?fresh=${Date.now()}`);
       await page.locator("#add-invoice").click();
-      const addInvoiceForm = page.locator('form:has(input[name="number"])').first();
+      const addInvoiceForm = page.locator('form:has(select[name="customerId"])').first();
       await expect(addInvoiceForm).toBeVisible();
-      await addInvoiceForm.getByPlaceholder("INV-0001").fill(invoiceNumber);
       const customerSelect = addInvoiceForm.locator('select[name="customerId"]');
       await customerSelect.selectOption({ index: 1 });
       await expect(customerSelect).not.toHaveValue("");
@@ -238,12 +261,11 @@ test.describe("smoke: critical ERP flows", () => {
             prisma.salesInvoice.count({
               where: {
                 companyId: ownerUser.activeCompanyId,
-                number: invoiceNumber,
               },
             }),
           { timeout: 10_000 },
         )
-        .toBeGreaterThan(0);
+        .toBeGreaterThan(beforeInvoiceCount);
     } finally {
       await cleanupByMarker(marker);
     }

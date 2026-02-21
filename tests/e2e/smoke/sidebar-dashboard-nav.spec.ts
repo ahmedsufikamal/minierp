@@ -24,7 +24,7 @@ async function signUp(
 
 async function cleanupByMarker(marker: string) {
   const companies = await prisma.company.findMany({
-    where: { slug: { contains: marker } },
+    where: { slug: { startsWith: marker } },
     select: { id: true },
   });
   const companyIds = companies.map((company) => company.id);
@@ -67,13 +67,13 @@ async function cleanupByMarker(marker: string) {
   }
 
   await prisma.iamSession.deleteMany({
-    where: { user: { email: { contains: marker } } },
+    where: { user: { email: { startsWith: marker } } },
   });
   await prisma.companyMembership.deleteMany({
-    where: { user: { email: { contains: marker } } },
+    where: { user: { email: { startsWith: marker } } },
   });
   await prisma.user.deleteMany({
-    where: { email: { contains: marker } },
+    where: { email: { startsWith: marker } },
   });
 }
 

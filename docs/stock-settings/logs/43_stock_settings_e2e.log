@@ -1,0 +1,14 @@
+[2m[WebServer] [22mLoaded Prisma config from prisma.config.ts.
+[2m[WebServer] [22m
+[2m[WebServer] [22mPrisma config detected, skipping environment variable loading.
+[2m[WebServer] [22m(node:82566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:82573) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+  ✓  1 [chromium] › tests/e2e/smoke/stock-settings.spec.ts:61:3 › smoke: stock settings › writer can save and stale version conflicts (6.4s)
+  ✓  2 [chromium] › tests/e2e/smoke/stock-settings.spec.ts:148:3 › smoke: stock settings › member is read-only on stock settings (3.7s)
+
+  2 passed (25.5s)

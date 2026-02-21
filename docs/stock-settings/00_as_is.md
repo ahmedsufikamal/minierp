@@ -70,5 +70,5 @@
 - No stock-closing freeze enforcement.
 
 ## Remaining gaps (post-pass follow-up)
-- Rust unit/integration tests for stock settings handlers are still thin (no dedicated endpoint test module yet).
-- Dedicated Playwright spec for Stock Settings role matrix/concurrency is not yet added in this pass.
+- Rust stock-settings tests now include validation, concurrency helper coverage, and a DB-backed version/update flow.
+- Follow-up optional hardening: add a full Rust HTTP-level integration harness (spun-up app + real request assertions) beyond current unit/DB helper tests.

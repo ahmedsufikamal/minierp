@@ -7,7 +7,9 @@ const STRONG_PASSWORD = "StrongPassword123!";
 async function seedThemeStorage(page: Page, mode: "light" | "dark" | "system") {
   await page.addInitScript(
     ([key, value]) => {
-      window.localStorage.setItem(key, value);
+      if (window.localStorage.getItem(key) === null) {
+        window.localStorage.setItem(key, value);
+      }
     },
     [THEME_STORAGE_KEY, mode],
   );
@@ -122,7 +124,7 @@ async function assertThemeContrastOnInventoryPage(page: Page) {
 
 async function cleanupMarker(marker: string) {
   const users = await prisma.user.findMany({
-    where: { email: { contains: marker } },
+    where: { email: { startsWith: marker } },
     select: { id: true, activeCompanyId: true },
   });
   const userIds = users.map((row) => row.id);

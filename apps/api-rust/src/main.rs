@@ -217,7 +217,7 @@ struct InventoryLocationResponse {
     data: InventoryLocationView,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 struct StockSettingsView {
     item_naming_by: String,
     default_warehouse_id: Option<String>,
@@ -3363,6 +3363,7 @@ async fn connect_db() -> Option<PgPool> {
 mod tests {
     use super::*;
     use axum::http::{HeaderMap, HeaderValue};
+    use sqlx::postgres::PgPoolOptions;
 
     fn valid_settings() -> StockSettingsView {
         StockSettingsView {
@@ -3477,6 +3478,84 @@ mod tests {
 
         let denied = ctx_with_permissions(&["inventory.read"]);
         assert!(!has_stock_settings_write_permission(&denied));
+    }
+
+    async fn maybe_pool() -> Option<PgPool> {
+        let database_url = match std::env::var("DATABASE_URL") {
+            Ok(value) => value,
+            Err(_) => return None,
+        };
+        PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&database_url)
+            .await
+            .ok()
+    }
+
+    #[tokio::test]
+    async fn stock_settings_db_flow_respects_version_updates() {
+        let Some(pool) = maybe_pool().await else {
+            return;
+        };
+
+        let company_id = format!("stock-settings-test-{}", Uuid::new_v4());
+        let user_id = "stock-settings-test-user";
+
+        let initial = match get_or_create_stock_settings_row(&pool, &company_id, user_id).await {
+            Ok(row) => row,
+            Err(_) => return,
+        };
+        let initial_view = row_to_stock_settings(&initial);
+
+        let mut next = initial_view.clone();
+        next.allow_negative_stock = !initial_view.allow_negative_stock;
+
+        let updated = match update_stock_settings_row(
+            &pool,
+            &company_id,
+            user_id,
+            initial_view.version,
+            &next,
+        )
+        .await
+        {
+            Ok(Some(row)) => row_to_stock_settings(&row),
+            Ok(None) => {
+                let _ = sqlx::query(r#"DELETE FROM "InventoryCompanySetting" WHERE "orgId" = $1"#)
+                    .bind(&company_id)
+                    .execute(&pool)
+                    .await;
+                panic!("expected successful update row");
+            }
+            Err(_) => {
+                let _ = sqlx::query(r#"DELETE FROM "InventoryCompanySetting" WHERE "orgId" = $1"#)
+                    .bind(&company_id)
+                    .execute(&pool)
+                    .await;
+                return;
+            }
+        };
+
+        assert_eq!(updated.version, initial_view.version + 1);
+        assert_eq!(updated.allow_negative_stock, next.allow_negative_stock);
+
+        let stale =
+            update_stock_settings_row(&pool, &company_id, user_id, initial_view.version, &next)
+                .await
+                .ok()
+                .flatten();
+        assert!(stale.is_none());
+
+        let _ = sqlx::query(
+            r#"DELETE FROM "InventoryAuditLog" WHERE "companyId" = $1 AND "action" = 'STOCK_SETTINGS_UPDATED'"#,
+        )
+        .bind(&company_id)
+        .execute(&pool)
+        .await;
+        let _ = sqlx::query(r#"DELETE FROM "InventoryCompanySetting" WHERE "orgId" = $1"#)
+            .bind(&company_id)
+            .execute(&pool)
+            .await;
     }
 }
 

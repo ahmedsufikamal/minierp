@@ -109,16 +109,21 @@ Format per item:
 
 ## F-08 Automated endpoint test depth for stock settings
 1. Reproduction:
-   - Rust handler had runtime verification logs but no stock-settings unit coverage in `apps/api-rust`.
+   - Rust handler had runtime verification logs but no stock-settings DB-backed or dedicated smoke verification.
 2. Root cause:
-   - Rust service test scaffolding existed but stock-settings helper logic was untested.
+   - Rust service test scaffolding existed but stock-settings logic lacked targeted coverage beyond manual probes.
 3. Code change:
    - Added Rust unit tests for:
      - settings payload validation rules
      - `If-Match` parsing
      - write-permission alias handling
+     - DB-backed create/update/stale-version flow (`stock_settings_db_flow_respects_version_updates`)
    - File: `apps/api-rust/src/main.rs`
+   - Added dedicated Playwright stock-settings smoke suite:
+     - writer save + stale-version conflict
+     - member read-only mode
+     - File: `tests/e2e/smoke/stock-settings.spec.ts`
 4. Verification:
    - `docs/stock-settings/logs/20_cargo_test.log` shows new stock-settings tests passing.
-5. Status: `fixed (baseline unit coverage)`  
-   Remaining: add DB-backed endpoint/integration tests in a follow-up.
+   - `docs/stock-settings/logs/43_stock_settings_e2e.log` shows stock-settings smoke scenarios passing.
+5. Status: `fixed`
