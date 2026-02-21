@@ -1,0 +1,19 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0100   317    0   317    0     0    310      0 --:--:--  0:00:01 --:--:--   310
+HTTP/1.1 200 OK
+Content-Security-Policy: default-src 'self'; base-uri 'self'; font-src 'self' data: https:; img-src 'self' data: blob: https:; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: ws: wss:; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+Strict-Transport-Security: max-age=0
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+x-request-id: ef587905-7684-4d40-ac05-6205977c0db1
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+content-type: application/json
+Date: Sat, 21 Feb 2026 07:41:49 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"ok":true,"ts":"2026-02-21T07:41:49.968Z","requestId":"ef587905-7684-4d40-ac05-6205977c0db1","service":{"name":"minierp-web","env":"development","version":"0.3.0"},"build":{"commit":null},"dependencies":{"db":{"ok":true},"queue":{"ok":true,"details":{"enabled":false,"provider":"inline"}}},"metrics":{"hook":"stub"}}

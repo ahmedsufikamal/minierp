@@ -1,0 +1,10 @@
+
+> minierp-clerk-nextjs@0.3.0 prisma:seed
+> node prisma/seed.mjs
+
+Seed complete {
+  tenant: { id: 'cmlv8hf0y001hkzziorsvipm0', key: 'demo-tenant' },
+  companies: [ 'default-org', 'default-org-2' ],
+  users: [ 'owner@demo.local', 'manager@demo.local' ],
+  defaultPassword: 'ChangeMe!123'
+}

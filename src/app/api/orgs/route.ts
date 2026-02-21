@@ -116,6 +116,23 @@ export async function POST(request: Request) {
       },
     });
 
+    await prisma.inventoryCompanySetting.upsert({
+      where: { companyId: company.id },
+      create: {
+        companyId: company.id,
+        itemNamingBy: "ITEM_CODE",
+        defaultValuationMethod: "FIFO",
+        allowNegativeStock: false,
+        preventNegativeStock: true,
+        allowNegativeOverride: false,
+        trackByLocation: false,
+        costingMethod: "AVG",
+        baseCurrency: "BDT",
+        version: 1,
+      },
+      update: {},
+    });
+
     return ok(company, { status: 201 });
   } catch (error) {
     return err(error);

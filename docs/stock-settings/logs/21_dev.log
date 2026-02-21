@@ -1,0 +1,33 @@
+
+> minierp-clerk-nextjs@0.3.0 predev
+> npm run prisma:generate
+
+
+> minierp-clerk-nextjs@0.3.0 prisma:generate
+> prisma generate
+
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 1.42s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+> minierp-clerk-nextjs@0.3.0 dev
+> next dev --port 3104
+
+▲ Next.js 16.1.4 (Turbopack)
+- Local:         http://localhost:3104
+- Network:       http://192.168.68.101:3104
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 3.7s
+ GET /stock/settings 307 in 5.1s (compile: 2.7s, proxy.ts: 1480ms, render: 989ms)
+ GET /api/stock/settings 401 in 822ms (compile: 800ms, proxy.ts: 5ms, render: 16ms)
+ GET /api/health 200 in 1016ms (compile: 994ms, proxy.ts: 6ms, render: 15ms)

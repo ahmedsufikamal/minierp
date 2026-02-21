@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { loadStockSettings } from "@/modules/inventory/application/stock-settings.service";
 import { inventoryPermissions } from "@/modules/inventory/domain/types";
 import { jsonOk, withInventoryAuth } from "@/modules/inventory/interface/http";
 
 export async function GET(request: Request) {
   return withInventoryAuth(request, inventoryPermissions.itemRead, async (ctx) => {
+    const stockSettings = await loadStockSettings(ctx.companyId);
+    const includeReservedInAvailability = stockSettings.enable_stock_reservation;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const [
@@ -89,7 +92,8 @@ export async function GET(request: Request) {
     const lowStock = lowStockRows
       .filter((row) => {
         const threshold = row.item.lowStockThreshold ?? 0;
-        return row.onHand <= threshold;
+        const availableQty = includeReservedInAvailability ? row.onHand - row.reserved : row.onHand;
+        return availableQty <= threshold;
       })
       .map((row) => ({
         itemId: row.item.id,
@@ -99,7 +103,7 @@ export async function GET(request: Request) {
         warehouseCode: row.warehouse.code,
         warehouseName: row.warehouse.name,
         onHand: row.onHand,
-        reserved: row.reserved,
+        reserved: includeReservedInAvailability ? row.reserved : 0,
         threshold: row.item.lowStockThreshold ?? 0,
       }))
       .slice(0, 10);
@@ -132,7 +136,7 @@ export async function GET(request: Request) {
       warehouseCode: warehouseById.get(row.warehouseId)?.code ?? row.warehouseId,
       warehouseName: warehouseById.get(row.warehouseId)?.name ?? row.warehouseId,
       onHand: row._sum.onHand ?? 0,
-      reserved: row._sum.reserved ?? 0,
+      reserved: includeReservedInAvailability ? (row._sum.reserved ?? 0) : 0,
     }));
 
     const moverRows = moverAggregates

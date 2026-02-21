@@ -107,6 +107,23 @@ export async function createOrgAction(formData: FormData) {
     },
   });
 
+  await prisma.inventoryCompanySetting.upsert({
+    where: { companyId: company.id },
+    create: {
+      companyId: company.id,
+      itemNamingBy: "ITEM_CODE",
+      defaultValuationMethod: "FIFO",
+      allowNegativeStock: false,
+      preventNegativeStock: true,
+      allowNegativeOverride: false,
+      trackByLocation: false,
+      costingMethod: "AVG",
+      baseCurrency: "BDT",
+      version: 1,
+    },
+    update: {},
+  });
+
   await setActiveCompany(principal.userId, company.id);
   const cookieStore = await cookies();
   cookieStore.set("iam_active_org", company.id, {

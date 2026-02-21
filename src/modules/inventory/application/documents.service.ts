@@ -14,6 +14,11 @@ import {
 } from "@/modules/inventory/application/schemas";
 import { hasInventoryPermission } from "@/modules/inventory/application/policy";
 import { consumeInventoryReservationInTx } from "@/modules/inventory/application/reservations.service";
+import {
+  loadStockSettings,
+  shouldBlockByFreezeWindow,
+  type InventoryStockSettings,
+} from "@/modules/inventory/application/stock-settings.service";
 import { resolveWorkflowTransition } from "@/modules/inventory/application/workflow.service";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import { computeAverageCost, enforceNextOnHand } from "@/modules/inventory/domain/posting";
@@ -118,6 +123,25 @@ async function getInventorySettings(companyId: string) {
       createdAt: new Date(0),
       updatedAt: new Date(0),
     }
+  );
+}
+
+function canBypassStockFreeze(ctx: AppContext) {
+  return hasInventoryPermission(ctx.role, inventoryPermissions.settingsWrite);
+}
+
+function assertFreezeWindow(params: {
+  ctx: AppContext;
+  settings: InventoryStockSettings;
+  documentDate: Date;
+  operation: string;
+}) {
+  if (canBypassStockFreeze(params.ctx)) return;
+  if (!shouldBlockByFreezeWindow(params.settings, params.documentDate)) return;
+
+  throw new InventoryError(
+    "CONFLICT",
+    `${params.operation} is blocked: document date is older than freeze threshold (${params.settings.freeze_stocks_older_than_days} days)`,
   );
 }
 
@@ -290,6 +314,15 @@ export async function createInventoryDocument(ctx: AppContext, input: unknown) {
     throw new InventoryError("VALIDATION_ERROR", "Invalid document payload", parsed.error.flatten());
   }
 
+  const stockSettings = await loadStockSettings(ctx.companyId);
+  const documentDate = parsed.data.documentDate ?? new Date();
+  assertFreezeWindow({
+    ctx,
+    settings: stockSettings,
+    documentDate,
+    operation: "Creating stock document",
+  });
+
   const documentNumber = await resolveDocumentNumber(ctx, {
     number: parsed.data.number,
     documentType: parsed.data.documentType,
@@ -316,7 +349,7 @@ export async function createInventoryDocument(ctx: AppContext, input: unknown) {
       companyId: ctx.companyId,
       documentType: parsed.data.documentType,
       number: documentNumber,
-      documentDate: parsed.data.documentDate,
+      documentDate,
       externalRef: parsed.data.externalRef,
       notes: parsed.data.notes,
       sourceWarehouseId: parsed.data.sourceWarehouseId,
@@ -395,6 +428,15 @@ export async function updateInventoryDocument(ctx: AppContext, documentId: strin
   if (existing.status !== InventoryDocumentStatus.DRAFT) {
     throw new InventoryError("CONFLICT", "Only draft documents can be edited");
   }
+
+  const stockSettings = await loadStockSettings(ctx.companyId);
+  const effectiveDocumentDate = parsed.data.documentDate ?? existing.documentDate;
+  assertFreezeWindow({
+    ctx,
+    settings: stockSettings,
+    documentDate: effectiveDocumentDate,
+    operation: "Editing stock document",
+  });
 
   const mergedType = parsed.data.documentType ?? existing.documentType;
   const mergedSourceWarehouse = parsed.data.sourceWarehouseId ?? existing.sourceWarehouseId;
@@ -537,6 +579,90 @@ async function lockBatchRow(
   );
 }
 
+async function createFifoLayerInTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    companyId: string;
+    itemId: string;
+    warehouseId: string;
+    locationId: string | null;
+    qty: number;
+    unitCostMinor: number;
+    currency: string;
+    sourceDocumentId: string;
+    sourceLineId: string;
+    userId: string;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  if (params.qty <= 0) return;
+  await tx.inventoryCostLayer.create({
+    data: {
+      companyId: params.companyId,
+      itemId: params.itemId,
+      warehouseId: params.warehouseId,
+      locationId: params.locationId,
+      sourceDocumentId: params.sourceDocumentId,
+      sourceLineId: params.sourceLineId,
+      qtyRemaining: params.qty,
+      unitCostMinor: params.unitCostMinor,
+      currency: params.currency,
+      createdBy: params.userId,
+      metadata: (params.metadata ?? {}) as Prisma.InputJsonValue,
+    },
+  });
+}
+
+async function consumeFifoLayersInTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    companyId: string;
+    itemId: string;
+    warehouseId: string;
+    locationId: string | null;
+    quantity: number;
+  },
+): Promise<{ consumedQty: number; totalCostMinor: number }> {
+  let remaining = Math.max(0, params.quantity);
+  let consumedQty = 0;
+  let totalCostMinor = 0;
+
+  if (remaining === 0) {
+    return { consumedQty: 0, totalCostMinor: 0 };
+  }
+
+  const layers = await tx.inventoryCostLayer.findMany({
+    where: {
+      companyId: params.companyId,
+      itemId: params.itemId,
+      warehouseId: params.warehouseId,
+      locationId: params.locationId,
+      qtyRemaining: { gt: 0 },
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: 500,
+  });
+
+  for (const layer of layers) {
+    if (remaining <= 0) break;
+    const takeQty = Math.min(remaining, layer.qtyRemaining);
+    if (takeQty <= 0) continue;
+
+    remaining -= takeQty;
+    consumedQty += takeQty;
+    totalCostMinor += takeQty * layer.unitCostMinor;
+
+    await tx.inventoryCostLayer.update({
+      where: { id: layer.id },
+      data: {
+        qtyRemaining: layer.qtyRemaining - takeQty,
+      },
+    });
+  }
+
+  return { consumedQty, totalCostMinor };
+}
+
 function assertSerialBatchPayload(params: {
   documentType: InventoryDocumentType;
   line: {
@@ -600,7 +726,7 @@ async function applyBatchMovementInTx(
     delta: number;
     metadata: Record<string, unknown>;
     userId: string;
-    preventNegativeStock: boolean;
+    allowNegativeStock: boolean;
     allowNegativeOverride: boolean;
   },
 ): Promise<string | null> {
@@ -634,7 +760,7 @@ async function applyBatchMovementInTx(
   const nextQty = enforceNextOnHand({
     previousOnHand: previousQty,
     delta: params.delta,
-    preventNegativeStock: params.preventNegativeStock,
+    allowNegativeStock: params.allowNegativeStock,
     allowNegativeOverride: params.allowNegativeOverride,
     itemId: params.itemId,
     warehouseId: params.warehouseId,
@@ -989,6 +1115,16 @@ export async function applyInventoryDocumentAction(ctx: AppContext, documentId: 
     throw new InventoryError("NOT_FOUND", "Document not found");
   }
 
+  if (action.action === "SUBMIT" || action.action === "APPROVE" || action.action === "POST") {
+    const stockSettings = await loadStockSettings(ctx.companyId);
+    assertFreezeWindow({
+      ctx,
+      settings: stockSettings,
+      documentDate: document.documentDate,
+      operation: `${action.action} for stock document`,
+    });
+  }
+
   const totalValueMinor = document.lines.reduce(
     (sum, line) => sum + Math.abs(line.quantity) * (line.unitCostMinor ?? 0),
     0,
@@ -1104,7 +1240,7 @@ export async function postInventoryDocument(
     }
   }
 
-  const settings = await getInventorySettings(ctx.companyId);
+  const stockSettings = await loadStockSettings(ctx.companyId);
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -1132,6 +1268,13 @@ export async function postInventoryDocument(
       if (document.status !== InventoryDocumentStatus.APPROVED) {
         throw new InventoryError("CONFLICT", "Only approved documents can be posted");
       }
+
+      assertFreezeWindow({
+        ctx,
+        settings: stockSettings,
+        documentDate: document.documentDate,
+        operation: "Posting stock document",
+      });
 
       const allowNegativeOverride = Boolean(options.allowNegativeOverride);
       const canOverrideNegative = hasInventoryPermission(ctx.role, inventoryPermissions.overrideNegativeStock);
@@ -1231,6 +1374,8 @@ export async function postInventoryDocument(
         movements.push(...lineMovements);
       }
 
+      const transferUnitCostByLine = new Map<string, number>();
+
       for (const movement of movements) {
         await lockBalanceRow(
           tx,
@@ -1256,20 +1401,87 @@ export async function postInventoryDocument(
         });
 
         const previousOnHand = existingBalance?.onHand ?? 0;
+        let resolvedUnitCostMinor = movement.unitCostMinor;
+        if (movement.delta > 0 && movement.metadata.kind === "TRANSFER_IN") {
+          const transferredCost = transferUnitCostByLine.get(movement.lineId);
+          if (typeof transferredCost === "number") {
+            resolvedUnitCostMinor = transferredCost;
+          }
+        }
+
         const nextOnHand = enforceNextOnHand({
           previousOnHand,
           delta: movement.delta,
-          preventNegativeStock: settings.preventNegativeStock,
+          allowNegativeStock: stockSettings.allow_negative_stock,
           allowNegativeOverride,
           itemId: movement.itemId,
           warehouseId: movement.warehouseId,
         });
 
+        let ledgerUnitCostMinor = resolvedUnitCostMinor;
+        let ledgerTotalCostMinor = movement.delta * ledgerUnitCostMinor;
+        const valuationMetadata: Record<string, unknown> = {
+          method: stockSettings.default_valuation_method,
+          fifoFallbackUsed: false,
+        };
+
+        if (movement.delta < 0) {
+          const qtyAbs = Math.abs(movement.delta);
+          if (stockSettings.default_valuation_method === "FIFO") {
+            const consumed = await consumeFifoLayersInTx(tx, {
+              companyId: ctx.companyId,
+              itemId: movement.itemId,
+              warehouseId: movement.warehouseId,
+              locationId: movement.locationId ?? null,
+              quantity: qtyAbs,
+            });
+
+            let totalOutboundCost = consumed.totalCostMinor;
+            let fallbackUsed = false;
+            if (consumed.consumedQty < qtyAbs) {
+              const remainder = qtyAbs - consumed.consumedQty;
+              const fallbackUnitCost = existingBalance?.avgCostMinor ?? resolvedUnitCostMinor;
+              totalOutboundCost += remainder * fallbackUnitCost;
+              fallbackUsed = true;
+            }
+
+            ledgerUnitCostMinor = qtyAbs > 0 ? Math.round(totalOutboundCost / qtyAbs) : resolvedUnitCostMinor;
+            ledgerTotalCostMinor = -totalOutboundCost;
+            valuationMetadata.fifoConsumedQty = consumed.consumedQty;
+            valuationMetadata.fifoFallbackUsed = fallbackUsed;
+          } else {
+            const baselineUnitCost = existingBalance?.avgCostMinor ?? resolvedUnitCostMinor;
+            ledgerUnitCostMinor = baselineUnitCost;
+            ledgerTotalCostMinor = movement.delta * baselineUnitCost;
+          }
+        } else if (movement.delta > 0 && stockSettings.default_valuation_method === "FIFO") {
+          await createFifoLayerInTx(tx, {
+            companyId: ctx.companyId,
+            itemId: movement.itemId,
+            warehouseId: movement.warehouseId,
+            locationId: movement.locationId ?? null,
+            qty: movement.delta,
+            unitCostMinor: ledgerUnitCostMinor,
+            currency: movement.currency,
+            sourceDocumentId: document.id,
+            sourceLineId: movement.lineId,
+            userId: ctx.userId,
+            metadata: {
+              source: "document-posting",
+              movementKind: movement.metadata.kind,
+            },
+          });
+        }
+
+        if (movement.delta < 0 && movement.metadata.kind === "TRANSFER_OUT") {
+          transferUnitCostByLine.set(movement.lineId, ledgerUnitCostMinor);
+        }
+
         const nextAvgCost = computeAverageCost({
           previousOnHand,
-          previousAvgCostMinor: existingBalance?.avgCostMinor ?? movement.unitCostMinor,
+          previousAvgCostMinor: existingBalance?.avgCostMinor ?? ledgerUnitCostMinor,
           delta: movement.delta,
-          unitCostMinor: movement.unitCostMinor,
+          unitCostMinor: ledgerUnitCostMinor,
         });
 
         let nextReserved = existingBalance?.reserved ?? 0;
@@ -1300,7 +1512,7 @@ export async function postInventoryDocument(
             postingTime: postingTimestamp.toISOString(),
           },
           userId: ctx.userId,
-          preventNegativeStock: settings.preventNegativeStock,
+          allowNegativeStock: stockSettings.allow_negative_stock,
           allowNegativeOverride,
         });
 
@@ -1326,17 +1538,18 @@ export async function postInventoryDocument(
             warehouseId: movement.warehouseId,
             locationId: movement.locationId,
             quantityDelta: movement.delta,
-            unitCostMinor: movement.unitCostMinor,
-            totalCostMinor: movement.delta * movement.unitCostMinor,
+            unitCostMinor: ledgerUnitCostMinor,
+            totalCostMinor: ledgerTotalCostMinor,
             currency: movement.currency,
             reservationId: movement.reservationId ?? null,
             batchCode: movement.batchCode ?? null,
             serialNumbers: (movement.serialNumbers ?? []) as Prisma.InputJsonValue,
             postingTime: postingTimestamp,
-            metadata: {
+            metadata: ({
               ...movement.metadata,
+              valuation: valuationMetadata as Prisma.InputJsonValue,
               reason: options.reason ?? null,
-            },
+            }) as Prisma.InputJsonValue,
             createdBy: ctx.userId,
           },
         });

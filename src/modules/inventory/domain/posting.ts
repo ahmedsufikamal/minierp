@@ -3,14 +3,14 @@ import { InventoryError } from "@/modules/inventory/domain/errors";
 export function enforceNextOnHand(params: {
   previousOnHand: number;
   delta: number;
-  preventNegativeStock: boolean;
+  allowNegativeStock: boolean;
   allowNegativeOverride: boolean;
   itemId: string;
   warehouseId: string;
 }): number {
   const nextOnHand = params.previousOnHand + params.delta;
 
-  if (nextOnHand < 0 && params.preventNegativeStock && !params.allowNegativeOverride) {
+  if (nextOnHand < 0 && !params.allowNegativeStock && !params.allowNegativeOverride) {
     throw new InventoryError(
       "CONFLICT",
       `Negative stock prevented for item ${params.itemId} in warehouse ${params.warehouseId}`,

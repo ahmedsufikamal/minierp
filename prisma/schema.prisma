@@ -224,6 +224,28 @@ enum InventorySerialStatus {
   SCRAPPED
 }
 
+enum InventoryItemNamingBy {
+  ITEM_CODE
+  NAMING_SERIES
+}
+
+enum InventoryValuationMethod {
+  FIFO
+  MOVING_AVERAGE
+}
+
+enum InventoryQiAction {
+  STOP
+  WARN
+  ALLOW
+}
+
+enum InventorySerialBatchPickBasis {
+  FIFO
+  LIFO
+  EXPIRY
+}
+
 enum IamTenantStatus {
   ACTIVE
   DISABLED
@@ -4102,19 +4124,56 @@ model AutomationRuleRun {
 }
 
 model InventoryCompanySetting {
-  id                    String   @id @default(cuid())
-  companyId             String   @unique @map("orgId")
+  id                    String                    @id @default(cuid())
+  companyId             String                    @unique @map("orgId")
   defaultWarehouseId    String?
-  defaultWarehouse      InventoryWarehouse? @relation("InventoryCompanyDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
+  defaultWarehouse      InventoryWarehouse?       @relation("InventoryCompanyDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
+  // Legacy compatibility fields.
   documentSeriesCode    String?
-  defaultUom            String   @default("pcs")
-  trackByLocation       Boolean  @default(false)
-  preventNegativeStock  Boolean  @default(true)
-  allowNegativeOverride Boolean  @default(false)
-  costingMethod         String   @default("AVG")
-  baseCurrency          String   @default("BDT")
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  defaultUom            String                    @default("pcs")
+  trackByLocation       Boolean                   @default(false)
+  preventNegativeStock  Boolean                   @default(true)
+  allowNegativeOverride Boolean                   @default(false)
+  costingMethod         String                    @default("AVG")
+  baseCurrency          String                    @default("BDT")
+  // ERP-grade stock settings.
+  itemNamingBy          InventoryItemNamingBy     @default(ITEM_CODE)
+  defaultStockUomId     String?
+  defaultValuationMethod InventoryValuationMethod @default(FIFO)
+  autoInsertItemPriceIfMissing                    Boolean                     @default(true)
+  updateExistingPriceListRate                     Boolean                     @default(false)
+  allowEditStockUomQtySalesDocs                   Boolean                     @default(true)
+  allowEditStockUomQtyPurchaseDocs                Boolean                     @default(true)
+  overDeliveryReceiptAllowancePct                 Decimal                     @default(0) @db.Decimal(5, 2)
+  overTransferAllowancePct                        Decimal                     @default(0) @db.Decimal(5, 2)
+  overPickingAllowancePct                         Decimal                     @default(0) @db.Decimal(5, 2)
+  allowNegativeStock                              Boolean                     @default(false)
+  showBarcodeFieldInStockTransactions             Boolean                     @default(true)
+  convertItemDescriptionToCleanHtml               Boolean                     @default(true)
+  allowInternalTransfersAtArmsLengthPrice         Boolean                     @default(false)
+  qiActionIfNotSubmitted                          InventoryQiAction           @default(STOP)
+  qiActionIfRejected                              InventoryQiAction           @default(STOP)
+  enableStockReservation                          Boolean                     @default(true)
+  allowPartialReservation                         Boolean                     @default(false)
+  autoReserveStockForSalesOrderOnPurchase         Boolean                     @default(false)
+  autoReserveSerialAndBatchNos                    Boolean                     @default(false)
+  autoCreateSerialAndBatchBundleForOutward        Boolean                     @default(true)
+  pickSerialBatchBasedOn                          InventorySerialBatchPickBasis @default(FIFO)
+  disableSerialNoAndBatchSelector                 Boolean                     @default(false)
+  haveDefaultNamingSeriesForBatchId               Boolean                     @default(false)
+  useSerialBatchFields                            Boolean                     @default(false)
+  doNotUpdateSerialBatchOnCreationOfAutoBundle    Boolean                     @default(false)
+  allowExistingSerialNoToBeReceivedAgain          Boolean                     @default(true)
+  setBundleNamingBasedOnNamingSeries              Boolean                     @default(false)
+  raiseMaterialRequestWhenStockReachesReorderLevel Boolean                    @default(true)
+  notifyByEmailOnCreationOfAutomaticMaterialRequest Boolean                   @default(false)
+  allowMaterialTransferFromDeliveryNoteToSalesInvoice Boolean                 @default(false)
+  allowMaterialTransferFromPurchaseReceiptToPurchaseInvoice Boolean           @default(false)
+  freezeStocksOlderThanDays                       Int                         @default(60)
+  version               Int                       @default(1)
+  updatedBy             String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
 }
 
 model InventoryWarehouse {
@@ -4415,6 +4474,28 @@ model InventoryLedgerEntry {
   @@index([companyId, documentId])
   @@index([companyId, reservationId])
   @@index([companyId, batchCode])
+}
+
+model InventoryCostLayer {
+  id               String   @id @default(cuid())
+  companyId        String   @map("orgId")
+  itemId           String
+  warehouseId      String
+  locationId       String?
+  sourceDocumentId String?
+  sourceLineId     String?
+  qtyRemaining     Int
+  unitCostMinor    Int
+  currency         String   @default("BDT")
+  metadata         Json?
+  createdBy        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([companyId, itemId, warehouseId, locationId, createdAt, id])
+  @@index([companyId, sourceDocumentId])
+  @@index([companyId, sourceLineId])
+  @@index([companyId, itemId])
 }
 
 model InventoryStockBalance {

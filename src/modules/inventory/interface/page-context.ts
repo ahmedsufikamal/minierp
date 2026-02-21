@@ -52,3 +52,15 @@ export async function getInventoryPageContext(
     throw error;
   }
 }
+
+export async function getInventoryPageContextAuthenticated(): Promise<InventoryRequestContext> {
+  try {
+    const request = await buildInventoryPageRequest();
+    return await getInventoryRequestContext(request);
+  } catch (error) {
+    if (error instanceof InventoryError && error.code === "UNAUTHORIZED") {
+      redirect("/auth/sign-in");
+    }
+    throw error;
+  }
+}

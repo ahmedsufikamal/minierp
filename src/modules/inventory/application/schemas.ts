@@ -5,8 +5,12 @@ import {
   InventoryCustomFieldType,
   InventoryDocumentStatus,
   InventoryDocumentType,
+  InventoryItemNamingBy,
   InventoryPresetScope,
+  InventoryQiAction,
   InventoryReservationStatus,
+  InventorySerialBatchPickBasis,
+  InventoryValuationMethod,
 } from "@prisma/client";
 import { workflowConfigSchema } from "@/modules/inventory/domain/workflow";
 
@@ -283,4 +287,54 @@ export const inventoryCompanySettingsSchema = z.object({
   allowNegativeOverride: z.boolean().default(false),
   trackByLocation: z.boolean().default(false),
   baseCurrency: z.string().trim().min(3).max(3).default("BDT"),
+});
+
+const percentageSettingSchema = z.coerce.number().min(0).max(100);
+const freezeDaysSchema = z.coerce.number().int().min(0);
+
+export const stockSettingsSchema = z.object({
+  item_naming_by: z.nativeEnum(InventoryItemNamingBy).default(InventoryItemNamingBy.ITEM_CODE),
+  default_warehouse_id: z.string().trim().min(1).optional().nullable(),
+  default_stock_uom_id: z.string().trim().min(1).optional().nullable(),
+  default_valuation_method: z.nativeEnum(InventoryValuationMethod).default(InventoryValuationMethod.FIFO),
+  auto_insert_item_price_if_missing: z.boolean().default(true),
+  update_existing_price_list_rate: z.boolean().default(false),
+  allow_edit_stock_uom_qty_sales_docs: z.boolean().default(true),
+  allow_edit_stock_uom_qty_purchase_docs: z.boolean().default(true),
+  over_delivery_receipt_allowance_pct: percentageSettingSchema.default(0),
+  over_transfer_allowance_pct: percentageSettingSchema.default(0),
+  over_picking_allowance_pct: percentageSettingSchema.default(0),
+  allow_negative_stock: z.boolean().default(false),
+  show_barcode_field_in_stock_transactions: z.boolean().default(true),
+  convert_item_description_to_clean_html: z.boolean().default(true),
+  allow_internal_transfers_at_arms_length_price: z.boolean().default(false),
+  qi_action_if_not_submitted: z.nativeEnum(InventoryQiAction).default(InventoryQiAction.STOP),
+  qi_action_if_rejected: z.nativeEnum(InventoryQiAction).default(InventoryQiAction.STOP),
+  enable_stock_reservation: z.boolean().default(true),
+  allow_partial_reservation: z.boolean().default(false),
+  auto_reserve_stock_for_sales_order_on_purchase: z.boolean().default(false),
+  auto_reserve_serial_and_batch_nos: z.boolean().default(false),
+  auto_create_serial_and_batch_bundle_for_outward: z.boolean().default(true),
+  pick_serial_batch_based_on: z.nativeEnum(InventorySerialBatchPickBasis).default(InventorySerialBatchPickBasis.FIFO),
+  disable_serial_no_and_batch_selector: z.boolean().default(false),
+  have_default_naming_series_for_batch_id: z.boolean().default(false),
+  use_serial_batch_fields: z.boolean().default(false),
+  do_not_update_serial_batch_on_creation_of_auto_bundle: z.boolean().default(false),
+  allow_existing_serial_no_to_be_received_again: z.boolean().default(true),
+  set_bundle_naming_based_on_naming_series: z.boolean().default(false),
+  raise_material_request_when_stock_reaches_reorder_level: z.boolean().default(true),
+  notify_by_email_on_creation_of_automatic_material_request: z.boolean().default(false),
+  allow_material_transfer_from_delivery_note_to_sales_invoice: z.boolean().default(false),
+  allow_material_transfer_from_purchase_receipt_to_purchase_invoice: z.boolean().default(false),
+  freeze_stocks_older_than_days: freezeDaysSchema.default(60),
+});
+
+export const stockSettingsPatchSchema = stockSettingsSchema
+  .partial()
+  .extend({
+    version: z.coerce.number().int().positive().optional(),
+  });
+
+export const stockSettingsPutSchema = stockSettingsSchema.extend({
+  version: z.coerce.number().int().positive().optional(),
 });

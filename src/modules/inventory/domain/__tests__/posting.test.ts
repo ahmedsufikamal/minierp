@@ -7,7 +7,7 @@ describe("posting invariants", () => {
       enforceNextOnHand({
         previousOnHand: 2,
         delta: -3,
-        preventNegativeStock: true,
+        allowNegativeStock: false,
         allowNegativeOverride: false,
         itemId: "item-1",
         warehouseId: "wh-1",
@@ -19,7 +19,7 @@ describe("posting invariants", () => {
     const next = enforceNextOnHand({
       previousOnHand: 2,
       delta: -3,
-      preventNegativeStock: true,
+      allowNegativeStock: false,
       allowNegativeOverride: true,
       itemId: "item-1",
       warehouseId: "wh-1",

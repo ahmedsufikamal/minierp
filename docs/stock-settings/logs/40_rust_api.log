@@ -1,0 +1,3 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.29s
+     Running `target/debug/api-rust`
+{"timestamp":"2026-02-21T07:55:37.815195Z","level":"WARN","fields":{"message":"ignoring unrecognized connect parameter","key":"schema","value":"public"},"target":"sqlx_postgres::options::parse"}

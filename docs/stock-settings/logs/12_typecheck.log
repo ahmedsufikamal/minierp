@@ -1,0 +1,4 @@
+
+> minierp-clerk-nextjs@0.3.0 typecheck
+> tsc -p tsconfig.refactor.json --noEmit
+

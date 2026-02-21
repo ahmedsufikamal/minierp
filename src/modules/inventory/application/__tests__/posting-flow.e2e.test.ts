@@ -7,7 +7,7 @@ describe("posting flow e2e critical path", () => {
     const receiptOnHand = enforceNextOnHand({
       previousOnHand: 0,
       delta: 10,
-      preventNegativeStock: true,
+      allowNegativeStock: false,
       allowNegativeOverride: false,
       itemId: "item",
       warehouseId: "wh",
@@ -23,7 +23,7 @@ describe("posting flow e2e critical path", () => {
     const issueOnHand = enforceNextOnHand({
       previousOnHand: receiptOnHand,
       delta: -4,
-      preventNegativeStock: true,
+      allowNegativeStock: false,
       allowNegativeOverride: false,
       itemId: "item",
       warehouseId: "wh",

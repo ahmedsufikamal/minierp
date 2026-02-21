@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { reorderRuleSchema } from "@/modules/inventory/application/schemas";
+import { loadStockSettings } from "@/modules/inventory/application/stock-settings.service";
 import { calculateReorderSuggestion } from "@/modules/inventory/domain/reorder";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
@@ -134,6 +135,9 @@ export async function deleteReorderRule(ctx: InventoryRequestContext, ruleId: st
 }
 
 export async function getReorderSuggestions(ctx: InventoryRequestContext) {
+  const stockSettings = await loadStockSettings(ctx.companyId);
+  const includeReservedInAvailability = stockSettings.enable_stock_reservation;
+
   const rules = await prisma.inventoryReorderRule.findMany({
     where: { companyId: ctx.companyId, isActive: true },
     include: {
@@ -159,7 +163,7 @@ export async function getReorderSuggestions(ctx: InventoryRequestContext) {
 
     const suggestion = calculateReorderSuggestion({
       onHand: balance?.onHand ?? 0,
-      reserved: balance?.reserved ?? 0,
+      reserved: includeReservedInAvailability ? (balance?.reserved ?? 0) : 0,
       incoming: balance?.incoming ?? 0,
       outgoing: balance?.outgoing ?? 0,
       reorderPoint: rule.reorderPoint,

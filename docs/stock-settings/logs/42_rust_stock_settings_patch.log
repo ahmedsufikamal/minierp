@@ -1,0 +1,23 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  1603  100  1562  100    41  79673   2091 --:--:-- --:--:-- --:--:-- 84368
+HTTP/1.1 200 OK
+content-type: application/json
+x-request-id: 72be840d-6062-4d4b-9bce-005677211d07
+content-length: 1562
+date: Sat, 21 Feb 2026 07:55:42 GMT
+
+{"ok":true,"data":{"item_naming_by":"ITEM_CODE","default_warehouse_id":null,"default_stock_uom_id":null,"default_valuation_method":"FIFO","auto_insert_item_price_if_missing":true,"update_existing_price_list_rate":false,"allow_edit_stock_uom_qty_sales_docs":true,"allow_edit_stock_uom_qty_purchase_docs":true,"over_delivery_receipt_allowance_pct":0.0,"over_transfer_allowance_pct":0.0,"over_picking_allowance_pct":0.0,"allow_negative_stock":true,"show_barcode_field_in_stock_transactions":true,"convert_item_description_to_clean_html":true,"allow_internal_transfers_at_arms_length_price":false,"qi_action_if_not_submitted":"STOP","qi_action_if_rejected":"STOP","enable_stock_reservation":true,"allow_partial_reservation":false,"auto_reserve_stock_for_sales_order_on_purchase":false,"auto_reserve_serial_and_batch_nos":false,"auto_create_serial_and_batch_bundle_for_outward":true,"pick_serial_batch_based_on":"FIFO","disable_serial_no_and_batch_selector":false,"have_default_naming_series_for_batch_id":false,"use_serial_batch_fields":false,"do_not_update_serial_batch_on_creation_of_auto_bundle":false,"allow_existing_serial_no_to_be_received_again":true,"set_bundle_naming_based_on_naming_series":false,"raise_material_request_when_stock_reaches_reorder_level":true,"notify_by_email_on_creation_of_automatic_material_request":false,"allow_material_transfer_from_delivery_note_to_sales_invoice":false,"allow_material_transfer_from_purchase_receipt_to_purchase_invoice":false,"freeze_stocks_older_than_days":60,"version":2,"updated_at":"2026-02-21T07:55:42.741Z"}}
+
+=== stale version check ===
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  1720  100  1678  100    42   404k  10365 --:--:-- --:--:-- --:--:--  559k
+HTTP/1.1 409 Conflict
+content-type: application/json
+x-request-id: 4046915b-f6de-4a54-ad18-a4178783d1a8
+content-length: 1678
+date: Sat, 21 Feb 2026 07:55:42 GMT
+
+{"ok":false,"error":{"code":"CONFLICT","message":"Stock settings version mismatch","details":{"current":{"allow_edit_stock_uom_qty_purchase_docs":true,"allow_edit_stock_uom_qty_sales_docs":true,"allow_existing_serial_no_to_be_received_again":true,"allow_internal_transfers_at_arms_length_price":false,"allow_material_transfer_from_delivery_note_to_sales_invoice":false,"allow_material_transfer_from_purchase_receipt_to_purchase_invoice":false,"allow_negative_stock":true,"allow_partial_reservation":false,"auto_create_serial_and_batch_bundle_for_outward":true,"auto_insert_item_price_if_missing":true,"auto_reserve_serial_and_batch_nos":false,"auto_reserve_stock_for_sales_order_on_purchase":false,"convert_item_description_to_clean_html":true,"default_stock_uom_id":null,"default_valuation_method":"FIFO","default_warehouse_id":null,"disable_serial_no_and_batch_selector":false,"do_not_update_serial_batch_on_creation_of_auto_bundle":false,"enable_stock_reservation":true,"freeze_stocks_older_than_days":60,"have_default_naming_series_for_batch_id":false,"item_naming_by":"ITEM_CODE","notify_by_email_on_creation_of_automatic_material_request":false,"over_delivery_receipt_allowance_pct":0.0,"over_picking_allowance_pct":0.0,"over_transfer_allowance_pct":0.0,"pick_serial_batch_based_on":"FIFO","qi_action_if_not_submitted":"STOP","qi_action_if_rejected":"STOP","raise_material_request_when_stock_reaches_reorder_level":true,"set_bundle_naming_based_on_naming_series":false,"show_barcode_field_in_stock_transactions":true,"update_existing_price_list_rate":false,"updated_at":"2026-02-21T07:55:42.741Z","use_serial_batch_fields":false,"version":2},"reason":"VERSION_MISMATCH"}}}
