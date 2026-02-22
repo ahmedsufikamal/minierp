@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::{
     postgres::PgPoolOptions,
-    types::{chrono::{NaiveDateTime, Utc}, Json as SqlJson},
+    types::{
+        chrono::{NaiveDateTime, Utc},
+        Json as SqlJson,
+    },
     FromRow, PgPool,
 };
 use std::{
@@ -2208,13 +2211,19 @@ async fn list_stock_items(
             .push(")");
     }
     if let Some(value) = variant_of_filter.as_deref() {
-        count_builder.push(r#" AND p."variantOfId" = "#).push_bind(value);
+        count_builder
+            .push(r#" AND p."variantOfId" = "#)
+            .push_bind(value);
     }
     if let Some(value) = assigned_to_filter.as_deref() {
-        count_builder.push(r#" AND p."assignedTo" ILIKE "#).push_bind(format!("%{value}%"));
+        count_builder
+            .push(r#" AND p."assignedTo" ILIKE "#)
+            .push_bind(format!("%{value}%"));
     }
     if let Some(value) = created_by_filter.as_deref() {
-        count_builder.push(r#" AND p."createdBy" ILIKE "#).push_bind(format!("%{value}%"));
+        count_builder
+            .push(r#" AND p."createdBy" ILIKE "#)
+            .push_bind(format!("%{value}%"));
     }
     if let Some(has_variants) = has_variants_filter {
         if has_variants {
@@ -2242,8 +2251,10 @@ async fn list_stock_items(
                       AND it."tag" = ANY("#,
             )
             .push_bind(tags_filter.clone())
-            .push(r#")
-                )"#);
+            .push(
+                r#")
+                )"#,
+            );
     }
 
     let total = count_builder
@@ -2307,13 +2318,19 @@ async fn list_stock_items(
             .push(")");
     }
     if let Some(value) = variant_of_filter.as_deref() {
-        rows_builder.push(r#" AND p."variantOfId" = "#).push_bind(value);
+        rows_builder
+            .push(r#" AND p."variantOfId" = "#)
+            .push_bind(value);
     }
     if let Some(value) = assigned_to_filter.as_deref() {
-        rows_builder.push(r#" AND p."assignedTo" ILIKE "#).push_bind(format!("%{value}%"));
+        rows_builder
+            .push(r#" AND p."assignedTo" ILIKE "#)
+            .push_bind(format!("%{value}%"));
     }
     if let Some(value) = created_by_filter.as_deref() {
-        rows_builder.push(r#" AND p."createdBy" ILIKE "#).push_bind(format!("%{value}%"));
+        rows_builder
+            .push(r#" AND p."createdBy" ILIKE "#)
+            .push_bind(format!("%{value}%"));
     }
     if let Some(has_variants) = has_variants_filter {
         if has_variants {
@@ -2341,8 +2358,10 @@ async fn list_stock_items(
                       AND it."tag" = ANY("#,
             )
             .push_bind(tags_filter.clone())
-            .push(r#")
-                )"#);
+            .push(
+                r#")
+                )"#,
+            );
     }
 
     match sort {
