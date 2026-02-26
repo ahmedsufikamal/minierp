@@ -29,6 +29,9 @@ export async function proxyStockWorkspaceToRust(params: {
   }
 
   const sharedSecret = process.env.RUST_TRUSTED_PROXY_SECRET?.trim();
+  if (!sharedSecret) {
+    throw new InventoryError("INTERNAL_ERROR", "RUST_TRUSTED_PROXY_SECRET is required for /api/stock/workspace/*");
+  }
 
   const upstreamUrl = new URL(`${baseUrl}/api/stock/workspace/${params.pathSuffix}`);
   upstreamUrl.search = new URL(params.request.url).search;
@@ -36,9 +39,7 @@ export async function proxyStockWorkspaceToRust(params: {
   const headers = new Headers(params.request.headers);
   headers.delete("host");
   headers.delete("content-length");
-  if (sharedSecret) {
-    headers.set("x-minierp-proxy-secret", sharedSecret);
-  }
+  headers.set("x-minierp-proxy-secret", sharedSecret);
   headers.set("x-minierp-company-id", params.ctx.companyId);
   headers.set("x-minierp-tenant-id", params.ctx.tenantId ?? params.ctx.companyId);
   headers.set("x-minierp-user-id", params.ctx.userId);
