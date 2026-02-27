@@ -53,13 +53,20 @@ export async function proxy(req: NextRequest) {
   const legacyCookie = req.cookies.get("session")?.value;
   const legacySession = await decrypt(legacyCookie);
   const iamSessionToken = req.cookies.get("iam_session")?.value;
-  const isAuthenticated = Boolean(legacySession?.userId || iamSessionToken);
+  const hasLegacySession = Boolean(legacySession?.userId);
+  const hasIamSessionCookie = Boolean(iamSessionToken);
 
-  if (isProtectedRoute && !isAuthenticated) {
+  // Presence-only IAM cookie checks are enough to allow protected-route traversal
+  // into server-side auth guards, but not reliable enough for public-route bounce
+  // redirects (stale cookies can cause /auth/sign-in <-> /dashboard loops).
+  const isAuthenticatedForProtectedRoutes = hasLegacySession || hasIamSessionCookie;
+  const isAuthenticatedForPublicRouteRedirect = hasLegacySession;
+
+  if (isProtectedRoute && !isAuthenticatedForProtectedRoutes) {
     return withRequestId(NextResponse.redirect(new URL("/auth/sign-in", req.nextUrl)), requestId);
   }
 
-  if (isPublicRoute && isAuthenticated && path !== "/" && path !== "/dashboard") {
+  if (isPublicRoute && isAuthenticatedForPublicRouteRedirect && path !== "/" && path !== "/dashboard") {
     return withRequestId(NextResponse.redirect(new URL("/dashboard", req.nextUrl)), requestId);
   }
 
