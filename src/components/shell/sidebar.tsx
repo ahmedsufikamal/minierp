@@ -30,12 +30,20 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobile = false, onNaviga
     >
       <div className="flex h-full flex-col">
         <div className="flex h-14 items-center justify-between border-b border-border px-3">
-          <Link href="/dashboard" className="flex items-center gap-2" onClick={onNavigate}>
-            <MiniERPLogo size="sm" className="text-foreground" />
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-2" onClick={onNavigate}>
+            <MiniERPLogo size="sm" showWordmark={!collapsed} className="text-foreground" />
             {!collapsed && <span className="text-xs text-muted-foreground">Workbench</span>}
           </Link>
           {!mobile && (
-            <Button variant="ghost" size="icon" onClick={onToggleCollapsed} aria-label="Toggle sidebar">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={onToggleCollapsed}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!collapsed}
+              data-testid="sidebar-toggle"
+            >
               {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </Button>
           )}

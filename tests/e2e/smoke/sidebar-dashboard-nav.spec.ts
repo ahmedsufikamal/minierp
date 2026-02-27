@@ -108,6 +108,17 @@ test.describe("smoke: sidebar dashboard pinning", () => {
         page.locator('aside[aria-label="Primary"]:visible [data-testid="sidebar-dashboard-link"]'),
       ).toHaveAttribute("aria-current", "page");
 
+      const collapseButton = desktopSidebar.getByRole("button", { name: "Collapse sidebar" });
+      await expect(collapseButton).toHaveAttribute("aria-expanded", "true");
+      await collapseButton.click();
+
+      const expandButton = desktopSidebar.getByRole("button", { name: "Expand sidebar" });
+      await expect(expandButton).toBeVisible();
+      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
+      await expandButton.click();
+
+      await expect(desktopSidebar.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
+
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto("/selling/customers");
       await page.getByRole("button", { name: "Open sidebar" }).click();

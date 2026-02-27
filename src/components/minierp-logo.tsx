@@ -5,13 +5,14 @@ import { cn } from "@/lib/cn";
 type MiniERPLogoProps = {
   /** "icon" = symbol only (e.g. auth card). "sm" = compact wordmark. "md" = default sidebar size. */
   size?: "icon" | "sm" | "md";
+  showWordmark?: boolean;
   className?: string;
 };
 
 /**
  * miniERP logo: cube/box icon + wordmark. Use theme colors (e.g. text-foreground or bg-primary with text-primary-foreground).
  */
-export function MiniERPLogo({ size = "md", className }: MiniERPLogoProps) {
+export function MiniERPLogo({ size = "md", showWordmark = true, className }: MiniERPLogoProps) {
   const iconOnly = size === "icon";
   const isSmall = size === "sm";
 
@@ -45,7 +46,7 @@ export function MiniERPLogo({ size = "md", className }: MiniERPLogoProps) {
           strokeLinejoin="round"
         />
       </svg>
-      {!iconOnly && (
+      {!iconOnly && showWordmark && (
         <span className={isSmall ? "text-sm" : "text-base"}>miniERP</span>
       )}
     </span>
