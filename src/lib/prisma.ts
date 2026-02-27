@@ -22,12 +22,27 @@ function getPool(): Pool {
   return globalForPrisma.pgPool;
 }
 
-export const prisma =
-  globalForPrisma.prisma ??
-  (() => {
+function initPrismaClient(): PrismaClient {
+  try {
     const adapter = new PrismaPg(getPool());
     return new PrismaClient({ adapter });
-  })();
+  } catch (error) {
+    const hint =
+      "Failed to initialize Prisma Client with PostgreSQL adapter. " +
+      "Verify DATABASE_URL and keep prisma, @prisma/client, and @prisma/adapter-pg on matching versions.";
+
+    if (error instanceof Error) {
+      error.message = `${hint} Original error: ${error.message}`;
+      throw error;
+    }
+
+    throw new Error(hint);
+  }
+}
+
+export const prisma =
+  globalForPrisma.prisma ??
+  initPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

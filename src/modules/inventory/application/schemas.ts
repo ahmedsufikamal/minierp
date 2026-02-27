@@ -212,14 +212,24 @@ export const reservationReleaseSchema = z.object({
   cancel: z.boolean().default(false),
 });
 
-export const reconciliationLineSchema = z.object({
-  itemId: z.string().min(1),
-  countedQty: z.number().int(),
-  unitCostMinor: z.number().int().nonnegative().optional().nullable(),
-  currency: z.string().default("BDT"),
-  batchCode: z.string().min(1).optional().nullable(),
-  serialNumbers: z.array(z.string().min(1)).max(1000).optional(),
-});
+export const reconciliationLineSchema = z
+  .object({
+    itemId: z.string().min(1),
+    countedQty: z.number().int(),
+    unitCostMinor: z.number().int().nonnegative().optional().nullable(),
+    currency: z.string().default("BDT"),
+    batchCode: z.string().min(1).optional().nullable(),
+    serialNumbers: z.array(z.string().min(1)).max(1000).optional(),
+  })
+  .superRefine((line, issueCtx) => {
+    if (line.serialNumbers && line.serialNumbers.length > 0) {
+      issueCtx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["serialNumbers"],
+        message: "Serial numbers are not supported in COUNT reconciliation",
+      });
+    }
+  });
 
 export const reconciliationPreviewSchema = z.object({
   warehouseId: z.string().min(1),
@@ -282,11 +292,56 @@ export const inventoryCompanySettingsSchema = z.object({
   defaultWarehouseId: z.string().trim().min(1).optional().nullable(),
   documentSeriesCode: z.string().trim().min(1).max(80).optional().nullable(),
   defaultUom: z.string().trim().min(1).max(32).default("pcs"),
-  valuationMethod: z.enum(["MOVING_AVERAGE", "FIFO"]).default("MOVING_AVERAGE"),
+  valuationMethod: z.enum(["MOVING_AVERAGE", "FIFO", "STANDARD"]).default("MOVING_AVERAGE"),
   preventNegativeStock: z.boolean().default(true),
   allowNegativeOverride: z.boolean().default(false),
   trackByLocation: z.boolean().default(false),
   baseCurrency: z.string().trim().min(3).max(3).default("BDT"),
+});
+
+export const fifoAllocationSchema = z.object({
+  layerId: z.string().min(1),
+  qty: z.number().int().positive(),
+  unitCostMinor: z.number().int(),
+  currency: z.string().min(3).max(3),
+  sourceDocumentId: z.string().nullable(),
+  sourceLineId: z.string().nullable(),
+  batchId: z.string().nullable(),
+  serialId: z.string().nullable(),
+});
+
+export const varianceReportRequestSchema = z.object({
+  itemId: z.string().min(1).optional(),
+  warehouseId: z.string().min(1).optional(),
+  locationId: z.string().min(1).nullable().optional(),
+  includeZeroDelta: z.boolean().default(false),
+});
+
+export const repostRequestSchema = z.object({
+  scope: z
+    .object({
+      itemId: z.string().min(1).optional(),
+      warehouseId: z.string().min(1).optional(),
+      locationId: z.string().min(1).nullable().optional(),
+      fromPostingSeq: z.coerce.bigint().optional(),
+      toPostingSeq: z.coerce.bigint().optional(),
+    })
+    .default({}),
+  reason: z.string().optional().nullable(),
+});
+
+export const stockClosingRequestSchema = z.object({
+  periodStart: z.coerce.date(),
+  periodEnd: z.coerce.date(),
+  scope: z
+    .object({
+      itemId: z.string().min(1).optional(),
+      warehouseId: z.string().min(1).optional(),
+      locationId: z.string().min(1).nullable().optional(),
+      batchId: z.string().min(1).nullable().optional(),
+    })
+    .optional(),
+  reason: z.string().optional().nullable(),
 });
 
 const percentageSettingSchema = z.coerce.number().min(0).max(100);

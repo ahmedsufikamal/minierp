@@ -64,6 +64,7 @@ const quickAccessConfig = [
   { href: "/buying/purchase-receipts", label: "Purchase Receipt", key: "purchase_receipt_to_bill" as const, suffix: "To Bill" },
   { href: "/stock/ledger", label: "Stock Ledger", key: null, suffix: null },
   { href: "/reports/stock-balance", label: "Stock Balance", key: null, suffix: null },
+  { href: "/stock/admin/variance", label: "Stock Ops", key: null, suffix: null },
 ] as const;
 
 const mastersAndReports = [

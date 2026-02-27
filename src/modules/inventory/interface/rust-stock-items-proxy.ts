@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
-
-function resolveRustBaseUrl(): string | null {
-  const raw = process.env.RUST_API_BASE_URL?.trim();
-  if (!raw) return null;
-  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
-}
+import { resolveRustBaseUrl, resolveRustTrustedProxySecret } from "@/modules/inventory/interface/rust-proxy-env";
 
 function toPermissionsHeader(granted: string[] | undefined): string {
   const values = new Set<string>();
@@ -22,15 +17,8 @@ export async function proxyStockItemsToRust(params: {
   request: Request;
   ctx: InventoryRequestContext;
 }): Promise<NextResponse> {
-  const baseUrl = resolveRustBaseUrl();
-  if (!baseUrl) {
-    throw new InventoryError("INTERNAL_ERROR", "RUST_API_BASE_URL is required for /api/stock/items");
-  }
-
-  const sharedSecret = process.env.RUST_TRUSTED_PROXY_SECRET?.trim();
-  if (!sharedSecret) {
-    throw new InventoryError("INTERNAL_ERROR", "RUST_TRUSTED_PROXY_SECRET is required for /api/stock/items");
-  }
+  const baseUrl = resolveRustBaseUrl("/api/stock/items");
+  const sharedSecret = resolveRustTrustedProxySecret("/api/stock/items");
 
   const upstreamUrl = new URL(`${baseUrl}/api/stock/items`);
   upstreamUrl.search = new URL(params.request.url).search;
@@ -38,7 +26,9 @@ export async function proxyStockItemsToRust(params: {
   const headers = new Headers(params.request.headers);
   headers.delete("host");
   headers.delete("content-length");
-  headers.set("x-minierp-proxy-secret", sharedSecret);
+  if (sharedSecret) {
+    headers.set("x-minierp-proxy-secret", sharedSecret);
+  }
   headers.set("x-minierp-company-id", params.ctx.companyId);
   headers.set("x-minierp-tenant-id", params.ctx.tenantId ?? params.ctx.companyId);
   headers.set("x-minierp-user-id", params.ctx.userId);

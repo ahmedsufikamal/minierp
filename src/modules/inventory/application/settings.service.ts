@@ -8,7 +8,7 @@ type InventoryCompanySettingsView = {
   defaultWarehouseId: string | null;
   documentSeriesCode: string | null;
   defaultUom: string;
-  valuationMethod: "MOVING_AVERAGE" | "FIFO";
+  valuationMethod: "MOVING_AVERAGE" | "FIFO" | "STANDARD";
   preventNegativeStock: boolean;
   allowNegativeOverride: boolean;
   trackByLocation: boolean;
@@ -47,13 +47,15 @@ async function withSettingsSchemaGuard<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
-function mapCostingMethodToValuation(method: string | null | undefined): "MOVING_AVERAGE" | "FIFO" {
+function mapCostingMethodToValuation(method: string | null | undefined): "MOVING_AVERAGE" | "FIFO" | "STANDARD" {
   if (method === "FIFO") return "FIFO";
+  if (method === "STANDARD") return "STANDARD";
   return "MOVING_AVERAGE";
 }
 
-function mapValuationToCostingMethod(method: "MOVING_AVERAGE" | "FIFO"): string {
+function mapValuationToCostingMethod(method: "MOVING_AVERAGE" | "FIFO" | "STANDARD"): string {
   if (method === "FIFO") return "FIFO";
+  if (method === "STANDARD") return "STANDARD";
   return "AVG";
 }
 

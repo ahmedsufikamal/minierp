@@ -109,6 +109,9 @@ export const navGroups: NavGroup[] = [
       { href: "/stock/ledger", label: "Ledger", icon: BookOpen },
       { href: "/stock/reorder", label: "Reorder", icon: ClipboardList },
       { href: "/stock/settings", label: "Settings", icon: Settings2 },
+      { href: "/stock/admin/variance", label: "Ops Variance", icon: BarChart3 },
+      { href: "/stock/admin/repost", label: "Ops Repost", icon: Wrench },
+      { href: "/stock/admin/closing", label: "Ops Closing", icon: FileCheck },
     ],
   },
   {

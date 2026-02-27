@@ -126,7 +126,39 @@ Open:
 
 ---
 
-## 6) Quality gates (must pass before deploy)
+## 6) Auth troubleshooting and login recovery
+
+If `npm run dev` fails with Prisma adapter/client startup errors (for example `ERR_INVALID_ARG_TYPE` from Prisma construction):
+
+```bash
+npm ls @prisma/client prisma @prisma/adapter-pg
+```
+
+All three must be on the same version line (currently `7.4.1`). If they drift:
+
+```bash
+npm install
+npm run prisma:generate
+```
+
+Preserve data first before reseeding:
+1. Confirm login users are active (`User.status=ACTIVE`, `mustResetPassword=false`).
+2. Confirm active company membership exists (`CompanyMembership.status=ACTIVE`).
+3. Confirm tenant/company auth policy includes `"PASSWORD"` in `Company.allowedAuthMethods`.
+4. Only if records are missing, run:
+
+```bash
+npm run prisma:seed
+npm run iam:backfill
+```
+
+Default seeded owner login:
+1. Email: `owner@demo.local` (or `SEED_OWNER_EMAIL`)
+2. Password: `ChangeMe!123` (or `SEED_DEFAULT_PASSWORD`)
+
+---
+
+## 7) Quality gates (must pass before deploy)
 
 ```bash
 npm run typecheck
@@ -141,7 +173,7 @@ CI workflow is defined at `.github/workflows/ci.yml` and includes migration safe
 
 ---
 
-## 7) Production (simple, VM-friendly)
+## 8) Production (simple, VM-friendly)
 
 Build:
 

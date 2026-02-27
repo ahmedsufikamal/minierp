@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum InvoiceStatus {
@@ -232,6 +231,23 @@ enum InventoryItemNamingBy {
 enum InventoryValuationMethod {
   FIFO
   MOVING_AVERAGE
+  STANDARD
+}
+
+enum InventoryOutboxEventStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+  DEAD_LETTER
+}
+
+enum InventoryOpsJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum InventoryQiAction {
@@ -814,6 +830,7 @@ model Product {
   inventoryReservations      InventoryReservation[]
   inventoryBatches           InventoryBatch[]
   inventorySerials           InventorySerial[]
+  inventoryStockClosingLines InventoryStockClosingLine[]
 
   @@unique([companyId, brandId, normalizedSku])
   @@index([companyId, brandId])
@@ -4219,6 +4236,7 @@ model InventoryWarehouse {
   reservations                      InventoryReservation[]
   batches                           InventoryBatch[]
   serials                           InventorySerial[]
+  stockClosingLines                 InventoryStockClosingLine[]
   salesOrderReservations            SalesOrder[]                 @relation("SalesOrderReservationWarehouse")
   deliveryNotesSource               DeliveryNote[]               @relation("DeliveryNoteSourceWarehouse")
   deliveryNoteLinesSource           DeliveryNoteLine[]           @relation("DeliveryNoteLineSourceWarehouse")
@@ -4261,6 +4279,7 @@ model InventoryWarehouseLocation {
   reservations                    InventoryReservation[]
   batches                         InventoryBatch[]
   serials                         InventorySerial[]
+  stockClosingLines               InventoryStockClosingLine[]
   salesOrderReservations          SalesOrder[]            @relation("SalesOrderReservationLocation")
   deliveryNotesSource             DeliveryNote[]          @relation("DeliveryNoteSourceLocation")
   deliveryNoteLinesSource         DeliveryNoteLine[]      @relation("DeliveryNoteLineSourceLocation")
@@ -4403,6 +4422,7 @@ model InventoryDocument {
   lines         InventoryDocumentLine[]
   workflow      InventoryWorkflowState?
   ledgerEntries InventoryLedgerEntry[]
+  costLayerAllocations InventoryCostLayerAllocation[]
 
   @@unique([companyId, number])
   @@index([companyId, documentType, status, createdAt])
@@ -4438,6 +4458,7 @@ model InventoryDocumentLine {
   updatedAt              DateTime                    @updatedAt
 
   ledgerEntries InventoryLedgerEntry[]
+  costLayerAllocations InventoryCostLayerAllocation[]
 
   @@index([companyId, documentId])
   @@index([companyId, itemId])
@@ -4464,6 +4485,7 @@ model InventoryWorkflowState {
 model InventoryLedgerEntry {
   id             String                      @id @default(cuid())
   companyId      String                      @map("orgId")
+  postingSeq     BigInt                      @default(dbgenerated("nextval('inventory_ledger_posting_seq'::regclass)"))
   documentId     String?
   document       InventoryDocument?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
   documentLineId String?
@@ -4482,16 +4504,24 @@ model InventoryLedgerEntry {
   reservation    InventoryReservation?       @relation(fields: [reservationId], references: [id], onDelete: SetNull)
   batchCode      String?
   serialNumbers  Json?
+  transferGroupId String?
+  reversalOfLedgerEntryId String?
   postingTime    DateTime                    @default(now())
   metadata       Json?
   createdBy      String?
   createdAt      DateTime                    @default(now())
 
+  costLayerAllocations     InventoryCostLayerAllocation[] @relation("InventoryLayerAllocationDocumentLedger")
+
+  @@unique([companyId, postingSeq])
   @@index([companyId, itemId, postingTime])
+  @@index([companyId, postingSeq])
   @@index([companyId, warehouseId, locationId])
   @@index([companyId, documentId])
   @@index([companyId, reservationId])
   @@index([companyId, batchCode])
+  @@index([companyId, transferGroupId])
+  @@index([companyId, reversalOfLedgerEntryId])
 }
 
 model InventoryCostLayer {
@@ -4502,6 +4532,11 @@ model InventoryCostLayer {
   locationId       String?
   sourceDocumentId String?
   sourceLineId     String?
+  sourceLedgerEntryId String?
+  batchId          String?
+  batch            InventoryBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  serialId         String?
+  serial           InventorySerial? @relation(fields: [serialId], references: [id], onDelete: SetNull)
   qtyRemaining     Int
   unitCostMinor    Int
   currency         String   @default("BDT")
@@ -4510,10 +4545,43 @@ model InventoryCostLayer {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  sourceAllocations InventoryCostLayerAllocation[] @relation("InventoryLayerAllocationSource")
+  destinationAllocations InventoryCostLayerAllocation[] @relation("InventoryLayerAllocationDestination")
+
   @@index([companyId, itemId, warehouseId, locationId, createdAt, id])
   @@index([companyId, sourceDocumentId])
   @@index([companyId, sourceLineId])
   @@index([companyId, itemId])
+  @@index([companyId, sourceLedgerEntryId])
+  @@index([companyId, batchId])
+  @@index([companyId, serialId])
+}
+
+model InventoryCostLayerAllocation {
+  id                String   @id @default(cuid())
+  companyId         String   @map("orgId")
+  transferGroupId   String?
+  sourceLayerId     String
+  sourceLayer       InventoryCostLayer @relation("InventoryLayerAllocationSource", fields: [sourceLayerId], references: [id], onDelete: Restrict)
+  destinationLayerId String?
+  destinationLayer  InventoryCostLayer? @relation("InventoryLayerAllocationDestination", fields: [destinationLayerId], references: [id], onDelete: SetNull)
+  documentId        String?
+  document          InventoryDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentLineId    String?
+  documentLine      InventoryDocumentLine? @relation(fields: [documentLineId], references: [id], onDelete: SetNull)
+  ledgerEntryId     String?
+  ledgerEntry       InventoryLedgerEntry? @relation("InventoryLayerAllocationDocumentLedger", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+  movementKind      String
+  qty               Int
+  unitCostMinor     Int
+  currency          String   @default("BDT")
+  createdAt         DateTime @default(now())
+
+  @@index([companyId, transferGroupId])
+  @@index([companyId, sourceLayerId])
+  @@index([companyId, destinationLayerId])
+  @@index([companyId, documentId])
+  @@index([companyId, ledgerEntryId])
 }
 
 model InventoryStockBalance {
@@ -4530,6 +4598,7 @@ model InventoryStockBalance {
   incoming     Int                         @default(0)
   outgoing     Int                         @default(0)
   avgCostMinor Int?
+  stockValueMinor Int                      @default(0)
   updatedAt    DateTime                    @updatedAt
 
   @@unique([companyId, itemId, warehouseId, locationId])
@@ -4588,6 +4657,8 @@ model InventoryBatch {
   updatedAt      DateTime                    @updatedAt
 
   serials InventorySerial[]
+  costLayers InventoryCostLayer[]
+  stockClosingLines InventoryStockClosingLine[]
 
   @@unique([companyId, itemId, warehouseId, locationId, batchCode])
   @@index([companyId, itemId, batchCode])
@@ -4607,14 +4678,105 @@ model InventorySerial {
   warehouse    InventoryWarehouse?         @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   locationId   String?
   location     InventoryWarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  receiptUnitCostMinor Int?
+  receiptCurrency String?
+  receiptLedgerEntryId String?
   metadata     Json?
   createdBy    String?
   createdAt    DateTime                    @default(now())
   updatedAt    DateTime                    @updatedAt
+  costLayers   InventoryCostLayer[]
 
   @@unique([companyId, serialNumber])
   @@index([companyId, itemId, status])
   @@index([companyId, warehouseId, locationId])
+  @@index([companyId, receiptLedgerEntryId])
+}
+
+model InventoryOutboxEvent {
+  id            String                    @id @default(cuid())
+  companyId     String                    @map("orgId")
+  topic         String
+  aggregateType String
+  aggregateId   String
+  payload       Json
+  headers       Json?
+  status        InventoryOutboxEventStatus @default(PENDING)
+  attempts      Int                       @default(0)
+  availableAt   DateTime                  @default(now())
+  processedAt   DateTime?
+  lastError     String?
+  idempotencyKey String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  @@index([companyId, status, availableAt])
+  @@index([companyId, topic, createdAt])
+  @@unique([companyId, topic, idempotencyKey])
+}
+
+model InventoryStockClosing {
+  id           String               @id @default(cuid())
+  companyId    String               @map("orgId")
+  periodStart  DateTime             @db.Date
+  periodEnd    DateTime             @db.Date
+  status       InventoryOpsJobStatus @default(QUEUED)
+  scope        Json?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdBy    String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  lines InventoryStockClosingLine[]
+
+  @@index([companyId, status, createdAt])
+  @@index([companyId, periodStart, periodEnd])
+}
+
+model InventoryStockClosingLine {
+  id             String                      @id @default(cuid())
+  closingId      String
+  closing        InventoryStockClosing       @relation(fields: [closingId], references: [id], onDelete: Cascade)
+  companyId      String                      @map("orgId")
+  itemId         String
+  item           Product                     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  warehouseId    String
+  warehouse      InventoryWarehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  locationId     String?
+  location       InventoryWarehouseLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  batchId        String?
+  batch          InventoryBatch?             @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  qtyOnHand      Int
+  stockValueMinor Int
+  avgCostMinor   Int?
+  currency       String                      @default("BDT")
+  createdAt      DateTime                    @default(now())
+
+  @@index([companyId, itemId, warehouseId, locationId, batchId])
+  @@index([closingId])
+}
+
+model InventoryOpsJob {
+  id          String                @id @default(cuid())
+  companyId   String                @map("orgId")
+  jobType     String
+  jobKey      String
+  status      InventoryOpsJobStatus @default(QUEUED)
+  payload     Json?
+  result      Json?
+  progressPct Int                   @default(0)
+  attempts    Int                   @default(0)
+  queueJobId  String?
+  error       String?
+  createdBy   String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@unique([companyId, jobType, jobKey])
+  @@index([companyId, status, createdAt])
 }
 
 model InventoryReorderRule {

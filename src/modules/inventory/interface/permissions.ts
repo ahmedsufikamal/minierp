@@ -13,6 +13,7 @@ const inventoryPermissionCompatibility: Record<InventoryPermission, string[]> = 
   "inventory.ledger.read": ["inventory.read"],
   "inventory.settings.read": ["inventory.read"],
   "inventory.settings.write": ["inventory.write"],
+  "inventory.admin.ops": ["inventory.approve", "inventory.write"],
   "inventory.import.read": ["inventory.read"],
   "inventory.import.write": ["inventory.write"],
   "inventory.export.read": ["inventory.read"],

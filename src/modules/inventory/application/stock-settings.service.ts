@@ -12,12 +12,16 @@ type CachedEntry = {
 const CACHE_TTL_MS = 15_000;
 const stockSettingsCache = new Map<string, CachedEntry>();
 
-function valuationToLegacyCosting(method: "FIFO" | "MOVING_AVERAGE"): string {
-  return method === "FIFO" ? "FIFO" : "AVG";
+function valuationToLegacyCosting(method: "FIFO" | "MOVING_AVERAGE" | "STANDARD"): string {
+  if (method === "FIFO") return "FIFO";
+  if (method === "STANDARD") return "STANDARD";
+  return "AVG";
 }
 
-function legacyCostingToValuation(method: string | null | undefined): "FIFO" | "MOVING_AVERAGE" {
-  return method === "FIFO" ? "FIFO" : "MOVING_AVERAGE";
+function legacyCostingToValuation(method: string | null | undefined): "FIFO" | "MOVING_AVERAGE" | "STANDARD" {
+  if (method === "FIFO") return "FIFO";
+  if (method === "STANDARD") return "STANDARD";
+  return "MOVING_AVERAGE";
 }
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
@@ -29,7 +33,7 @@ function toStockSettingsRecord(row: {
   itemNamingBy: "ITEM_CODE" | "NAMING_SERIES";
   defaultWarehouseId: string | null;
   defaultStockUomId: string | null;
-  defaultValuationMethod: "FIFO" | "MOVING_AVERAGE";
+  defaultValuationMethod: "FIFO" | "MOVING_AVERAGE" | "STANDARD";
   autoInsertItemPriceIfMissing: boolean;
   updateExistingPriceListRate: boolean;
   allowEditStockUomQtySalesDocs: boolean;
@@ -66,7 +70,7 @@ function toStockSettingsRecord(row: {
   item_naming_by: "ITEM_CODE" | "NAMING_SERIES";
   default_warehouse_id: string | null;
   default_stock_uom_id: string | null;
-  default_valuation_method: "FIFO" | "MOVING_AVERAGE";
+  default_valuation_method: "FIFO" | "MOVING_AVERAGE" | "STANDARD";
   auto_insert_item_price_if_missing: boolean;
   update_existing_price_list_rate: boolean;
   allow_edit_stock_uom_qty_sales_docs: boolean;

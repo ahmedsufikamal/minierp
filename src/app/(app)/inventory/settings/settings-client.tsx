@@ -17,7 +17,7 @@ type StockSettingsDto = {
   item_naming_by: "ITEM_CODE" | "NAMING_SERIES";
   default_warehouse_id: string | null;
   default_stock_uom_id: string | null;
-  default_valuation_method: "FIFO" | "MOVING_AVERAGE";
+  default_valuation_method: "FIFO" | "MOVING_AVERAGE" | "STANDARD";
   auto_insert_item_price_if_missing: boolean;
   update_existing_price_list_rate: boolean;
   allow_edit_stock_uom_qty_sales_docs: boolean;
@@ -324,6 +324,7 @@ export function InventorySettingsClient({ canEdit }: { canEdit: boolean }) {
             >
               <option value="FIFO">FIFO</option>
               <option value="MOVING_AVERAGE">MOVING_AVERAGE</option>
+              <option value="STANDARD">STANDARD</option>
             </select>
           </label>
           <label className="text-sm">

@@ -9,6 +9,7 @@ export const inventoryPermissions = {
   ledgerRead: "inventory.ledger.read",
   settingsRead: "inventory.settings.read",
   settingsWrite: "inventory.settings.write",
+  adminOps: "inventory.admin.ops",
   importRead: "inventory.import.read",
   importWrite: "inventory.import.write",
   exportRead: "inventory.export.read",

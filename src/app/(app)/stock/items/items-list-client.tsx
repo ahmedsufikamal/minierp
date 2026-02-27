@@ -47,22 +47,6 @@ type QueryState = {
 
 const PAGE_SIZE_OPTIONS = [20, 100, 500, 2500];
 
-const fallbackRows: StockItemRow[] = [
-  {
-    id: "mock-1",
-    item_name: "Samsung A52",
-    status: "ENABLED",
-    item_group: "Android",
-    item_code: "SKU-0001",
-    updated_at: new Date().toISOString(),
-    has_variants: false,
-    variant_of: null,
-    assigned_to: null,
-    created_by: null,
-    tags: ["mobile"],
-  },
-];
-
 function parseQuery(searchParams: URLSearchParams): QueryState {
   const page = Number(searchParams.get("page") ?? "1");
   const pageSize = Number(searchParams.get("page_size") ?? "20");
@@ -152,8 +136,8 @@ export function StockItemsListClient() {
         setTotal(body.data.total);
       } catch (loadError) {
         if (!alive) return;
-        setRows(fallbackRows);
-        setTotal(fallbackRows.length);
+        setRows([]);
+        setTotal(0);
         setError(loadError instanceof Error ? loadError.message : "Failed to load items");
       } finally {
         if (alive) setLoading(false);
@@ -418,7 +402,7 @@ export function StockItemsListClient() {
           </div>
         </div>
 
-        {error ? <div className="border-t border-border p-3 text-xs text-destructive">API fallback active: {error}</div> : null}
+        {error ? <div className="border-t border-border p-3 text-xs text-destructive">Failed to load items: {error}</div> : null}
       </section>
     </div>
   );

@@ -8,6 +8,10 @@ import {
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { writeInventoryAudit } from "@/modules/inventory/infrastructure/audit-log";
+import {
+  advisoryLockInventoryScopeInTx,
+  withSerializableRetry,
+} from "@/modules/inventory/infrastructure/tx";
 
 function pageToSkip(page: number, limit: number) {
   return Math.max(0, (page - 1) * limit);
@@ -20,13 +24,12 @@ async function lockBalanceRow(
   warehouseId: string,
   locationId: string | null,
 ): Promise<void> {
-  await tx.$queryRawUnsafe(
-    'SELECT 1 FROM "InventoryStockBalance" WHERE "orgId" = $1 AND "itemId" = $2 AND "warehouseId" = $3 AND ("locationId" IS NOT DISTINCT FROM $4) FOR UPDATE',
+  await advisoryLockInventoryScopeInTx(tx, {
     companyId,
     itemId,
     warehouseId,
     locationId,
-  );
+  });
 }
 
 async function lockReservationRow(
@@ -34,11 +37,13 @@ async function lockReservationRow(
   companyId: string,
   reservationId: string,
 ): Promise<void> {
-  await tx.$queryRawUnsafe(
-    'SELECT 1 FROM "InventoryReservation" WHERE "orgId" = $1 AND "id" = $2 FOR UPDATE',
-    companyId,
-    reservationId,
-  );
+  await tx.$queryRaw`
+    SELECT 1
+    FROM "InventoryReservation"
+    WHERE "orgId" = ${companyId}
+      AND "id" = ${reservationId}
+    FOR UPDATE
+  `;
 }
 
 type ReservationTarget = {
@@ -134,8 +139,9 @@ export async function createInventoryReservation(ctx: InventoryRequestContext, i
 
   const payload = parsed.data;
 
-  const created = await prisma.$transaction(
-    async (tx) => {
+  const created = await withSerializableRetry(async () =>
+    prisma.$transaction(
+      async (tx) => {
       const target = {
         itemId: payload.itemId,
         warehouseId: payload.warehouseId,
@@ -199,10 +205,11 @@ export async function createInventoryReservation(ctx: InventoryRequestContext, i
           location: { select: { id: true, code: true, name: true } },
         },
       });
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    },
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    ),
   );
 
   await writeInventoryAudit(ctx, {
@@ -227,8 +234,9 @@ export async function releaseInventoryReservation(
 
   const action = parsed.data.cancel ? "RESERVATION_CANCELLED" : "RESERVATION_RELEASED";
 
-  const released = await prisma.$transaction(
-    async (tx) => {
+  const released = await withSerializableRetry(async () =>
+    prisma.$transaction(
+      async (tx) => {
       await lockReservationRow(tx, ctx.companyId, reservationId);
 
       const existing = await tx.inventoryReservation.findFirst({
@@ -289,10 +297,11 @@ export async function releaseInventoryReservation(
           location: { select: { id: true, code: true, name: true } },
         },
       });
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    },
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    ),
   );
 
   await writeInventoryAudit(ctx, {

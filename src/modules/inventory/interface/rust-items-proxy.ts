@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
+import { resolveRustBaseUrl, resolveRustTrustedProxySecret } from "@/modules/inventory/interface/rust-proxy-env";
 
 function toPermissionsHeader(input: { granted: string[] | undefined }): string {
   const values = new Set<string>();
@@ -12,12 +13,6 @@ function toPermissionsHeader(input: { granted: string[] | undefined }): string {
   return [...values].join(",");
 }
 
-function resolveRustBaseUrl(): string | null {
-  const raw = process.env.RUST_API_BASE_URL?.trim();
-  if (!raw) return null;
-  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
-}
-
 export function isRustInventoryItemsEnabled(): boolean {
   return process.env.INVENTORY_ITEMS_RUST_ENABLED === "1";
 }
@@ -27,18 +22,8 @@ export async function proxyInventoryItemsToRust(params: {
   ctx: InventoryRequestContext;
   pathSuffix?: string;
 }): Promise<NextResponse> {
-  const baseUrl = resolveRustBaseUrl();
-  if (!baseUrl) {
-    throw new InventoryError("INTERNAL_ERROR", "RUST_API_BASE_URL is required when INVENTORY_ITEMS_RUST_ENABLED=1");
-  }
-
-  const sharedSecret = process.env.RUST_TRUSTED_PROXY_SECRET?.trim();
-  if (!sharedSecret) {
-    throw new InventoryError(
-      "INTERNAL_ERROR",
-      "RUST_TRUSTED_PROXY_SECRET is required when INVENTORY_ITEMS_RUST_ENABLED=1",
-    );
-  }
+  const baseUrl = resolveRustBaseUrl("INVENTORY_ITEMS_RUST_ENABLED=1");
+  const sharedSecret = resolveRustTrustedProxySecret("INVENTORY_ITEMS_RUST_ENABLED=1");
 
   const basePath = params.pathSuffix
     ? `/api/v1/inventory/items/${params.pathSuffix}`
@@ -49,7 +34,9 @@ export async function proxyInventoryItemsToRust(params: {
   const headers = new Headers(params.request.headers);
   headers.delete("host");
   headers.delete("content-length");
-  headers.set("x-minierp-proxy-secret", sharedSecret);
+  if (sharedSecret) {
+    headers.set("x-minierp-proxy-secret", sharedSecret);
+  }
   headers.set("x-minierp-company-id", params.ctx.companyId);
   headers.set("x-minierp-tenant-id", params.ctx.tenantId ?? params.ctx.companyId);
   headers.set("x-minierp-user-id", params.ctx.userId);

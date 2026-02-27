@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   reconciliationApplySchema,
@@ -11,6 +12,10 @@ import {
 import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { writeInventoryAudit } from "@/modules/inventory/infrastructure/audit-log";
+import {
+  advisoryLockInventoryScopeInTx,
+  withSerializableRetry,
+} from "@/modules/inventory/infrastructure/tx";
 
 function buildReconciliationNumber(now = new Date()): string {
   const stamp = now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
@@ -174,6 +179,7 @@ export async function previewInventoryReconciliation(
 export async function applyInventoryReconciliation(
   ctx: InventoryRequestContext,
   input: unknown,
+  options?: { idempotencyKey?: string },
 ) {
   const parsed = reconciliationApplySchema.safeParse(input);
   if (!parsed.success) {
@@ -184,7 +190,31 @@ export async function applyInventoryReconciliation(
     );
   }
 
+  const idempotencyKey = options?.idempotencyKey?.trim();
+  if (!idempotencyKey) {
+    throw new InventoryError("VALIDATION_ERROR", "Idempotency key is required for reconciliation apply");
+  }
+
   const payload = parsed.data;
+  await withSerializableRetry(async () =>
+    prisma.$transaction(
+      async (tx) => {
+        const uniqueItemIds = [...new Set(payload.lines.map((line) => line.itemId))];
+        for (const itemId of uniqueItemIds) {
+          await advisoryLockInventoryScopeInTx(tx, {
+            companyId: ctx.companyId,
+            itemId,
+            warehouseId: payload.warehouseId,
+            locationId: payload.locationId ?? null,
+          });
+        }
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    ),
+  );
+
   const preview = await buildReconciliationPreviewResult(ctx, {
     warehouseId: payload.warehouseId,
     locationId: payload.locationId ?? null,
@@ -192,6 +222,22 @@ export async function applyInventoryReconciliation(
   });
 
   const number = payload.number ?? buildReconciliationNumber();
+
+  const balanceBefore = await prisma.inventoryStockBalance.findMany({
+    where: {
+      companyId: ctx.companyId,
+      warehouseId: payload.warehouseId,
+      locationId: payload.locationId ?? null,
+      itemId: { in: [...new Set(payload.lines.map((line) => line.itemId))] },
+    },
+    select: {
+      itemId: true,
+      onHand: true,
+      reserved: true,
+      avgCostMinor: true,
+      stockValueMinor: true,
+    },
+  });
 
   const document = await createInventoryDocument(ctx, {
     documentType: "COUNT",
@@ -227,24 +273,47 @@ export async function applyInventoryReconciliation(
   const posted = await applyInventoryDocumentAction(ctx, document.id, {
     action: "POST",
     reason: payload.reason ?? "Stock reconciliation posting",
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey,
+  });
+
+  const balanceAfter = await prisma.inventoryStockBalance.findMany({
+    where: {
+      companyId: ctx.companyId,
+      warehouseId: payload.warehouseId,
+      locationId: payload.locationId ?? null,
+      itemId: { in: [...new Set(payload.lines.map((line) => line.itemId))] },
+    },
+    select: {
+      itemId: true,
+      onHand: true,
+      reserved: true,
+      avgCostMinor: true,
+      stockValueMinor: true,
+    },
   });
 
   await writeInventoryAudit(ctx, {
     action: "RECONCILIATION_APPLIED",
     entityType: "InventoryDocument",
     entityId: document.id,
+    before: {
+      previewTotals: preview.totals,
+      balances: balanceBefore,
+    },
     after: posted,
     metadata: {
       warehouseId: payload.warehouseId,
       locationId: payload.locationId ?? null,
       totals: preview.totals,
+      idempotencyKey,
+      balanceAfter,
     },
   });
 
   return {
     documentId: document.id,
     number,
+    idempotencyKey,
     posted,
     preview,
   };

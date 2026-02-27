@@ -72,7 +72,7 @@ describe("getCurrentUserSafe", () => {
       phone: null,
       uiThemePreference: "SYSTEM",
       mustResetPassword: false,
-    });
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
 
     const user = await getCurrentUserSafe();
 

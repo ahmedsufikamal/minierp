@@ -2,6 +2,7 @@ export type InventoryErrorCode =
   | "VALIDATION_ERROR"
   | "FORBIDDEN"
   | "CONFLICT"
+  | "RATE_LIMITED"
   | "NOT_FOUND"
   | "UNAUTHORIZED"
   | "INTERNAL_ERROR";
@@ -25,6 +26,8 @@ export class InventoryError extends Error {
             ? 403
             : code === "NOT_FOUND"
               ? 404
+              : code === "RATE_LIMITED"
+                ? 429
               : code === "CONFLICT"
                 ? 409
                 : 500;

@@ -23,6 +23,7 @@ const rolePermissionMap: Record<InventoryRole, Set<InventoryPermission>> = {
     inventoryPermissions.exportWrite,
     inventoryPermissions.attachmentRead,
     inventoryPermissions.attachmentWrite,
+    inventoryPermissions.adminOps,
   ]),
   WAREHOUSE_OPERATOR: new Set([
     inventoryPermissions.itemRead,

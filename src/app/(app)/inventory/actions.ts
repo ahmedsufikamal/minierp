@@ -38,19 +38,18 @@ export async function createMove(formData: FormData) {
     return { ok: false, error: { qty: ["Qty must be a positive number"] } };
   }
 
-  await prisma.inventoryMove.create({
-    data: {
-      companyId,
-      productId: parsed.data.productId,
-      type: parsed.data.type,
-      qty: Math.round(qty),
-      note: parsed.data.note || null,
-    },
-  });
+  void companyId;
+  void parsed;
+  void qty;
+  void prisma;
 
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return {
+    ok: false,
+    error:
+      "Legacy InventoryMove writes are disabled. Post stock through Inventory Documents (/stock/documents).",
+  };
 }
 
 export async function deleteMove(id: string) {
@@ -61,9 +60,14 @@ export async function deleteMove(id: string) {
   if (!auth.allowed || !auth.context) {
     return { ok: false, error: "Not authorized to delete inventory moves." };
   }
-  const { companyId } = auth.context;
-  await prisma.inventoryMove.deleteMany({ where: { id, companyId } });
+  void auth;
+  void id;
+  void prisma;
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return {
+    ok: false,
+    error:
+      "Legacy InventoryMove writes are disabled. Reverse/correct stock through Inventory Documents.",
+  };
 }

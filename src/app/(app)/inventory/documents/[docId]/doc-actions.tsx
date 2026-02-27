@@ -18,13 +18,16 @@ export function InventoryDocumentActions({
   const runAction = async (action: ActionType) => {
     setLoading(action);
     setError(null);
+    const idempotencyKey = action === "POST" ? crypto.randomUUID() : undefined;
 
     const response = await fetch(`/api/v1/inventory/documents/${docId}/actions`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+      },
       body: JSON.stringify({
         action,
-        idempotencyKey: action === "POST" ? crypto.randomUUID() : undefined,
       }),
     });
 

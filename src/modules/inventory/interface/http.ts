@@ -24,6 +24,14 @@ export function parseQuery<T>(request: Request, schema: ZodSchema<T>): T {
   return parsed.data;
 }
 
+export function requireIdempotencyKeyHeader(request: Request): string {
+  const key = request.headers.get("Idempotency-Key")?.trim();
+  if (!key) {
+    throw new InventoryError("VALIDATION_ERROR", "Missing required header: Idempotency-Key");
+  }
+  return key;
+}
+
 export function jsonOk(data: unknown, init?: ResponseInit): NextResponse {
   return NextResponse.json({ ok: true, data }, init);
 }

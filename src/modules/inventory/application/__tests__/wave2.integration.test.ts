@@ -263,6 +263,8 @@ maybeDescribe("inventory wave2 integration", () => {
           unitCostMinor: 500,
         },
       ],
+    }, {
+      idempotencyKey: crypto.randomUUID(),
     });
     expect(reconciliation.posted.status).toBe("POSTED");
 

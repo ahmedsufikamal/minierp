@@ -37,7 +37,45 @@ Inventory code follows a DDD-lite structure:
 
 API surface lives under: `src/app/api/v1/inventory/*`
 
-UI routes live under: `src/app/(app)/inventory/*`
+Primary UI routes now live under: `src/app/(app)/stock/*`
+Legacy `/inventory/*` routes are retained for compatibility and redirect users to `/stock/*`.
+
+## Module L Governance Rules
+
+1. Ledger immutability
+- `InventoryLedgerEntry` rows are append-only.
+- Corrections use compensating/reversal entries (`reversalOfLedgerEntryId`), never delete/update in place.
+
+2. Idempotent posting/reconciliation/ops
+- `Idempotency-Key` is required for:
+  - document posting (`POST` action),
+  - reconciliation apply,
+  - admin repost,
+  - admin stock closing.
+- Reusing a key with a different request hash returns a conflict.
+
+3. Valuation policy
+- Company valuation method supports `FIFO`, `MOVING_AVERAGE`, and `STANDARD`.
+- `STANDARD` uses item baseline cost (`Product.unitCostMinor`) for postings where applicable.
+- FIFO outbound consumes oldest layers first and records detailed layer allocations.
+
+4. FIFO transfer layer preservation
+- Transfer-out records source-layer allocations (`InventoryCostLayerAllocation` + `transferGroupId`).
+- Transfer-in recreates destination layers per allocation (same unit cost/qty), no transfer averaging.
+
+5. Serial and lot costing
+- Serial-tracked outbound uses specific identification:
+  - receipt cost is stored on serial (`receiptUnitCostMinor`, `receiptCurrency`, `receiptLedgerEntryId`);
+  - outbound serials must have receipt cost.
+- Batch-tracked outbound is lot-scoped:
+  - layer consumption is restricted to the selected batch.
+
+6. Operational controls
+- Variance report compares:
+  - `InventoryStockBalance.onHand` vs ledger quantity sum,
+  - FIFO layer quantity sum vs on-hand (when FIFO enabled).
+- Repost/rebuild recomputes derived balances/layers from immutable ledger.
+- Stock closing materializes period quantity/value snapshot for faster reporting.
 
 ## Local Dev Setup
 
@@ -106,18 +144,21 @@ Key new entities include:
 
 Main UI routes:
 
-- `/inventory`
-- `/inventory/items`
-- `/inventory/items/new`
-- `/inventory/items/[id]`
-- `/inventory/warehouses`
-- `/inventory/warehouses/[warehouseId]`
-- `/inventory/documents`
-- `/inventory/documents/new`
-- `/inventory/documents/[docId]`
-- `/inventory/ledger`
-- `/inventory/reorder`
-- `/inventory/settings`
+- `/stock`
+- `/stock/items`
+- `/stock/items/new`
+- `/stock/items/[id]`
+- `/stock/warehouses`
+- `/stock/warehouses/[warehouseId]`
+- `/stock/documents`
+- `/stock/documents/new`
+- `/stock/documents/[docId]`
+- `/stock/ledger`
+- `/stock/reorder`
+- `/stock/settings`
+- `/stock/admin/variance`
+- `/stock/admin/repost`
+- `/stock/admin/closing`
 
 API routes (REST):
 
@@ -131,6 +172,10 @@ API routes (REST):
 - `/api/v1/inventory/reorder-suggestions`
 - `/api/v1/inventory/reconciliation` (+ `/preview`)
 - `/api/v1/inventory/reservations` (+ `/[reservationId]/release`)
+- `/api/v1/inventory/admin/variance-report`
+- `/api/v1/inventory/admin/repost`
+- `/api/v1/inventory/admin/stock-closing`
+- `/api/v1/inventory/admin/jobs`
 - `/api/v1/inventory/custom-fields` (+ `/[fieldId]`, `/schema`)
 - `/api/v1/inventory/view-presets` (+ `/[presetId]`)
 - `/api/v1/inventory/attachments` (+ upload/finalize/download routes)
@@ -196,6 +241,12 @@ Inventory-focused tests added for:
 ## Operational Notes / Tradeoffs
 
 - BullMQ integration is optional and detected at runtime. If `bullmq` package or `REDIS_URL` is missing, import/export runs inline.
+- Inventory ops queues/jobs:
+  - `inventory:repost`
+  - `inventory:stock-closing`
+  - `inventory:outbox-relay`
+- Outbox relay uses dedicated `InventoryOutboxEvent` with retry/dead-letter states.
+- Sensitive endpoints (`post`, `reconcile`, `repost`, `stock-closing`) are rate-limited.
 - Presigned storage URLs are implemented with a provider-agnostic signed URL strategy. For full S3 signing, plug in AWS SDK/MinIO signer in `storage.ts`.
 - Camera scan uses browser `BarcodeDetector` when available, with keyboard scanner fallback always available.
 - Label printing currently emphasizes configurable templates and print-ready browser output. Dedicated PDF rendering can be added behind the same template model.

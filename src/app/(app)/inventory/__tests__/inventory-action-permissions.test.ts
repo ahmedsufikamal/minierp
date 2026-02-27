@@ -142,7 +142,7 @@ describe("inventory import action permissions", () => {
 });
 
 describe("inventory write action permissions", () => {
-  it("denies and allows createMove by inventory.write", async () => {
+  it("denies unauthorized createMove and blocks legacy move writes", async () => {
     const formData = new FormData();
     formData.append("productId", "prod-1");
     formData.append("type", "IN");
@@ -159,23 +159,19 @@ describe("inventory write action permissions", () => {
       context: { userId: "u1", companyId: "c1", role: "ADMIN", permissions: ["inventory.write"] },
     });
     const allowed = await createMove(formData);
-    expect(allowed).toEqual({ ok: true });
+    expect(allowed).toEqual({
+      ok: false,
+      error:
+        "Legacy InventoryMove writes are disabled. Post stock through Inventory Documents (/stock/documents).",
+    });
     expect(mocks.authorizeServerActionPermission).toHaveBeenLastCalledWith({
       iamPermission: "inventory.write",
       legacyPermission: "inventory:write",
     });
-    expect(mocks.prisma.inventoryMove.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          companyId: "c1",
-          productId: "prod-1",
-          qty: 5,
-        }),
-      }),
-    );
+    expect(mocks.prisma.inventoryMove.create).not.toHaveBeenCalled();
   });
 
-  it("denies and allows deleteMove by inventory.write", async () => {
+  it("denies unauthorized deleteMove and blocks legacy delete path", async () => {
     mocks.authorizeServerActionPermission.mockResolvedValueOnce({ allowed: false, context: null });
     const denied = await deleteMove("move-1");
     expect(denied).toEqual({ ok: false, error: "Not authorized to delete inventory moves." });
@@ -186,8 +182,12 @@ describe("inventory write action permissions", () => {
       context: { userId: "u1", companyId: "c1", role: "ADMIN", permissions: ["inventory.write"] },
     });
     const allowed = await deleteMove("move-1");
-    expect(allowed).toEqual({ ok: true });
-    expect(mocks.prisma.inventoryMove.deleteMany).toHaveBeenCalledWith({ where: { id: "move-1", companyId: "c1" } });
+    expect(allowed).toEqual({
+      ok: false,
+      error:
+        "Legacy InventoryMove writes are disabled. Reverse/correct stock through Inventory Documents.",
+    });
+    expect(mocks.prisma.inventoryMove.deleteMany).not.toHaveBeenCalled();
   });
 
   it("denies and allows brand actions by inventory.write", async () => {

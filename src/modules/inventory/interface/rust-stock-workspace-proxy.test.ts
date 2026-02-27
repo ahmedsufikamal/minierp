@@ -5,6 +5,7 @@ import { proxyStockWorkspaceToRust } from "@/modules/inventory/interface/rust-st
 
 const originalRustApiBaseUrl = process.env.RUST_API_BASE_URL;
 const originalTrustedProxySecret = process.env.RUST_TRUSTED_PROXY_SECRET;
+const originalNodeEnv = process.env.NODE_ENV;
 
 const ctx: InventoryRequestContext = {
   requestId: "req-123",
@@ -21,11 +22,13 @@ describe("proxyStockWorkspaceToRust", () => {
     vi.restoreAllMocks();
     process.env.RUST_API_BASE_URL = "https://rust.local";
     process.env.RUST_TRUSTED_PROXY_SECRET = "secret-1";
+    process.env.NODE_ENV = "test";
   });
 
   afterEach(() => {
     process.env.RUST_API_BASE_URL = originalRustApiBaseUrl;
     process.env.RUST_TRUSTED_PROXY_SECRET = originalTrustedProxySecret;
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it("throws when RUST_API_BASE_URL is missing", async () => {
@@ -39,14 +42,34 @@ describe("proxyStockWorkspaceToRust", () => {
         ctx,
         pathSuffix: "metrics",
       }),
-    ).rejects.toMatchObject<Partial<InventoryError>>({
+    ).rejects.toMatchObject({
       name: "InventoryError",
       code: "INTERNAL_ERROR",
       message: "RUST_API_BASE_URL is required for /api/stock/workspace/*",
-    });
+    } satisfies Partial<InventoryError>);
   });
 
-  it("throws when RUST_TRUSTED_PROXY_SECRET is missing", async () => {
+  it("forwards request in non-production when RUST_TRUSTED_PROXY_SECRET is missing", async () => {
+    process.env.RUST_TRUSTED_PROXY_SECRET = "";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }));
+
+    const request = new Request("https://app.local/api/stock/workspace/metrics");
+    const response = await proxyStockWorkspaceToRust({
+      request,
+      ctx,
+      pathSuffix: "metrics",
+    });
+
+    const [_, calledInit] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    const headers = new Headers(calledInit.headers);
+    expect(headers.get("x-minierp-proxy-secret")).toBeNull();
+    expect(response.status).toBe(200);
+  });
+
+  it("throws in production when RUST_TRUSTED_PROXY_SECRET is missing", async () => {
+    process.env.NODE_ENV = "production";
     process.env.RUST_TRUSTED_PROXY_SECRET = "";
 
     const request = new Request("https://app.local/api/stock/workspace/metrics");
@@ -57,11 +80,11 @@ describe("proxyStockWorkspaceToRust", () => {
         ctx,
         pathSuffix: "metrics",
       }),
-    ).rejects.toMatchObject<Partial<InventoryError>>({
+    ).rejects.toMatchObject({
       name: "InventoryError",
       code: "INTERNAL_ERROR",
       message: "RUST_TRUSTED_PROXY_SECRET is required for /api/stock/workspace/*",
-    });
+    } satisfies Partial<InventoryError>);
   });
 
   it("forwards request context and returns proxied response headers", async () => {

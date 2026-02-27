@@ -4,6 +4,7 @@ import {
   InventorySerialStatus,
   Prisma,
 } from "@prisma/client";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { allocateSeriesNumber } from "@/modules/platform/application/numbering.service";
 import {
@@ -25,6 +26,10 @@ import { computeAverageCost, enforceNextOnHand } from "@/modules/inventory/domai
 import { inventoryPermissions } from "@/modules/inventory/domain/types";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { writeInventoryAudit } from "@/modules/inventory/infrastructure/audit-log";
+import {
+  advisoryLockInventoryScopeInTx,
+  withSerializableRetry,
+} from "@/modules/inventory/infrastructure/tx";
 
 type AppContext = Omit<InventoryRequestContext, "role"> & { role: import("@/modules/inventory/domain/types").InventoryRole };
 type InventoryDocumentPostResult = {
@@ -36,8 +41,23 @@ type InventoryDocumentPostResult = {
   reservationConsumedQty?: number;
 };
 
+type FifoAllocation = {
+  layerId: string;
+  qty: number;
+  unitCostMinor: number;
+  currency: string;
+  sourceDocumentId: string | null;
+  sourceLineId: string | null;
+  batchId: string | null;
+  serialId: string | null;
+};
+
 function pageToSkip(page: number, limit: number) {
   return Math.max(0, (page - 1) * limit);
+}
+
+function hashIdempotencyRequest(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
 function ensurePositiveInt(value: number, label: string): void {
@@ -251,7 +271,7 @@ export async function getInventoryDocument(ctx: AppContext, documentId: string) 
       },
       workflow: true,
       ledgerEntries: {
-        orderBy: { postingTime: "desc" },
+        orderBy: [{ postingSeq: "desc" }, { postingTime: "desc" }],
         take: 100,
       },
     },
@@ -532,10 +552,14 @@ type StockMovement = {
   locationId?: string | null;
   delta: number;
   unitCostMinor: number;
+  defaultUnitCostMinor: number;
   currency: string;
   reservationId?: string | null;
   batchCode?: string | null;
   serialNumbers: string[];
+  trackSerial: boolean;
+  trackBatch: boolean;
+  transferGroupId?: string | null;
   metadata: Record<string, unknown>;
 };
 
@@ -543,6 +567,7 @@ type ItemTrackingProfile = {
   id: string;
   trackSerial: boolean;
   trackBatch: boolean;
+  unitCostMinor: number | null;
 };
 
 async function lockBalanceRow(
@@ -552,13 +577,22 @@ async function lockBalanceRow(
   warehouseId: string,
   locationId: string | null,
 ): Promise<void> {
-  await tx.$queryRawUnsafe(
-    'SELECT 1 FROM "InventoryStockBalance" WHERE "orgId" = $1 AND "itemId" = $2 AND "warehouseId" = $3 AND ("locationId" IS NOT DISTINCT FROM $4) FOR UPDATE',
+  await advisoryLockInventoryScopeInTx(tx, {
     companyId,
     itemId,
     warehouseId,
     locationId,
-  );
+  });
+
+  await tx.$queryRaw`
+    SELECT 1
+    FROM "InventoryStockBalance"
+    WHERE "orgId" = ${companyId}
+      AND "itemId" = ${itemId}
+      AND "warehouseId" = ${warehouseId}
+      AND ("locationId" IS NOT DISTINCT FROM ${locationId})
+    FOR UPDATE
+  `;
 }
 
 async function lockBatchRow(
@@ -569,14 +603,23 @@ async function lockBatchRow(
   locationId: string | null,
   batchCode: string,
 ): Promise<void> {
-  await tx.$queryRawUnsafe(
-    'SELECT 1 FROM "InventoryBatch" WHERE "orgId" = $1 AND "itemId" = $2 AND "warehouseId" = $3 AND ("locationId" IS NOT DISTINCT FROM $4) AND "batchCode" = $5 FOR UPDATE',
+  await advisoryLockInventoryScopeInTx(tx, {
     companyId,
     itemId,
     warehouseId,
     locationId,
-    batchCode,
-  );
+  });
+
+  await tx.$queryRaw`
+    SELECT 1
+    FROM "InventoryBatch"
+    WHERE "orgId" = ${companyId}
+      AND "itemId" = ${itemId}
+      AND "warehouseId" = ${warehouseId}
+      AND ("locationId" IS NOT DISTINCT FROM ${locationId})
+      AND "batchCode" = ${batchCode}
+    FOR UPDATE
+  `;
 }
 
 async function createFifoLayerInTx(
@@ -591,12 +634,15 @@ async function createFifoLayerInTx(
     currency: string;
     sourceDocumentId: string;
     sourceLineId: string;
+    sourceLedgerEntryId?: string | null;
+    batchId?: string | null;
+    serialId?: string | null;
     userId: string;
     metadata?: Record<string, unknown>;
   },
 ) {
   if (params.qty <= 0) return;
-  await tx.inventoryCostLayer.create({
+  return tx.inventoryCostLayer.create({
     data: {
       companyId: params.companyId,
       itemId: params.itemId,
@@ -604,6 +650,9 @@ async function createFifoLayerInTx(
       locationId: params.locationId,
       sourceDocumentId: params.sourceDocumentId,
       sourceLineId: params.sourceLineId,
+      sourceLedgerEntryId: params.sourceLedgerEntryId ?? null,
+      batchId: params.batchId ?? null,
+      serialId: params.serialId ?? null,
       qtyRemaining: params.qty,
       unitCostMinor: params.unitCostMinor,
       currency: params.currency,
@@ -613,7 +662,7 @@ async function createFifoLayerInTx(
   });
 }
 
-async function consumeFifoLayersInTx(
+async function consumeFifoLayersDetailedInTx(
   tx: Prisma.TransactionClient,
   params: {
     companyId: string;
@@ -621,14 +670,22 @@ async function consumeFifoLayersInTx(
     warehouseId: string;
     locationId: string | null;
     quantity: number;
+    transferGroupId?: string | null;
+    documentId?: string | null;
+    documentLineId?: string | null;
+    ledgerEntryId?: string | null;
+    movementKind: string;
+    batchId?: string | null;
+    serialIds?: string[];
   },
-): Promise<{ consumedQty: number; totalCostMinor: number }> {
+): Promise<{ consumedQty: number; totalCostMinor: number; allocations: FifoAllocation[] }> {
   let remaining = Math.max(0, params.quantity);
   let consumedQty = 0;
   let totalCostMinor = 0;
+  const allocations: FifoAllocation[] = [];
 
   if (remaining === 0) {
-    return { consumedQty: 0, totalCostMinor: 0 };
+    return { consumedQty: 0, totalCostMinor: 0, allocations };
   }
 
   const layers = await tx.inventoryCostLayer.findMany({
@@ -638,9 +695,11 @@ async function consumeFifoLayersInTx(
       warehouseId: params.warehouseId,
       locationId: params.locationId,
       qtyRemaining: { gt: 0 },
+      ...(params.batchId ? { batchId: params.batchId } : {}),
+      ...(params.serialIds && params.serialIds.length > 0 ? { serialId: { in: params.serialIds } } : {}),
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    take: 500,
+    take: 2000,
   });
 
   for (const layer of layers) {
@@ -651,6 +710,16 @@ async function consumeFifoLayersInTx(
     remaining -= takeQty;
     consumedQty += takeQty;
     totalCostMinor += takeQty * layer.unitCostMinor;
+    allocations.push({
+      layerId: layer.id,
+      qty: takeQty,
+      unitCostMinor: layer.unitCostMinor,
+      currency: layer.currency,
+      sourceDocumentId: layer.sourceDocumentId ?? null,
+      sourceLineId: layer.sourceLineId ?? null,
+      batchId: layer.batchId ?? null,
+      serialId: layer.serialId ?? null,
+    });
 
     await tx.inventoryCostLayer.update({
       where: { id: layer.id },
@@ -658,9 +727,25 @@ async function consumeFifoLayersInTx(
         qtyRemaining: layer.qtyRemaining - takeQty,
       },
     });
+
+    await tx.inventoryCostLayerAllocation.create({
+      data: {
+        companyId: params.companyId,
+        transferGroupId: params.transferGroupId ?? null,
+        sourceLayerId: layer.id,
+        destinationLayerId: null,
+        documentId: params.documentId ?? null,
+        documentLineId: params.documentLineId ?? null,
+        ledgerEntryId: params.ledgerEntryId ?? null,
+        movementKind: params.movementKind,
+        qty: takeQty,
+        unitCostMinor: layer.unitCostMinor,
+        currency: layer.currency,
+      },
+    });
   }
 
-  return { consumedQty, totalCostMinor };
+  return { consumedQty, totalCostMinor, allocations };
 }
 
 function assertSerialBatchPayload(params: {
@@ -813,9 +898,17 @@ async function applySerialMovementInTx(
     movementKind: string;
     userId: string;
     postingTime: Date;
+    receiptUnitCostMinor?: number | null;
+    receiptCurrency?: string | null;
+    receiptLedgerEntryId?: string | null;
+    enforceOutboundCost?: boolean;
   },
-): Promise<void> {
-  if (params.serialNumbers.length === 0) return;
+): Promise<{ outboundCostMinor: number }> {
+  if (params.serialNumbers.length === 0) {
+    return { outboundCostMinor: 0 };
+  }
+
+  let outboundCostMinor = 0;
 
   for (const serialNumber of params.serialNumbers) {
     const existing = await tx.inventorySerial.findUnique({
@@ -856,6 +949,14 @@ async function applySerialMovementInTx(
         );
       }
 
+      if ((params.enforceOutboundCost ?? true) && existing.receiptUnitCostMinor == null) {
+        throw new InventoryError(
+          "CONFLICT",
+          `Serial '${serialNumber}' is missing receipt costing and cannot be issued`,
+        );
+      }
+      outboundCostMinor += existing.receiptUnitCostMinor ?? 0;
+
       const nextStatus =
         params.movementKind === "TRANSFER_OUT"
           ? InventorySerialStatus.RESERVED
@@ -866,15 +967,8 @@ async function applySerialMovementInTx(
         data: {
           status: nextStatus,
           batchId: params.batchId ?? existing.batchId,
-          ...(nextStatus === InventorySerialStatus.RESERVED
-            ? {
-                warehouseId: null,
-                locationId: null,
-              }
-            : {
-                warehouseId: null,
-                locationId: null,
-              }),
+          warehouseId: null,
+          locationId: null,
           metadata: {
             ...(typeof existing.metadata === "object" && existing.metadata ? (existing.metadata as Record<string, unknown>) : {}),
             lastMovementKind: params.movementKind,
@@ -893,6 +987,9 @@ async function applySerialMovementInTx(
           warehouseId: params.warehouseId,
           locationId: params.locationId,
           batchId: params.batchId ?? existing.batchId,
+          receiptUnitCostMinor: existing.receiptUnitCostMinor ?? params.receiptUnitCostMinor ?? null,
+          receiptCurrency: existing.receiptCurrency ?? params.receiptCurrency ?? null,
+          receiptLedgerEntryId: existing.receiptLedgerEntryId ?? params.receiptLedgerEntryId ?? null,
           metadata: {
             ...(typeof existing.metadata === "object" && existing.metadata ? (existing.metadata as Record<string, unknown>) : {}),
             lastMovementKind: params.movementKind,
@@ -912,6 +1009,9 @@ async function applySerialMovementInTx(
         batchId: params.batchId,
         warehouseId: params.warehouseId,
         locationId: params.locationId,
+        receiptUnitCostMinor: params.receiptUnitCostMinor ?? null,
+        receiptCurrency: params.receiptCurrency ?? null,
+        receiptLedgerEntryId: params.receiptLedgerEntryId ?? null,
         metadata: {
           createdByMovementKind: params.movementKind,
           createdAt: params.postingTime.toISOString(),
@@ -920,6 +1020,8 @@ async function applySerialMovementInTx(
       },
     });
   }
+
+  return { outboundCostMinor };
 }
 
 function buildMovementsForLine(params: {
@@ -967,10 +1069,13 @@ function buildMovementsForLine(params: {
           locationId: destinationLocationId,
           delta: qtyAbs,
           unitCostMinor,
+          defaultUnitCostMinor: unitCostMinor,
           currency: params.line.currency,
           reservationId: params.line.reservationId,
           batchCode: params.line.batchCode,
           serialNumbers: params.line.serialNumbers,
+          trackSerial: false,
+          trackBatch: false,
           metadata: { kind: "RECEIPT_IN" },
         },
       ];
@@ -987,10 +1092,13 @@ function buildMovementsForLine(params: {
           locationId: sourceLocationId,
           delta: -qtyAbs,
           unitCostMinor,
+          defaultUnitCostMinor: unitCostMinor,
           currency: params.line.currency,
           reservationId: params.line.reservationId,
           batchCode: params.line.batchCode,
           serialNumbers: params.line.serialNumbers,
+          trackSerial: false,
+          trackBatch: false,
           metadata: { kind: "ISSUE_OUT" },
         },
       ];
@@ -1007,10 +1115,13 @@ function buildMovementsForLine(params: {
           locationId: sourceLocationId,
           delta: -qtyAbs,
           unitCostMinor,
+          defaultUnitCostMinor: unitCostMinor,
           currency: params.line.currency,
           reservationId: params.line.reservationId,
           batchCode: params.line.batchCode,
           serialNumbers: params.line.serialNumbers,
+          trackSerial: false,
+          trackBatch: false,
           metadata: { kind: "TRANSFER_OUT" },
         },
         {
@@ -1020,10 +1131,13 @@ function buildMovementsForLine(params: {
           locationId: destinationLocationId,
           delta: qtyAbs,
           unitCostMinor,
+          defaultUnitCostMinor: unitCostMinor,
           currency: params.line.currency,
           reservationId: params.line.reservationId,
           batchCode: params.line.batchCode,
           serialNumbers: params.line.serialNumbers,
+          trackSerial: false,
+          trackBatch: false,
           metadata: { kind: "TRANSFER_IN" },
         },
       ];
@@ -1042,10 +1156,13 @@ function buildMovementsForLine(params: {
           locationId,
           delta: params.line.quantity,
           unitCostMinor,
+          defaultUnitCostMinor: unitCostMinor,
           currency: params.line.currency,
           reservationId: params.line.reservationId,
           batchCode: params.line.batchCode,
           serialNumbers: params.line.serialNumbers,
+          trackSerial: false,
+          trackBatch: false,
           metadata: { kind: "ADJUSTMENT" },
         },
       ];
@@ -1064,10 +1181,13 @@ function buildMovementsForLine(params: {
           locationId,
           delta: params.line.quantity,
           unitCostMinor,
+          defaultUnitCostMinor: unitCostMinor,
           currency: params.line.currency,
           reservationId: params.line.reservationId,
           batchCode: params.line.batchCode,
           serialNumbers: params.line.serialNumbers,
+          trackSerial: false,
+          trackBatch: false,
           metadata: { kind: "COUNT_RECONCILIATION", countedQty: params.line.quantity },
         },
       ];
@@ -1144,6 +1264,9 @@ export async function applyInventoryDocumentAction(ctx: AppContext, documentId: 
   }
 
   if (action.action === "POST") {
+    if (!action.idempotencyKey?.trim()) {
+      throw new InventoryError("VALIDATION_ERROR", "Idempotency key is required for document posting");
+    }
     return postInventoryDocument(ctx, document.id, {
       idempotencyKey: action.idempotencyKey,
       allowNegativeOverride: action.allowNegativeOverride,
@@ -1220,336 +1343,896 @@ export async function postInventoryDocument(
   },
 ): Promise<InventoryDocumentPostResult> {
   const idempotencyScope = "INVENTORY_DOCUMENT_POST";
-
-  if (options.idempotencyKey) {
-    const keyRecord = await prisma.inventoryIdempotencyKey.findUnique({
-      where: {
-        companyId_scope_key: {
-          companyId: ctx.companyId,
-          scope: idempotencyScope,
-          key: options.idempotencyKey,
-        },
-      },
-    });
-
-    if (keyRecord?.response) {
-      const cached = parseStoredPostResult(keyRecord.response);
-      if (cached) {
-        return cached;
-      }
-    }
+  const idempotencyKey = options.idempotencyKey?.trim();
+  if (!idempotencyKey) {
+    throw new InventoryError("VALIDATION_ERROR", "Idempotency key is required for posting");
   }
+  const requestHash = hashIdempotencyRequest({
+    documentId,
+    allowNegativeOverride: Boolean(options.allowNegativeOverride),
+    reason: options.reason ?? null,
+  });
 
   const stockSettings = await loadStockSettings(ctx.companyId);
+  const result = await withSerializableRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const idempotencyRecord = await tx.inventoryIdempotencyKey.findUnique({
+          where: {
+            companyId_scope_key: {
+              companyId: ctx.companyId,
+              scope: idempotencyScope,
+              key: idempotencyKey,
+            },
+          },
+        });
 
-  const result = await prisma.$transaction(
-    async (tx) => {
-      const document = await tx.inventoryDocument.findFirst({
-        where: { id: documentId, companyId: ctx.companyId },
-        include: {
-          lines: true,
-          workflow: true,
-        },
-      });
-
-      if (!document) {
-        throw new InventoryError("NOT_FOUND", "Document not found");
-      }
-
-      if (document.status === InventoryDocumentStatus.POSTED) {
-        return {
-          documentId: document.id,
-          status: document.status,
-          alreadyPosted: true,
-          postedAt: document.postedAt ? document.postedAt.toISOString() : null,
-        };
-      }
-
-      if (document.status !== InventoryDocumentStatus.APPROVED) {
-        throw new InventoryError("CONFLICT", "Only approved documents can be posted");
-      }
-
-      assertFreezeWindow({
-        ctx,
-        settings: stockSettings,
-        documentDate: document.documentDate,
-        operation: "Posting stock document",
-      });
-
-      const allowNegativeOverride = Boolean(options.allowNegativeOverride);
-      const canOverrideNegative = hasInventoryPermission(ctx.role, inventoryPermissions.overrideNegativeStock);
-
-      if (allowNegativeOverride && !canOverrideNegative) {
-        throw new InventoryError("FORBIDDEN", "Missing overrideNegativeStock permission");
-      }
-
-      const postingTimestamp = new Date();
-      const movements: StockMovement[] = [];
-      let reservationConsumedQty = 0;
-
-      const uniqueItemIds = [...new Set(document.lines.map((line) => line.itemId))];
-      const trackingProfiles = await tx.product.findMany({
-        where: {
-          companyId: ctx.companyId,
-          id: { in: uniqueItemIds },
-        },
-        select: {
-          id: true,
-          trackSerial: true,
-          trackBatch: true,
-        },
-      });
-
-      if (trackingProfiles.length !== uniqueItemIds.length) {
-        throw new InventoryError("VALIDATION_ERROR", "One or more document items are invalid");
-      }
-
-      const trackingByItem = new Map(trackingProfiles.map((profile) => [profile.id, profile]));
-
-      for (const line of document.lines) {
-        const tracking = trackingByItem.get(line.itemId);
-        if (!tracking) {
-          throw new InventoryError("VALIDATION_ERROR", `Missing tracking profile for item ${line.itemId}`);
+        if (idempotencyRecord?.requestHash && idempotencyRecord.requestHash !== requestHash) {
+          throw new InventoryError("CONFLICT", "Idempotency key cannot be reused with a different payload");
+        }
+        if (idempotencyRecord?.response) {
+          const cached = parseStoredPostResult(idempotencyRecord.response);
+          if (cached) {
+            return cached;
+          }
         }
 
-        const reservationId = lineReservationId(line);
-        const batchCode = lineBatchCode(line);
-        const serialNumbers = lineSerialNumbers(line);
-
-        assertSerialBatchPayload({
-          documentType: document.documentType,
-          line: {
-            quantity: line.quantity,
-            itemId: line.itemId,
-            serialNumbers,
-            batchCode,
-          },
-          tracking,
-        });
-
-        const lineMovements = buildMovementsForLine({
-          type: document.documentType,
-          line: {
-            id: line.id,
-            itemId: line.itemId,
-            quantity: line.quantity,
-            unitCostMinor: line.unitCostMinor,
-            currency: line.currency,
-            sourceWarehouseId: line.sourceWarehouseId,
-            sourceLocationId: line.sourceLocationId,
-            destinationWarehouseId: line.destinationWarehouseId,
-            destinationLocationId: line.destinationLocationId,
-            reservationId,
-            batchCode,
-            serialNumbers,
-          },
-          docDefaults: {
-            sourceWarehouseId: document.sourceWarehouseId,
-            sourceLocationId: document.sourceLocationId,
-            destinationWarehouseId: document.destinationWarehouseId,
-            destinationLocationId: document.destinationLocationId,
+        const document = await tx.inventoryDocument.findFirst({
+          where: { id: documentId, companyId: ctx.companyId },
+          include: {
+            lines: true,
+            workflow: true,
           },
         });
 
-        if (document.documentType === InventoryDocumentType.COUNT && lineMovements.length === 1) {
-          const movement = lineMovements[0];
-          const current = await tx.inventoryStockBalance.findFirst({
+        if (!document) {
+          throw new InventoryError("NOT_FOUND", "Document not found");
+        }
+
+        if (document.status === InventoryDocumentStatus.POSTED) {
+          const alreadyPostedResult: InventoryDocumentPostResult = {
+            documentId: document.id,
+            status: document.status,
+            alreadyPosted: true,
+            postedAt: document.postedAt ? document.postedAt.toISOString() : null,
+          };
+          await tx.inventoryIdempotencyKey.upsert({
+            where: {
+              companyId_scope_key: {
+                companyId: ctx.companyId,
+                scope: idempotencyScope,
+                key: idempotencyKey,
+              },
+            },
+            create: {
+              companyId: ctx.companyId,
+              scope: idempotencyScope,
+              key: idempotencyKey,
+              requestHash,
+              response: alreadyPostedResult as Prisma.InputJsonValue,
+              createdBy: ctx.userId,
+            },
+            update: {
+              requestHash,
+              response: alreadyPostedResult as Prisma.InputJsonValue,
+              createdBy: ctx.userId,
+            },
+          });
+          return alreadyPostedResult;
+        }
+
+        if (document.status !== InventoryDocumentStatus.APPROVED) {
+          throw new InventoryError("CONFLICT", "Only approved documents can be posted");
+        }
+
+        assertFreezeWindow({
+          ctx,
+          settings: stockSettings,
+          documentDate: document.documentDate,
+          operation: "Posting stock document",
+        });
+
+        const allowNegativeOverride = Boolean(options.allowNegativeOverride);
+        const canOverrideNegative = hasInventoryPermission(ctx.role, inventoryPermissions.overrideNegativeStock);
+
+        if (allowNegativeOverride && !canOverrideNegative) {
+          throw new InventoryError("FORBIDDEN", "Missing overrideNegativeStock permission");
+        }
+
+        const postingTimestamp = new Date();
+        const movements: StockMovement[] = [];
+        let reservationConsumedQty = 0;
+        const transferAllocationsByLine = new Map<string, FifoAllocation[]>();
+
+        const uniqueItemIds = [...new Set(document.lines.map((line) => line.itemId))];
+        const trackingProfiles = await tx.product.findMany({
+          where: {
+            companyId: ctx.companyId,
+            id: { in: uniqueItemIds },
+          },
+          select: {
+            id: true,
+            trackSerial: true,
+            trackBatch: true,
+            unitCostMinor: true,
+          },
+        });
+
+        if (trackingProfiles.length !== uniqueItemIds.length) {
+          throw new InventoryError("VALIDATION_ERROR", "One or more document items are invalid");
+        }
+
+        const trackingByItem = new Map(trackingProfiles.map((profile) => [profile.id, profile]));
+
+        for (const line of document.lines) {
+          const tracking = trackingByItem.get(line.itemId);
+          if (!tracking) {
+            throw new InventoryError("VALIDATION_ERROR", `Missing tracking profile for item ${line.itemId}`);
+          }
+
+          const reservationId = lineReservationId(line);
+          const batchCode = lineBatchCode(line);
+          const serialNumbers = lineSerialNumbers(line);
+
+          assertSerialBatchPayload({
+            documentType: document.documentType,
+            line: {
+              quantity: line.quantity,
+              itemId: line.itemId,
+              serialNumbers,
+              batchCode,
+            },
+            tracking,
+          });
+
+          const lineMovements = buildMovementsForLine({
+            type: document.documentType,
+            line: {
+              id: line.id,
+              itemId: line.itemId,
+              quantity: line.quantity,
+              unitCostMinor: line.unitCostMinor,
+              currency: line.currency,
+              sourceWarehouseId: line.sourceWarehouseId,
+              sourceLocationId: line.sourceLocationId,
+              destinationWarehouseId: line.destinationWarehouseId,
+              destinationLocationId: line.destinationLocationId,
+              reservationId,
+              batchCode,
+              serialNumbers,
+            },
+            docDefaults: {
+              sourceWarehouseId: document.sourceWarehouseId,
+              sourceLocationId: document.sourceLocationId,
+              destinationWarehouseId: document.destinationWarehouseId,
+              destinationLocationId: document.destinationLocationId,
+            },
+          });
+
+          if (document.documentType === InventoryDocumentType.COUNT && lineMovements.length === 1) {
+            const movement = lineMovements[0];
+            const current = await tx.inventoryStockBalance.findFirst({
+              where: {
+                companyId: ctx.companyId,
+                itemId: movement.itemId,
+                warehouseId: movement.warehouseId,
+                locationId: movement.locationId ?? null,
+              },
+              select: { onHand: true },
+            });
+
+            movement.delta = line.quantity - (current?.onHand ?? 0);
+            movement.metadata = {
+              ...movement.metadata,
+              previousOnHand: current?.onHand ?? 0,
+              countedQty: line.quantity,
+            };
+          }
+
+          const transferGroupId =
+            document.documentType === InventoryDocumentType.TRANSFER ? randomUUID() : null;
+          for (const movement of lineMovements) {
+            movement.trackSerial = tracking.trackSerial;
+            movement.trackBatch = tracking.trackBatch;
+            movement.defaultUnitCostMinor = tracking.unitCostMinor ?? movement.unitCostMinor;
+            movement.transferGroupId = transferGroupId;
+          }
+
+          movements.push(...lineMovements);
+        }
+
+        for (const movement of movements) {
+          await lockBalanceRow(
+            tx,
+            ctx.companyId,
+            movement.itemId,
+            movement.warehouseId,
+            movement.locationId ?? null,
+          );
+
+          const existingBalance = await tx.inventoryStockBalance.findFirst({
             where: {
               companyId: ctx.companyId,
               itemId: movement.itemId,
               warehouseId: movement.warehouseId,
               locationId: movement.locationId ?? null,
             },
-            select: { onHand: true },
+            select: {
+              id: true,
+              onHand: true,
+              reserved: true,
+              avgCostMinor: true,
+              stockValueMinor: true,
+            },
           });
 
-          movement.delta = line.quantity - (current?.onHand ?? 0);
-          movement.metadata = {
-            ...movement.metadata,
-            previousOnHand: current?.onHand ?? 0,
-            countedQty: line.quantity,
+          const previousOnHand = existingBalance?.onHand ?? 0;
+          const previousAvg = existingBalance?.avgCostMinor ?? movement.defaultUnitCostMinor;
+          const previousStockValue = existingBalance?.stockValueMinor ?? previousOnHand * previousAvg;
+
+          let batchIdFromExisting: string | null = null;
+          if (movement.trackBatch && movement.batchCode) {
+            await lockBatchRow(
+              tx,
+              ctx.companyId,
+              movement.itemId,
+              movement.warehouseId,
+              movement.locationId ?? null,
+              movement.batchCode,
+            );
+
+            const existingBatch = await tx.inventoryBatch.findFirst({
+              where: {
+                companyId: ctx.companyId,
+                itemId: movement.itemId,
+                warehouseId: movement.warehouseId,
+                locationId: movement.locationId ?? null,
+                batchCode: movement.batchCode,
+              },
+              select: { id: true },
+            });
+            if (movement.delta < 0 && !existingBatch) {
+              throw new InventoryError(
+                "CONFLICT",
+                `Batch '${movement.batchCode}' is not available for outbound movement`,
+              );
+            }
+            batchIdFromExisting = existingBatch?.id ?? null;
+          }
+
+          if (movement.delta > 0 && movement.trackBatch && movement.batchCode && !batchIdFromExisting) {
+            batchIdFromExisting = await applyBatchMovementInTx(tx, {
+              companyId: ctx.companyId,
+              itemId: movement.itemId,
+              warehouseId: movement.warehouseId,
+              locationId: movement.locationId ?? null,
+              batchCode: movement.batchCode,
+              delta: 0,
+              metadata: {
+                source: "document-posting",
+                kind: "BATCH_PREPARE",
+                postingTime: postingTimestamp.toISOString(),
+              },
+              userId: ctx.userId,
+              allowNegativeStock: stockSettings.allow_negative_stock,
+              allowNegativeOverride,
+            });
+          }
+
+          let serialOutboundCostMinor: number | null = null;
+          let outboundSerialAlreadyMoved = false;
+          if (movement.delta < 0 && movement.trackSerial && movement.serialNumbers.length > 0) {
+            const serialResult = await applySerialMovementInTx(tx, {
+              companyId: ctx.companyId,
+              itemId: movement.itemId,
+              warehouseId: movement.warehouseId,
+              locationId: movement.locationId ?? null,
+              delta: movement.delta,
+              serialNumbers: movement.serialNumbers,
+              batchId: batchIdFromExisting,
+              movementKind: String(movement.metadata.kind ?? "UNKNOWN"),
+              userId: ctx.userId,
+              postingTime: postingTimestamp,
+              enforceOutboundCost: true,
+            });
+            serialOutboundCostMinor = serialResult.outboundCostMinor;
+            outboundSerialAlreadyMoved = true;
+          }
+
+          const nextOnHand = enforceNextOnHand({
+            previousOnHand,
+            delta: movement.delta,
+            allowNegativeStock: stockSettings.allow_negative_stock,
+            allowNegativeOverride,
+            itemId: movement.itemId,
+            warehouseId: movement.warehouseId,
+          });
+
+          let ledgerUnitCostMinor = movement.unitCostMinor;
+          let ledgerTotalCostMinor = movement.delta * ledgerUnitCostMinor;
+          const valuationMetadata: Record<string, unknown> = {
+            method: stockSettings.default_valuation_method,
+            fifoFallbackUsed: false,
           };
+
+          if (movement.delta < 0) {
+            const qtyAbs = Math.abs(movement.delta);
+
+            if (movement.trackSerial && serialOutboundCostMinor != null) {
+              const totalOutboundCost = serialOutboundCostMinor;
+              ledgerUnitCostMinor = qtyAbs > 0 ? Math.round(totalOutboundCost / qtyAbs) : 0;
+              ledgerTotalCostMinor = -totalOutboundCost;
+              valuationMetadata.method = "SPECIFIC_ID";
+              valuationMetadata.specificId = true;
+            } else if (stockSettings.default_valuation_method === "FIFO") {
+              const consumed = await consumeFifoLayersDetailedInTx(tx, {
+                companyId: ctx.companyId,
+                itemId: movement.itemId,
+                warehouseId: movement.warehouseId,
+                locationId: movement.locationId ?? null,
+                quantity: qtyAbs,
+                transferGroupId: movement.transferGroupId ?? null,
+                documentId: document.id,
+                documentLineId: movement.lineId,
+                movementKind: String(movement.metadata.kind ?? "FIFO_OUT"),
+                batchId: batchIdFromExisting,
+              });
+
+              let totalOutboundCost = consumed.totalCostMinor;
+              let fallbackUsed = false;
+              if (consumed.consumedQty < qtyAbs) {
+                if (!allowNegativeOverride) {
+                  throw new InventoryError(
+                    "CONFLICT",
+                    `Insufficient FIFO layers for item ${movement.itemId} (${movement.warehouseId})`,
+                  );
+                }
+                const remainder = qtyAbs - consumed.consumedQty;
+                const fallbackUnitCost = existingBalance?.avgCostMinor ?? movement.defaultUnitCostMinor;
+                totalOutboundCost += remainder * fallbackUnitCost;
+                fallbackUsed = true;
+              }
+
+              ledgerUnitCostMinor = qtyAbs > 0 ? Math.round(totalOutboundCost / qtyAbs) : movement.defaultUnitCostMinor;
+              ledgerTotalCostMinor = -totalOutboundCost;
+              valuationMetadata.fifoConsumedQty = consumed.consumedQty;
+              valuationMetadata.fifoFallbackUsed = fallbackUsed;
+              valuationMetadata.allocations = consumed.allocations.map((allocation) => ({
+                layerId: allocation.layerId,
+                qty: allocation.qty,
+                unitCostMinor: allocation.unitCostMinor,
+                currency: allocation.currency,
+              }));
+
+              if (movement.metadata.kind === "TRANSFER_OUT") {
+                transferAllocationsByLine.set(movement.lineId, consumed.allocations);
+              }
+            } else if (stockSettings.default_valuation_method === "STANDARD") {
+              const standardUnitCost = movement.defaultUnitCostMinor;
+              ledgerUnitCostMinor = standardUnitCost;
+              ledgerTotalCostMinor = movement.delta * standardUnitCost;
+              valuationMetadata.method = "STANDARD";
+            } else {
+              const baselineUnitCost = existingBalance?.avgCostMinor ?? movement.defaultUnitCostMinor;
+              ledgerUnitCostMinor = baselineUnitCost;
+              ledgerTotalCostMinor = movement.delta * baselineUnitCost;
+            }
+          } else if (movement.delta > 0) {
+            if (movement.metadata.kind === "TRANSFER_IN" && stockSettings.default_valuation_method === "FIFO") {
+              const allocations = transferAllocationsByLine.get(movement.lineId) ?? [];
+              if (allocations.length === 0 && !allowNegativeOverride) {
+                throw new InventoryError(
+                  "CONFLICT",
+                  `TRANSFER_IN for line ${movement.lineId} is missing source FIFO allocations`,
+                );
+              }
+
+              if (allocations.length > 0) {
+                let totalInboundCost = 0;
+                for (const allocation of allocations) {
+                  const destinationLayer = await createFifoLayerInTx(tx, {
+                    companyId: ctx.companyId,
+                    itemId: movement.itemId,
+                    warehouseId: movement.warehouseId,
+                    locationId: movement.locationId ?? null,
+                    qty: allocation.qty,
+                    unitCostMinor: allocation.unitCostMinor,
+                    currency: allocation.currency,
+                    sourceDocumentId: document.id,
+                    sourceLineId: movement.lineId,
+                    sourceLedgerEntryId: null,
+                    batchId: movement.trackBatch ? batchIdFromExisting : allocation.batchId,
+                    serialId: allocation.serialId,
+                    userId: ctx.userId,
+                    metadata: {
+                      source: "document-posting",
+                      movementKind: movement.metadata.kind,
+                      transferPreserved: true,
+                      transferGroupId: movement.transferGroupId,
+                    },
+                  });
+
+                  if (destinationLayer) {
+                    await tx.inventoryCostLayerAllocation.create({
+                      data: {
+                        companyId: ctx.companyId,
+                        transferGroupId: movement.transferGroupId ?? null,
+                        sourceLayerId: allocation.layerId,
+                        destinationLayerId: destinationLayer.id,
+                        documentId: document.id,
+                        documentLineId: movement.lineId,
+                        ledgerEntryId: null,
+                        movementKind: "TRANSFER_IN",
+                        qty: allocation.qty,
+                        unitCostMinor: allocation.unitCostMinor,
+                        currency: allocation.currency,
+                      },
+                    });
+                  }
+
+                  totalInboundCost += allocation.qty * allocation.unitCostMinor;
+                }
+
+                ledgerUnitCostMinor =
+                  movement.delta > 0 ? Math.round(totalInboundCost / movement.delta) : movement.defaultUnitCostMinor;
+                ledgerTotalCostMinor = totalInboundCost;
+                valuationMetadata.transferLayerPreserved = true;
+                valuationMetadata.allocations = allocations.map((allocation) => ({
+                  layerId: allocation.layerId,
+                  qty: allocation.qty,
+                  unitCostMinor: allocation.unitCostMinor,
+                  currency: allocation.currency,
+                }));
+              }
+            } else if (stockSettings.default_valuation_method === "STANDARD") {
+              ledgerUnitCostMinor = movement.defaultUnitCostMinor;
+              ledgerTotalCostMinor = movement.delta * ledgerUnitCostMinor;
+              valuationMetadata.method = "STANDARD";
+            }
+          }
+
+          const nextAvgCost = computeAverageCost({
+            previousOnHand,
+            previousAvgCostMinor: previousAvg,
+            delta: movement.delta,
+            unitCostMinor: ledgerUnitCostMinor,
+          });
+
+          let nextReserved = existingBalance?.reserved ?? 0;
+          let reservationConsumedOnMovement = 0;
+          if (movement.delta < 0 && movement.reservationId) {
+            const consumed = await consumeInventoryReservationInTx(tx, {
+              companyId: ctx.companyId,
+              reservationId: movement.reservationId,
+              itemId: movement.itemId,
+              warehouseId: movement.warehouseId,
+              locationId: movement.locationId ?? null,
+              quantity: Math.abs(movement.delta),
+              userId: ctx.userId,
+            });
+            reservationConsumedOnMovement = consumed.consumedQty;
+            reservationConsumedQty += consumed.consumedQty;
+            nextReserved = Math.max(nextReserved - consumed.consumedQty, 0);
+          }
+
+          const batchId = await applyBatchMovementInTx(tx, {
+            companyId: ctx.companyId,
+            itemId: movement.itemId,
+            warehouseId: movement.warehouseId,
+            locationId: movement.locationId ?? null,
+            batchCode: movement.batchCode ?? null,
+            delta: movement.delta,
+            metadata: {
+              source: "document-posting",
+              kind: movement.metadata.kind,
+              postingTime: postingTimestamp.toISOString(),
+            },
+            userId: ctx.userId,
+            allowNegativeStock: stockSettings.allow_negative_stock,
+            allowNegativeOverride,
+          });
+          const effectiveBatchId = batchId ?? batchIdFromExisting;
+
+          const nextStockValueMinor = previousStockValue + ledgerTotalCostMinor;
+
+          const ledgerEntry = await tx.inventoryLedgerEntry.create({
+            data: {
+              companyId: ctx.companyId,
+              documentId: document.id,
+              documentLineId: movement.lineId,
+              itemId: movement.itemId,
+              warehouseId: movement.warehouseId,
+              locationId: movement.locationId,
+              quantityDelta: movement.delta,
+              unitCostMinor: ledgerUnitCostMinor,
+              totalCostMinor: ledgerTotalCostMinor,
+              currency: movement.currency,
+              reservationId: movement.reservationId ?? null,
+              batchCode: movement.batchCode ?? null,
+              serialNumbers: (movement.serialNumbers ?? []) as Prisma.InputJsonValue,
+              transferGroupId: movement.transferGroupId ?? null,
+              postingTime: postingTimestamp,
+              metadata: ({
+                ...movement.metadata,
+                valuation: valuationMetadata as Prisma.InputJsonValue,
+                reason: options.reason ?? null,
+                idempotencyKey,
+              }) as Prisma.InputJsonValue,
+              createdBy: ctx.userId,
+            },
+          });
+
+          if (stockSettings.default_valuation_method === "FIFO") {
+            await tx.inventoryCostLayerAllocation.updateMany({
+              where: {
+                companyId: ctx.companyId,
+                documentId: document.id,
+                documentLineId: movement.lineId,
+                movementKind: String(movement.metadata.kind ?? "UNKNOWN"),
+                transferGroupId: movement.transferGroupId ?? null,
+                ledgerEntryId: null,
+              },
+              data: {
+                ledgerEntryId: ledgerEntry.id,
+              },
+            });
+
+            if (movement.delta > 0 && movement.metadata.kind !== "TRANSFER_IN") {
+              await createFifoLayerInTx(tx, {
+                companyId: ctx.companyId,
+                itemId: movement.itemId,
+                warehouseId: movement.warehouseId,
+                locationId: movement.locationId ?? null,
+                qty: movement.delta,
+                unitCostMinor: ledgerUnitCostMinor,
+                currency: movement.currency,
+                sourceDocumentId: document.id,
+                sourceLineId: movement.lineId,
+                sourceLedgerEntryId: ledgerEntry.id,
+                batchId: effectiveBatchId,
+                serialId: null,
+                userId: ctx.userId,
+                metadata: {
+                  source: "document-posting",
+                  movementKind: movement.metadata.kind,
+                },
+              });
+            }
+          }
+
+          if (movement.trackSerial && (!outboundSerialAlreadyMoved || movement.delta > 0)) {
+            await applySerialMovementInTx(tx, {
+              companyId: ctx.companyId,
+              itemId: movement.itemId,
+              warehouseId: movement.warehouseId,
+              locationId: movement.locationId ?? null,
+              delta: movement.delta,
+              serialNumbers: movement.serialNumbers,
+              batchId: effectiveBatchId,
+              movementKind: String(movement.metadata.kind ?? "UNKNOWN"),
+              userId: ctx.userId,
+              postingTime: postingTimestamp,
+              receiptUnitCostMinor: movement.delta > 0 ? ledgerUnitCostMinor : null,
+              receiptCurrency: movement.delta > 0 ? movement.currency : null,
+              receiptLedgerEntryId: movement.delta > 0 ? ledgerEntry.id : null,
+              enforceOutboundCost: true,
+            });
+          }
+
+          if (existingBalance) {
+            await tx.inventoryStockBalance.update({
+              where: { id: existingBalance.id },
+              data: {
+                onHand: nextOnHand,
+                avgCostMinor: nextAvgCost,
+                reserved: nextReserved,
+                stockValueMinor: nextStockValueMinor,
+              },
+            });
+          } else {
+            await tx.inventoryStockBalance.create({
+              data: {
+                companyId: ctx.companyId,
+                itemId: movement.itemId,
+                warehouseId: movement.warehouseId,
+                locationId: movement.locationId ?? null,
+                onHand: nextOnHand,
+                reserved: nextReserved,
+                incoming: 0,
+                outgoing: 0,
+                avgCostMinor: nextAvgCost,
+                stockValueMinor: nextStockValueMinor,
+              },
+            });
+          }
+
+          await tx.inventoryOutboxEvent.create({
+            data: {
+              companyId: ctx.companyId,
+              topic: "StockBalanceChanged",
+              aggregateType: "InventoryStockBalance",
+              aggregateId: `${movement.itemId}:${movement.warehouseId}:${movement.locationId ?? "~"}`,
+              payload: {
+                documentId: document.id,
+                documentLineId: movement.lineId,
+                ledgerEntryId: ledgerEntry.id,
+                itemId: movement.itemId,
+                warehouseId: movement.warehouseId,
+                locationId: movement.locationId ?? null,
+                quantityDelta: movement.delta,
+                reservationId: movement.reservationId ?? null,
+              } as Prisma.InputJsonValue,
+              headers: {
+                requestId: ctx.requestId,
+                userId: ctx.userId,
+              } as Prisma.InputJsonValue,
+              idempotencyKey: `${idempotencyKey}:StockBalanceChanged:${ledgerEntry.id}`,
+            },
+          });
+
+          if (reservationConsumedOnMovement > 0 && movement.reservationId) {
+            await tx.inventoryOutboxEvent.create({
+              data: {
+                companyId: ctx.companyId,
+                topic: "ReservationConsumed",
+                aggregateType: "InventoryReservation",
+                aggregateId: movement.reservationId,
+                payload: {
+                  documentId: document.id,
+                  ledgerEntryId: ledgerEntry.id,
+                  consumedQty: reservationConsumedOnMovement,
+                  itemId: movement.itemId,
+                } as Prisma.InputJsonValue,
+                headers: {
+                  requestId: ctx.requestId,
+                  userId: ctx.userId,
+                } as Prisma.InputJsonValue,
+                idempotencyKey: `${idempotencyKey}:ReservationConsumed:${ledgerEntry.id}`,
+              },
+            });
+          }
+
+          if (movement.serialNumbers.length > 0) {
+            await tx.inventoryOutboxEvent.create({
+              data: {
+                companyId: ctx.companyId,
+                topic: "SerialMoved",
+                aggregateType: "InventorySerial",
+                aggregateId: movement.itemId,
+                payload: {
+                  documentId: document.id,
+                  documentLineId: movement.lineId,
+                  ledgerEntryId: ledgerEntry.id,
+                  movementKind: movement.metadata.kind,
+                  serialNumbers: movement.serialNumbers,
+                } as Prisma.InputJsonValue,
+                headers: {
+                  requestId: ctx.requestId,
+                  userId: ctx.userId,
+                } as Prisma.InputJsonValue,
+                idempotencyKey: `${idempotencyKey}:SerialMoved:${ledgerEntry.id}`,
+              },
+            });
+          }
+
+          if (movement.batchCode) {
+            await tx.inventoryOutboxEvent.create({
+              data: {
+                companyId: ctx.companyId,
+                topic: "BatchMoved",
+                aggregateType: "InventoryBatch",
+                aggregateId: effectiveBatchId ?? movement.batchCode,
+                payload: {
+                  documentId: document.id,
+                  documentLineId: movement.lineId,
+                  ledgerEntryId: ledgerEntry.id,
+                  batchCode: movement.batchCode,
+                  movementKind: movement.metadata.kind,
+                  quantityDelta: movement.delta,
+                } as Prisma.InputJsonValue,
+                headers: {
+                  requestId: ctx.requestId,
+                  userId: ctx.userId,
+                } as Prisma.InputJsonValue,
+                idempotencyKey: `${idempotencyKey}:BatchMoved:${ledgerEntry.id}`,
+              },
+            });
+          }
         }
 
-        movements.push(...lineMovements);
-      }
+        const posted = await tx.inventoryDocument.update({
+          where: { id: document.id },
+          data: {
+            status: InventoryDocumentStatus.POSTED,
+            postedAt: postingTimestamp,
+            postedBy: ctx.userId,
+            updatedBy: ctx.userId,
+            workflow: {
+              upsert: {
+                create: {
+                  companyId: ctx.companyId,
+                  currentStatus: InventoryDocumentStatus.POSTED,
+                  steps: mergeWorkflowHistory(null, {
+                    action: "POST",
+                    status: InventoryDocumentStatus.POSTED,
+                    by: ctx.userId,
+                    reason: options.reason,
+                  }),
+                  lastAction: "POST",
+                  lastActionBy: ctx.userId,
+                  lastActionAt: postingTimestamp,
+                },
+                update: {
+                  currentStatus: InventoryDocumentStatus.POSTED,
+                  steps: mergeWorkflowHistory(document.workflow?.steps ?? null, {
+                    action: "POST",
+                    status: InventoryDocumentStatus.POSTED,
+                    by: ctx.userId,
+                    reason: options.reason,
+                  }),
+                  lastAction: "POST",
+                  lastActionBy: ctx.userId,
+                  lastActionAt: postingTimestamp,
+                },
+              },
+            },
+          },
+        });
 
-      const transferUnitCostByLine = new Map<string, number>();
+        const response: InventoryDocumentPostResult = {
+          documentId: posted.id,
+          status: posted.status,
+          postedAt: posted.postedAt ? posted.postedAt.toISOString() : null,
+          alreadyPosted: false,
+          movementCount: movements.length,
+          reservationConsumedQty,
+        };
 
-      for (const movement of movements) {
+        await tx.inventoryOutboxEvent.create({
+          data: {
+            companyId: ctx.companyId,
+            topic: "InventoryDocumentPosted",
+            aggregateType: "InventoryDocument",
+            aggregateId: document.id,
+            payload: {
+              documentId: document.id,
+              number: document.number,
+              documentType: document.documentType,
+              postedAt: posted.postedAt?.toISOString() ?? postingTimestamp.toISOString(),
+              movementCount: movements.length,
+            } as Prisma.InputJsonValue,
+            headers: {
+              requestId: ctx.requestId,
+              userId: ctx.userId,
+            } as Prisma.InputJsonValue,
+            idempotencyKey: `${idempotencyKey}:InventoryDocumentPosted:${document.id}`,
+          },
+        });
+
+        await tx.inventoryIdempotencyKey.upsert({
+          where: {
+            companyId_scope_key: {
+              companyId: ctx.companyId,
+              scope: idempotencyScope,
+              key: idempotencyKey,
+            },
+          },
+          create: {
+            companyId: ctx.companyId,
+            scope: idempotencyScope,
+            key: idempotencyKey,
+            requestHash,
+            response: response as Prisma.InputJsonValue,
+            createdBy: ctx.userId,
+          },
+          update: {
+            requestHash,
+            response: response as Prisma.InputJsonValue,
+            createdBy: ctx.userId,
+          },
+        });
+
+        return response;
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    ),
+  );
+
+  await writeInventoryAudit(ctx, {
+    action: "DOCUMENT_POSTED",
+    entityType: "InventoryDocument",
+    entityId: documentId,
+    after: result,
+    metadata: {
+      reason: options.reason ?? null,
+      idempotencyKey,
+      movementCount:
+        typeof (result as { movementCount?: unknown }).movementCount === "number"
+          ? (result as { movementCount: number }).movementCount
+          : null,
+      reservationConsumedQty:
+        typeof (result as { reservationConsumedQty?: unknown }).reservationConsumedQty === "number"
+          ? (result as { reservationConsumedQty: number }).reservationConsumedQty
+          : null,
+    },
+  });
+
+  return result;
+}
+
+export async function reverseInventoryLedgerEntry(
+  ctx: AppContext,
+  ledgerEntryId: string,
+  options?: { reason?: string | null },
+) {
+  const result = await withSerializableRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const source = await tx.inventoryLedgerEntry.findFirst({
+          where: {
+            id: ledgerEntryId,
+            companyId: ctx.companyId,
+          },
+        });
+        if (!source) {
+          throw new InventoryError("NOT_FOUND", "Ledger entry not found");
+        }
+
         await lockBalanceRow(
           tx,
           ctx.companyId,
-          movement.itemId,
-          movement.warehouseId,
-          movement.locationId ?? null,
+          source.itemId,
+          source.warehouseId,
+          source.locationId ?? null,
         );
 
         const existingBalance = await tx.inventoryStockBalance.findFirst({
           where: {
             companyId: ctx.companyId,
-            itemId: movement.itemId,
-            warehouseId: movement.warehouseId,
-            locationId: movement.locationId ?? null,
+            itemId: source.itemId,
+            warehouseId: source.warehouseId,
+            locationId: source.locationId ?? null,
           },
           select: {
             id: true,
             onHand: true,
-            reserved: true,
             avgCostMinor: true,
+            stockValueMinor: true,
+            reserved: true,
           },
         });
 
+        const reversalQty = -source.quantityDelta;
+        const reversalTotalCost = -(source.totalCostMinor ?? source.quantityDelta * (source.unitCostMinor ?? 0));
         const previousOnHand = existingBalance?.onHand ?? 0;
-        let resolvedUnitCostMinor = movement.unitCostMinor;
-        if (movement.delta > 0 && movement.metadata.kind === "TRANSFER_IN") {
-          const transferredCost = transferUnitCostByLine.get(movement.lineId);
-          if (typeof transferredCost === "number") {
-            resolvedUnitCostMinor = transferredCost;
-          }
-        }
+        const nextOnHand = previousOnHand + reversalQty;
+        const previousStockValue = existingBalance?.stockValueMinor ?? previousOnHand * (existingBalance?.avgCostMinor ?? 0);
+        const nextStockValue = previousStockValue + reversalTotalCost;
+        const nextAvgCost = nextOnHand === 0 ? 0 : Math.round(nextStockValue / nextOnHand);
 
-        const nextOnHand = enforceNextOnHand({
-          previousOnHand,
-          delta: movement.delta,
-          allowNegativeStock: stockSettings.allow_negative_stock,
-          allowNegativeOverride,
-          itemId: movement.itemId,
-          warehouseId: movement.warehouseId,
-        });
-
-        let ledgerUnitCostMinor = resolvedUnitCostMinor;
-        let ledgerTotalCostMinor = movement.delta * ledgerUnitCostMinor;
-        const valuationMetadata: Record<string, unknown> = {
-          method: stockSettings.default_valuation_method,
-          fifoFallbackUsed: false,
-        };
-
-        if (movement.delta < 0) {
-          const qtyAbs = Math.abs(movement.delta);
-          if (stockSettings.default_valuation_method === "FIFO") {
-            const consumed = await consumeFifoLayersInTx(tx, {
-              companyId: ctx.companyId,
-              itemId: movement.itemId,
-              warehouseId: movement.warehouseId,
-              locationId: movement.locationId ?? null,
-              quantity: qtyAbs,
-            });
-
-            let totalOutboundCost = consumed.totalCostMinor;
-            let fallbackUsed = false;
-            if (consumed.consumedQty < qtyAbs) {
-              const remainder = qtyAbs - consumed.consumedQty;
-              const fallbackUnitCost = existingBalance?.avgCostMinor ?? resolvedUnitCostMinor;
-              totalOutboundCost += remainder * fallbackUnitCost;
-              fallbackUsed = true;
-            }
-
-            ledgerUnitCostMinor = qtyAbs > 0 ? Math.round(totalOutboundCost / qtyAbs) : resolvedUnitCostMinor;
-            ledgerTotalCostMinor = -totalOutboundCost;
-            valuationMetadata.fifoConsumedQty = consumed.consumedQty;
-            valuationMetadata.fifoFallbackUsed = fallbackUsed;
-          } else {
-            const baselineUnitCost = existingBalance?.avgCostMinor ?? resolvedUnitCostMinor;
-            ledgerUnitCostMinor = baselineUnitCost;
-            ledgerTotalCostMinor = movement.delta * baselineUnitCost;
-          }
-        } else if (movement.delta > 0 && stockSettings.default_valuation_method === "FIFO") {
-          await createFifoLayerInTx(tx, {
-            companyId: ctx.companyId,
-            itemId: movement.itemId,
-            warehouseId: movement.warehouseId,
-            locationId: movement.locationId ?? null,
-            qty: movement.delta,
-            unitCostMinor: ledgerUnitCostMinor,
-            currency: movement.currency,
-            sourceDocumentId: document.id,
-            sourceLineId: movement.lineId,
-            userId: ctx.userId,
-            metadata: {
-              source: "document-posting",
-              movementKind: movement.metadata.kind,
-            },
-          });
-        }
-
-        if (movement.delta < 0 && movement.metadata.kind === "TRANSFER_OUT") {
-          transferUnitCostByLine.set(movement.lineId, ledgerUnitCostMinor);
-        }
-
-        const nextAvgCost = computeAverageCost({
-          previousOnHand,
-          previousAvgCostMinor: existingBalance?.avgCostMinor ?? ledgerUnitCostMinor,
-          delta: movement.delta,
-          unitCostMinor: ledgerUnitCostMinor,
-        });
-
-        let nextReserved = existingBalance?.reserved ?? 0;
-        if (movement.delta < 0 && movement.reservationId) {
-          const consumed = await consumeInventoryReservationInTx(tx, {
-            companyId: ctx.companyId,
-            reservationId: movement.reservationId,
-            itemId: movement.itemId,
-            warehouseId: movement.warehouseId,
-            locationId: movement.locationId ?? null,
-            quantity: Math.abs(movement.delta),
-            userId: ctx.userId,
-          });
-          reservationConsumedQty += consumed.consumedQty;
-          nextReserved = Math.max(nextReserved - consumed.consumedQty, 0);
-        }
-
-        const batchId = await applyBatchMovementInTx(tx, {
-          companyId: ctx.companyId,
-          itemId: movement.itemId,
-          warehouseId: movement.warehouseId,
-          locationId: movement.locationId ?? null,
-          batchCode: movement.batchCode ?? null,
-          delta: movement.delta,
-          metadata: {
-            source: "document-posting",
-            kind: movement.metadata.kind,
-            postingTime: postingTimestamp.toISOString(),
-          },
-          userId: ctx.userId,
-          allowNegativeStock: stockSettings.allow_negative_stock,
-          allowNegativeOverride,
-        });
-
-        await applySerialMovementInTx(tx, {
-          companyId: ctx.companyId,
-          itemId: movement.itemId,
-          warehouseId: movement.warehouseId,
-          locationId: movement.locationId ?? null,
-          delta: movement.delta,
-          serialNumbers: movement.serialNumbers,
-          batchId,
-          movementKind: String(movement.metadata.kind ?? "UNKNOWN"),
-          userId: ctx.userId,
-          postingTime: postingTimestamp,
-        });
-
-        await tx.inventoryLedgerEntry.create({
+        const reversal = await tx.inventoryLedgerEntry.create({
           data: {
             companyId: ctx.companyId,
-            documentId: document.id,
-            documentLineId: movement.lineId,
-            itemId: movement.itemId,
-            warehouseId: movement.warehouseId,
-            locationId: movement.locationId,
-            quantityDelta: movement.delta,
-            unitCostMinor: ledgerUnitCostMinor,
-            totalCostMinor: ledgerTotalCostMinor,
-            currency: movement.currency,
-            reservationId: movement.reservationId ?? null,
-            batchCode: movement.batchCode ?? null,
-            serialNumbers: (movement.serialNumbers ?? []) as Prisma.InputJsonValue,
-            postingTime: postingTimestamp,
-            metadata: ({
-              ...movement.metadata,
-              valuation: valuationMetadata as Prisma.InputJsonValue,
-              reason: options.reason ?? null,
-            }) as Prisma.InputJsonValue,
+            documentId: source.documentId,
+            documentLineId: source.documentLineId,
+            itemId: source.itemId,
+            warehouseId: source.warehouseId,
+            locationId: source.locationId,
+            quantityDelta: reversalQty,
+            unitCostMinor: source.unitCostMinor,
+            totalCostMinor: reversalTotalCost,
+            currency: source.currency,
+            reservationId: source.reservationId,
+            batchCode: source.batchCode,
+            serialNumbers: source.serialNumbers as Prisma.InputJsonValue,
+            transferGroupId: source.transferGroupId,
+            reversalOfLedgerEntryId: source.id,
+            metadata: {
+              source: "ledger-reversal",
+              reason: options?.reason ?? null,
+            } as Prisma.InputJsonValue,
             createdBy: ctx.userId,
           },
         });
@@ -1560,118 +2243,39 @@ export async function postInventoryDocument(
             data: {
               onHand: nextOnHand,
               avgCostMinor: nextAvgCost,
-              reserved: nextReserved,
+              stockValueMinor: nextStockValue,
             },
           });
         } else {
           await tx.inventoryStockBalance.create({
             data: {
               companyId: ctx.companyId,
-              itemId: movement.itemId,
-              warehouseId: movement.warehouseId,
-              locationId: movement.locationId ?? null,
+              itemId: source.itemId,
+              warehouseId: source.warehouseId,
+              locationId: source.locationId ?? null,
               onHand: nextOnHand,
-              reserved: nextReserved,
+              reserved: 0,
               incoming: 0,
               outgoing: 0,
               avgCostMinor: nextAvgCost,
+              stockValueMinor: nextStockValue,
             },
           });
         }
-      }
 
-      const posted = await tx.inventoryDocument.update({
-        where: { id: document.id },
-        data: {
-          status: InventoryDocumentStatus.POSTED,
-          postedAt: postingTimestamp,
-          postedBy: ctx.userId,
-          updatedBy: ctx.userId,
-          workflow: {
-            upsert: {
-              create: {
-                companyId: ctx.companyId,
-                currentStatus: InventoryDocumentStatus.POSTED,
-                steps: mergeWorkflowHistory(null, {
-                  action: "POST",
-                  status: InventoryDocumentStatus.POSTED,
-                  by: ctx.userId,
-                  reason: options.reason,
-                }),
-                lastAction: "POST",
-                lastActionBy: ctx.userId,
-                lastActionAt: postingTimestamp,
-              },
-              update: {
-                currentStatus: InventoryDocumentStatus.POSTED,
-                steps: mergeWorkflowHistory(document.workflow?.steps ?? null, {
-                  action: "POST",
-                  status: InventoryDocumentStatus.POSTED,
-                  by: ctx.userId,
-                  reason: options.reason,
-                }),
-                lastAction: "POST",
-                lastActionBy: ctx.userId,
-                lastActionAt: postingTimestamp,
-              },
-            },
-          },
-        },
-      });
-
-      return {
-        documentId: posted.id,
-        status: posted.status,
-        postedAt: posted.postedAt ? posted.postedAt.toISOString() : null,
-        alreadyPosted: false,
-        movementCount: movements.length,
-        reservationConsumedQty,
-      };
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    },
+        return reversal;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
   );
 
-  if (options.idempotencyKey) {
-    await prisma.inventoryIdempotencyKey.upsert({
-      where: {
-        companyId_scope_key: {
-          companyId: ctx.companyId,
-          scope: idempotencyScope,
-          key: options.idempotencyKey,
-        },
-      },
-      create: {
-        companyId: ctx.companyId,
-        scope: idempotencyScope,
-        key: options.idempotencyKey,
-        response: result as Prisma.InputJsonValue,
-        createdBy: ctx.userId,
-      },
-      update: {
-        response: result as Prisma.InputJsonValue,
-        createdBy: ctx.userId,
-      },
-    });
-  }
-
   await writeInventoryAudit(ctx, {
-    action: "DOCUMENT_POSTED",
-    entityType: "InventoryDocument",
-    entityId: documentId,
-    after: result,
+    action: "LEDGER_ENTRY_REVERSED",
+    entityType: "InventoryLedgerEntry",
+    entityId: result.id,
     metadata: {
-      reason: options.reason ?? null,
-      idempotencyKey: options.idempotencyKey ?? null,
-      movementCount:
-        typeof (result as { movementCount?: unknown }).movementCount === "number"
-          ? (result as { movementCount: number }).movementCount
-          : null,
-      reservationConsumedQty:
-        typeof (result as { reservationConsumedQty?: unknown }).reservationConsumedQty === "number"
-          ? (result as { reservationConsumedQty: number }).reservationConsumedQty
-          : null,
+      reversalOfLedgerEntryId: ledgerEntryId,
+      reason: options?.reason ?? null,
     },
   });
 
@@ -1708,7 +2312,7 @@ export async function listInventoryLedger(ctx: AppContext, input: unknown) {
         warehouse: { select: { id: true, code: true, name: true } },
         location: { select: { id: true, code: true, name: true } },
       },
-      orderBy: [{ postingTime: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ postingSeq: "desc" }, { postingTime: "desc" }, { createdAt: "desc" }],
       skip: pageToSkip(q.page, q.limit),
       take: q.limit,
     }),

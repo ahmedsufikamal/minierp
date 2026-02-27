@@ -121,55 +121,11 @@ export async function receivePurchaseOrderLine(
   lineId: string,
   qtyReceived: number,
 ): Promise<ActionResult> {
-  const companyId = await getCompanyIdOrUserId();
-  if (qtyReceived <= 0) return failure("Quantity must be positive");
-
-  const line = await prisma.purchaseOrderLine.findFirst({
-    where: { id: lineId, order: { companyId } },
-    include: { order: true, product: true },
-  });
-  if (!line) return failure("Line not found");
-  if (!line.productId) return failure("Line has no product to receive");
-  const productId = line.productId;
-  const remaining = line.qtyOrdered - line.qtyReceived;
-  if (qtyReceived > remaining) return failure(`Max remaining to receive: ${remaining}`);
-
-  await prisma.$transaction(async (tx) => {
-    await tx.purchaseOrderLine.update({
-      where: { id: lineId },
-      data: { qtyReceived: line.qtyReceived + qtyReceived },
-    });
-    await tx.inventoryMove.create({
-      data: {
-        companyId,
-        productId,
-        type: "IN",
-        qty: qtyReceived,
-        note: `PO ${line.order.number} received`,
-      },
-    });
-    const updated = await tx.purchaseOrderLine.aggregate({
-      where: { orderId: line.orderId },
-      _sum: { qtyReceived: true },
-      _count: { id: true },
-    });
-    const totalOrdered = await tx.purchaseOrderLine.aggregate({
-      where: { orderId: line.orderId },
-      _sum: { qtyOrdered: true },
-    });
-    const allReceived =
-      (updated._sum.qtyReceived ?? 0) >= (totalOrdered._sum.qtyOrdered ?? 0);
-    await tx.purchaseOrder.update({
-      where: { id: line.orderId },
-      data: {
-        status: allReceived ? "RECEIVED" : "PARTIALLY_RECEIVED",
-      },
-    });
-  });
-
-  revalidatePath("/purchase-orders");
-  revalidatePath("/inventory");
-  return success();
+  void lineId;
+  void qtyReceived;
+  return failure(
+    "Direct stock updates from purchase orders are disabled. Use Purchase Receipt / Stock Document posting flow.",
+  );
 }
 
 export async function deletePurchaseOrder(id: string): Promise<ActionResult> {
