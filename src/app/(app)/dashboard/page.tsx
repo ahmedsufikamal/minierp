@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { AlertTriangle, ArrowRight, PackageSearch, Receipt, Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
@@ -20,6 +21,13 @@ function monthSeries() {
       label: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
     };
   });
+}
+
+function isSchemaMismatch(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  );
 }
 
 export default async function DashboardPage() {
@@ -49,9 +57,21 @@ export default async function DashboardPage() {
       }),
       prisma.stockBalance.findMany({
         where: { companyId, locationId: null, item: { lowStockThreshold: { not: null } } },
-        include: { item: true },
+        include: {
+          item: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              lowStockThreshold: true,
+            },
+          },
+        },
         orderBy: { qtyOnHand: "asc" },
         take: 8,
+      }).catch((error) => {
+        if (isSchemaMismatch(error)) return [];
+        throw error;
       }),
     ]);
 

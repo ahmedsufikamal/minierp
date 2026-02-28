@@ -85,6 +85,12 @@ import { POST as automationRunsPost } from "@/app/api/v1/platform/customization/
 import { GET as runtimeGet } from "@/app/api/v1/platform/customization/runtime/route";
 import { GET as companyNumberingGet, PATCH as companyNumberingPatch } from "@/app/api/v1/platform/company-numbering/route";
 import { POST as companyNumberingPreviewPost } from "@/app/api/v1/platform/company-numbering/preview/route";
+import { GET as metaModelsGet, POST as metaModelsPost } from "@/app/api/v1/meta/models/route";
+import { GET as metaModelGet, PATCH as metaModelPatch } from "@/app/api/v1/meta/models/[name]/route";
+import { GET as metaCompiledGet } from "@/app/api/v1/meta/models/[name]/compiled/route";
+import { POST as masterItemsPost, GET as masterItemsGet } from "@/app/api/v1/master/items/route";
+import { GET as masterPartiesGet, POST as masterPartiesPost } from "@/app/api/v1/master/parties/route";
+import { POST as masterSeriesNextPost } from "@/app/api/v1/master/number-series/[key]/next/route";
 
 beforeEach(() => {
   mocks.getPlatformRequestContext.mockResolvedValue({
@@ -256,6 +262,88 @@ describe("new parity endpoint permission checks", () => {
     expect(mocks.listCompanyNumberingMasterConfig).not.toHaveBeenCalled();
     expect(mocks.updateCompanyNumberingMasterConfig).not.toHaveBeenCalled();
     expect(mocks.previewCompanyNumberingPattern).not.toHaveBeenCalled();
+  });
+
+  it("denies metadata endpoints without meta permissions", async () => {
+    await expectForbidden(metaModelsGet(new Request("http://localhost/api/v1/meta/models")));
+
+    await expectForbidden(
+      metaModelsPost(
+        new Request("http://localhost/api/v1/meta/models", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: "Party", label: "Party" }),
+        }),
+      ),
+    );
+
+    await expectForbidden(
+      metaModelGet(new Request("http://localhost/api/v1/meta/models/Party"), {
+        params: Promise.resolve({ name: "Party" }),
+      }),
+    );
+
+    await expectForbidden(
+      metaModelPatch(
+        new Request("http://localhost/api/v1/meta/models/Party", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ label: "Party Updated" }),
+        }),
+        { params: Promise.resolve({ name: "Party" }) },
+      ),
+    );
+
+    await expectForbidden(
+      metaCompiledGet(new Request("http://localhost/api/v1/meta/models/Party/compiled"), {
+        params: Promise.resolve({ name: "Party" }),
+      }),
+    );
+  });
+
+  it("denies master data endpoints without master permissions", async () => {
+    await expectForbidden(masterItemsGet(new Request("http://localhost/api/v1/master/items")));
+
+    await expectForbidden(
+      masterItemsPost(
+        new Request("http://localhost/api/v1/master/items", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: "Item 1",
+            brandId: "brand-1",
+          }),
+        }),
+      ),
+    );
+
+    await expectForbidden(masterPartiesGet(new Request("http://localhost/api/v1/master/parties")));
+
+    await expectForbidden(
+      masterPartiesPost(
+        new Request("http://localhost/api/v1/master/parties", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            partyCode: "P-1",
+            name: "Party One",
+            partyType: "CUSTOMER",
+            status: "ACTIVE",
+          }),
+        }),
+      ),
+    );
+
+    await expectForbidden(
+      masterSeriesNextPost(
+        new Request("http://localhost/api/v1/master/number-series/SKU/next", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        }),
+        { params: Promise.resolve({ key: "SKU" }) },
+      ),
+    );
   });
 
   it("denies project billing writes without permission", async () => {

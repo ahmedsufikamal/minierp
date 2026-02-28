@@ -53,6 +53,12 @@ export const permissionCatalog = {
   "platform.reporting.write": { module: "platform", description: "Manage report definitions, views, and schedules" },
   "platform.customization.read": { module: "platform", description: "Read metadata customization definitions" },
   "platform.customization.write": { module: "platform", description: "Manage metadata customization definitions" },
+  "meta.read": { module: "platform", description: "Read metadata models and compiled payloads" },
+  "meta.read_drafts": { module: "platform", description: "Read draft metadata definitions" },
+  "meta.write": { module: "platform", description: "Create and edit metadata drafts" },
+  "meta.publish": { module: "platform", description: "Publish metadata and compiled versions" },
+  "master.read": { module: "platform", description: "Read master data entities" },
+  "master.write": { module: "platform", description: "Create and update master data entities" },
 } as const;
 
 export type PermissionKey = keyof typeof permissionCatalog;
@@ -113,6 +119,12 @@ export const defaultRolePermissions: Record<string, PermissionKey[]> = {
     "platform.reporting.write",
     "platform.customization.read",
     "platform.customization.write",
+    "meta.read",
+    "meta.read_drafts",
+    "meta.write",
+    "meta.publish",
+    "master.read",
+    "master.write",
   ],
   MANAGER: [
     "inventory.read",
@@ -138,6 +150,8 @@ export const defaultRolePermissions: Record<string, PermissionKey[]> = {
     "platform.workflow.read",
     "platform.reporting.read",
     "platform.customization.read",
+    "meta.read",
+    "master.read",
   ],
   INVENTORY_MANAGER: [
     "inventory.read",
@@ -197,6 +211,7 @@ export const defaultRolePermissions: Record<string, PermissionKey[]> = {
     "inventory.settings.read",
     "finance.read",
     "platform.reporting.read",
+    "master.read",
   ],
   MEMBER: [
     "inventory.read",
@@ -210,6 +225,7 @@ export const defaultRolePermissions: Record<string, PermissionKey[]> = {
     "accounting.period.read",
     "accounting.report.read",
     "platform.reporting.read",
+    "master.read",
   ],
   VIEWER: [
     "inventory.read",
@@ -224,6 +240,7 @@ export const defaultRolePermissions: Record<string, PermissionKey[]> = {
     "accounting.period.read",
     "accounting.report.read",
     "platform.reporting.read",
+    "master.read",
   ],
   AUDITOR: [
     "inventory.read",

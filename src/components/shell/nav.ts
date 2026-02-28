@@ -201,6 +201,14 @@ export const navGroups: NavGroup[] = [
   {
     title: "Platform",
     items: [
+      { href: "/platform/metadata", label: "Metadata Studio", icon: BookCopy },
+      { href: "/platform/master/parties", label: "Master Parties", icon: Users },
+      { href: "/platform/master/items", label: "Master Items", icon: Package },
+      { href: "/platform/master/uom", label: "Master UOM", icon: Scale },
+      { href: "/platform/master/pricelists", label: "Master Price Lists", icon: Wallet },
+      { href: "/platform/master/currencies", label: "Master Currencies", icon: Banknote },
+      { href: "/platform/master/taxcodes", label: "Master Tax Codes", icon: Receipt },
+      { href: "/platform/master/number-series", label: "Master Number Series", icon: FileCode2 },
       { href: "/platform/reports", label: "Reports", icon: BarChart3 },
       { href: "/platform/settings", label: "Settings", icon: Settings },
       { href: "/platform/customization/custom-fields", label: "Custom Fields", icon: FolderCog },

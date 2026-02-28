@@ -13,6 +13,12 @@ export const platformPermissions = {
   reportingWrite: "platform.reporting.write",
   customizationRead: "platform.customization.read",
   customizationWrite: "platform.customization.write",
+  metaRead: "meta.read",
+  metaReadDrafts: "meta.read_drafts",
+  metaWrite: "meta.write",
+  metaPublish: "meta.publish",
+  masterRead: "master.read",
+  masterWrite: "master.write",
 } as const;
 
 export type PlatformPermission = (typeof platformPermissions)[keyof typeof platformPermissions];
