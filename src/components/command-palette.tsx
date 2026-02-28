@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Command,
   CommandEmpty,
@@ -9,8 +10,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "cmdk";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+} from "@/components/ui/command";
 import { nav } from "@/config/nav";
 
 const quickActions = [
@@ -65,9 +65,9 @@ export function CommandPalette() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="overflow-hidden p-0 gap-0 border-border bg-background">
+      <DialogContent className="gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Command palette</DialogTitle>
-        <Command className="rounded-lg">
+        <Command>
           <CommandInput placeholder="Search pages or actions…" />
           <CommandList>
             <CommandEmpty>No results.</CommandEmpty>
@@ -76,7 +76,7 @@ export function CommandPalette() {
                 const Icon = item.icon;
                 return (
                   <CommandItem
-                    key={item.href}
+                    key={`${item.label}-${item.href}`}
                     value={`${item.label} ${item.href}`}
                     onSelect={() => run(item.href)}
                   >

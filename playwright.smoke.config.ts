@@ -25,6 +25,7 @@ process.env.RUST_API_BASE_URL = rustApiBaseUrl;
 const e2eEnv = {
   ...process.env,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? baseURL,
+  PLAYWRIGHT_TEST: process.env.PLAYWRIGHT_TEST ?? "1",
   IAM_V2_ENABLED: process.env.IAM_V2_ENABLED ?? "1",
   IAM_PROVIDER: process.env.IAM_PROVIDER ?? "local",
   IAM_TOKEN_HASH_SECRET: iamTokenHashSecret,

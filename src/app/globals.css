@@ -121,6 +121,21 @@
   --state-info-border: 214 72% 79%;
 }
 
+.dark {
+  --background: 222 35% 7%;
+  --foreground: 220 22% 96%;
+  --card: 222 30% 10%;
+  --card-foreground: 220 22% 96%;
+  --popover: 222 26% 12%;
+  --popover-foreground: 220 22% 96%;
+  --border: 220 14% 25%;
+
+  --surface-page: 222 35% 7%;
+  --surface-card: 222 30% 10%;
+  --surface-elevated: 222 25% 13%;
+  --text-default: 220 20% 95%;
+}
+
 @layer base {
   * {
     border-color: hsl(var(--border));
