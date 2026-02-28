@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { readStoredSidebarCollapsed, writeStoredSidebarCollapsed } from "./sidebar-state";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -10,6 +11,8 @@ interface AppShellProps {
   user?: {
     name?: string | null;
     email?: string | null;
+    avatarUrl?: string | null;
+    activeCompanyId?: string | null;
     isImpersonating?: boolean | null;
     impersonatorUserId?: string | null;
     impersonationExpiresAt?: string | Date | null;
@@ -18,6 +21,7 @@ interface AppShellProps {
 
 export function AppShell({ children, user }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarReady, setSidebarReady] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false);
 
@@ -27,6 +31,16 @@ export function AppShell({ children, user }: AppShellProps) {
       credentials: "same-origin",
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    setCollapsed(readStoredSidebarCollapsed());
+    setSidebarReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarReady) return;
+    writeStoredSidebarCollapsed(collapsed);
+  }, [collapsed, sidebarReady]);
 
   useEffect(() => {
     if (!user?.isImpersonating || !user.impersonationExpiresAt) return;
@@ -47,7 +61,11 @@ export function AppShell({ children, user }: AppShellProps) {
     <div className="h-screen overflow-hidden bg-[hsl(var(--bg))]">
       <div className="flex h-full">
         <div className="hidden md:block">
-          <Sidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed((v) => !v)} />
+          <Sidebar
+            collapsed={collapsed}
+            onToggleCollapsed={() => setCollapsed((value) => !value)}
+            user={user}
+          />
         </div>
 
         <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -59,6 +77,7 @@ export function AppShell({ children, user }: AppShellProps) {
             <Sidebar
               collapsed={false}
               onToggleCollapsed={() => setMobileOpen(false)}
+              user={user}
               mobile
               onNavigate={() => setMobileOpen(false)}
             />
@@ -66,7 +85,7 @@ export function AppShell({ children, user }: AppShellProps) {
         </Dialog>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar onOpenMobile={() => setMobileOpen(true)} user={user} />
+          <Topbar onOpenMobile={() => setMobileOpen(true)} />
           {user?.isImpersonating ? (
             <div className="state-warning flex items-center justify-between gap-3 border-b px-4 py-2 text-xs">
               <span>

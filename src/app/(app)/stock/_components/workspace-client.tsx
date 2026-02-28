@@ -5,15 +5,18 @@ import { useEffect, useMemo, useState } from "react";
 import { BarChart3, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  BarChart,
 } from "recharts";
+import { KpiCard } from "@/components/stock-home/kpi-card";
+import { LinkGroupCard } from "@/components/stock-home/link-group-card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatMoney } from "@/lib/utils";
 
 type MetricsDto = {
@@ -58,29 +61,26 @@ const fallbackQuickAccess: QuickAccessDto = {
 };
 
 const quickAccessConfig = [
-  { href: "/stock/items", label: "Item", key: "items_available" as const, suffix: "Available" },
-  { href: "/selling/delivery-notes", label: "Delivery Note", key: "delivery_note_to_bill" as const, suffix: "To Bill" },
-  { href: "/buying/material-requests", label: "Material Request", key: "material_request_pending" as const, suffix: "Pending" },
-  { href: "/buying/purchase-receipts", label: "Purchase Receipt", key: "purchase_receipt_to_bill" as const, suffix: "To Bill" },
-  { href: "/stock/ledger", label: "Stock Ledger", key: null, suffix: null },
-  { href: "/reports/stock-balance", label: "Stock Balance", key: null, suffix: null },
-  { href: "/stock/admin/variance", label: "Stock Ops", key: null, suffix: null },
+  { href: "/stock/items", label: "Items Available", key: "items_available" as const },
+  { href: "/selling/delivery-notes", label: "Delivery Notes To Bill", key: "delivery_note_to_bill" as const },
+  { href: "/buying/material-requests", label: "Material Requests Pending", key: "material_request_pending" as const },
+  { href: "/buying/purchase-receipts", label: "Receipts To Bill", key: "purchase_receipt_to_bill" as const },
 ] as const;
 
 const mastersAndReports = [
   {
-    group: "Items Catalogue",
+    title: "Items Catalogue",
     links: [
       { href: "/stock/items", label: "Item" },
       { href: "/setup/item-groups", label: "Item Group" },
       { href: "/stock/items", label: "Product Bundle" },
-      { href: "/stock/items", label: "Shipping Rule" },
+      { href: "/products", label: "Brand" },
       { href: "/stock/items", label: "Item Alternative" },
       { href: "/stock/items", label: "Item Manufacturer" },
     ],
   },
   {
-    group: "Stock Transactions",
+    title: "Stock Transactions",
     links: [
       { href: "/buying/material-requests", label: "Material Request" },
       { href: "/stock/documents", label: "Stock Entry" },
@@ -91,61 +91,23 @@ const mastersAndReports = [
     ],
   },
   {
-    group: "Stock Reports",
+    title: "Stock Reports",
     links: [
       { href: "/stock/ledger", label: "Stock Ledger" },
       { href: "/reports/stock-balance", label: "Stock Balance" },
-      { href: "/reports/stock-projected-qty", label: "Stock Projected Qty" },
       { href: "/reports/stock-summary", label: "Stock Summary" },
       { href: "/reports/stock-ageing", label: "Stock Ageing" },
-      { href: "/reports/item-price-stock", label: "Item Price Stock" },
       { href: "/reports/warehouse-wise-stock-balance", label: "Warehouse Wise Stock Balance" },
     ],
   },
   {
-    group: "Settings",
+    title: "Setup",
     links: [
       { href: "/stock/settings", label: "Stock Settings" },
       { href: "/stock/warehouses", label: "Warehouse" },
       { href: "/setup/uoms", label: "Unit of Measure (UOM)" },
       { href: "/stock/settings", label: "Item Variant Settings" },
       { href: "/products", label: "Brand" },
-      { href: "/stock/settings", label: "Item Attribute" },
-    ],
-  },
-  {
-    group: "Serial No and Batch",
-    links: [
-      { href: "/stock/items", label: "Serial No" },
-      { href: "/stock/items", label: "Batch" },
-      { href: "/stock/items", label: "Installation Note" },
-      { href: "/stock/items", label: "Serial No Service Contract Expiry" },
-      { href: "/stock/items", label: "Serial No Status" },
-      { href: "/stock/items", label: "Serial No Warranty Expiry" },
-    ],
-  },
-  {
-    group: "Tools",
-    links: [
-      { href: "/stock/documents", label: "Packing Slip" },
-      { href: "/quality/inspections", label: "Quality Inspection Template" },
-      { href: "/stock", label: "Quick Stock Balance" },
-    ],
-  },
-  {
-    group: "Key Reports",
-    links: [
-      { href: "/stock/ledger", label: "Stock Ledger Summary" },
-      { href: "/reports/stock-voucher", label: "Stock Voucher" },
-      { href: "/reports/item-shortage", label: "Item Shortage" },
-    ],
-  },
-  {
-    group: "Other Reports",
-    links: [
-      { href: "/reports/available-batch", label: "Available Batch Report" },
-      { href: "/reports/stock-ledger-invariant", label: "Ledger Invariant Report" },
-      { href: "/reports/warehouse-utilization", label: "Warehouse Utilization" },
     ],
   },
 ] as const;
@@ -208,128 +170,100 @@ export function StockWorkspaceClient() {
   const topCards = useMemo(
     () => [
       {
-        title: "Total Stock Value",
+        label: "Total Stock Value",
         value: formatMoney(metrics.total_stock_value.amount, metrics.total_stock_value.currency),
-        delta: "0.0% since yesterday",
+        hint: "Current on-hand value across active warehouses.",
       },
-      { title: "Total Warehouses", value: String(metrics.total_warehouses), delta: "All active warehouses" },
-      { title: "Total Active Items", value: String(metrics.total_active_items), delta: "Enabled catalogue items" },
+      { label: "Total Warehouses", value: String(metrics.total_warehouses), hint: "Warehouses available for stock movement." },
+      { label: "Total Active Items", value: String(metrics.total_active_items), hint: "Enabled items in the catalogue." },
     ],
     [metrics],
   );
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        {topCards.map((card) => (
-          <article key={card.title} className="surface-1 p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.title}</p>
-              <button className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground" type="button">
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
+    <div className="space-y-5">
+      <Card className="rounded-[28px] border border-border shadow-sm">
+        <CardContent className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr),300px]">
+          <div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Warehouse wise Stock Value</p>
+                <p className="text-sm text-muted-foreground">{lastSyncedText(series.last_synced_at)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-[hsl(var(--surface-2))] text-muted-foreground" type="button">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </button>
+                <button className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-[hsl(var(--surface-2))] text-muted-foreground" type="button">
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             {loading ? (
-              <div className="h-8 w-2/3 animate-pulse rounded bg-[hsl(var(--surface-3))]" />
+              <div className="h-[320px] animate-pulse rounded-2xl border border-dashed border-border bg-[hsl(var(--surface-2))]" />
+            ) : hasChartData ? (
+              <div className="h-[320px] w-full rounded-2xl bg-[hsl(var(--surface-2))] p-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={series.series.map((row) => ({ name: row.warehouse_name, value: row.stock_value.amount }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fill: "hsl(var(--text-muted))", fontSize: 12 }} />
+                    <YAxis tick={{ fill: "hsl(var(--text-muted))", fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value) => formatMoney(Number(value ?? 0), chartCurrency)}
+                      contentStyle={{
+                        borderRadius: 16,
+                        borderColor: "hsl(var(--border))",
+                        backgroundColor: "hsl(var(--popover))",
+                        color: "hsl(var(--popover-foreground))",
+                      }}
+                    />
+                    <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+                      {series.series.map((entry) => (
+                        <Cell key={entry.warehouse_id} fill="hsl(var(--primary))" />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
-              <p className="text-2xl font-semibold tracking-tight">{card.value}</p>
+              <div className="flex h-[320px] items-center justify-center rounded-2xl border border-dashed border-border bg-[hsl(var(--surface-2))] text-sm text-muted-foreground">
+                No warehouse stock value data available.
+              </div>
             )}
-            <p className="mt-1 text-xs text-muted-foreground">{card.delta}</p>
-          </article>
+          </div>
+
+          <div className="space-y-3 rounded-3xl border border-border bg-[hsl(var(--surface-2))] p-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-semibold text-foreground">Operational Snapshot</p>
+            </div>
+            <div className="space-y-2">
+              {quickAccessConfig.map((entry) => (
+                <Link key={entry.href + entry.label} href={entry.href} className="flex items-center justify-between rounded-2xl border border-border bg-card px-3 py-3 text-sm transition-colors hover:bg-[hsl(var(--surface-1))]">
+                  <span className="font-medium text-foreground">{entry.label}</span>
+                  <span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">{quickAccess[entry.key]}</span>
+                </Link>
+              ))}
+            </div>
+            {error ? <p className="text-xs text-muted-foreground">{error}</p> : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-5 md:grid-cols-3">
+        {topCards.map((card) => (
+          <KpiCard key={card.label} label={card.label} value={loading ? "..." : card.value} hint={card.hint} />
         ))}
       </div>
 
-      <section className="surface-1 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold">Warehouse wise Stock Value</h2>
-            <p className="text-xs text-muted-foreground">{lastSyncedText(series.last_synced_at)}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground" type="button">
-              <SlidersHorizontal className="h-4 w-4" />
-            </button>
-            <button className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground" type="button">
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-          </div>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Masters & Reports</h2>
+          <p className="text-sm text-muted-foreground">Core masters, transactional shortcuts, and stock reporting views.</p>
         </div>
-        {loading ? (
-          <div className="h-[280px] animate-pulse rounded-md border border-dashed border-border bg-[hsl(var(--surface-2))]" />
-        ) : hasChartData ? (
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={series.series.map((row) => ({ name: row.warehouse_name, value: row.stock_value.amount }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fill: "hsl(var(--text-muted))", fontSize: 12 }} />
-                <YAxis tick={{ fill: "hsl(var(--text-muted))", fontSize: 12 }} />
-                <Tooltip
-                  formatter={(value) => formatMoney(Number(value ?? 0), chartCurrency)}
-                  contentStyle={{
-                    borderRadius: 12,
-                    borderColor: "hsl(var(--border))",
-                    backgroundColor: "hsl(var(--surface-overlay))",
-                  }}
-                />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                  {series.series.map((entry) => (
-                    <Cell key={entry.warehouse_id} fill="hsl(var(--primary))" />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="flex h-[280px] items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
-            No warehouse stock value data available.
-          </div>
-        )}
-      </section>
-
-      <section className="surface-1 p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Quick Access</h2>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {quickAccessConfig.map((entry) => (
-            <Link
-              key={entry.href + entry.label}
-              href={entry.href}
-              className="rounded-md border border-border bg-[hsl(var(--surface-2))] px-3 py-2 text-sm transition hover:bg-[hsl(var(--surface-3))]"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium">{entry.label}</span>
-                {entry.key ? (
-                  <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                    {quickAccess[entry.key]} {entry.suffix}
-                  </span>
-                ) : null}
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="surface-1 p-4">
-        <h2 className="mb-3 text-base font-semibold">Masters & Reports</h2>
-        {error ? <p className="mb-3 text-xs text-muted-foreground">{error}</p> : null}
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {mastersAndReports.map((section) => (
-            <div key={section.group} className="rounded-md border border-border bg-[hsl(var(--surface-2))] p-3">
-              <h3 className="mb-2 text-sm font-semibold">{section.group}</h3>
-              <div className="space-y-1">
-                {section.links.map((link) => (
-                  <Link
-                    key={link.href + link.label}
-                    href={link.href}
-                    className="block text-sm text-muted-foreground transition hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <LinkGroupCard key={section.title} title={section.title} links={[...section.links]} />
           ))}
         </div>
       </section>

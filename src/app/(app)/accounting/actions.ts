@@ -124,8 +124,60 @@ export async function createJournalEntry(formData: FormData) {
 
 export async function deleteAccount(id: string) {
   const companyId = await getCompanyIdOrUserId();
-  await prisma.account.deleteMany({ where: { id, companyId } });
+  const account = await prisma.account.findFirst({
+    where: { id, companyId },
+    select: { id: true, isGroup: true },
+  });
+
+  if (!account) {
+    return { ok: false, error: "Account not found." };
+  }
+
+  const [
+    childCount,
+    journalLineCount,
+    glEntryCount,
+    paymentEntryCount,
+    supplierPaymentCount,
+  ] = await Promise.all([
+    prisma.account.count({
+      where: { companyId, parentId: id },
+    }),
+    prisma.journalLine.count({
+      where: { accountId: id, entry: { companyId } },
+    }),
+    prisma.gLEntry.count({
+      where: { companyId, accountId: id },
+    }),
+    prisma.paymentEntry.count({
+      where: {
+        companyId,
+        OR: [{ paidFromAccountId: id }, { paidToAccountId: id }],
+      },
+    }),
+    prisma.supplierPayment.count({
+      where: {
+        companyId,
+        OR: [{ paidFromAccountId: id }, { paidToAccountId: id }],
+      },
+    }),
+  ]);
+
+  if (childCount > 0) {
+    return { ok: false, error: "Cannot delete a group account while it still has child accounts." };
+  }
+
+  if (account.isGroup) {
+    return { ok: false, error: "Cannot delete a group account." };
+  }
+
+  if (journalLineCount + glEntryCount + paymentEntryCount + supplierPaymentCount > 0) {
+    return { ok: false, error: "Cannot delete an account that is already referenced by transactions." };
+  }
+
+  await prisma.account.delete({ where: { id: account.id } });
   revalidatePath("/accounting");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 

@@ -1,6 +1,7 @@
 import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
+import { flattenAccountTree } from "@/modules/accounting/application/accounts.service";
 import Link from "next/link";
 import {
   NewAccountCard,
@@ -18,7 +19,14 @@ export default async function AccountingPage() {
   const [accounts, entries] = await Promise.all([
     prisma.account.findMany({
       where: { companyId },
-      orderBy: [{ code: "asc" }],
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        type: true,
+        parentId: true,
+        isGroup: true,
+      },
     }),
     prisma.journalEntry.findMany({
       where: { companyId },
@@ -27,6 +35,8 @@ export default async function AccountingPage() {
       take: 50,
     }),
   ]);
+
+  const accountRows = flattenAccountTree(accounts);
 
   return (
     <div className="space-y-6">
@@ -68,23 +78,48 @@ export default async function AccountingPage() {
                     <th>Code</th>
                     <th>Name</th>
                     <th>Type</th>
+                    <th>Posting</th>
                     <th className="w-[90px]">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {accounts.map((a) => (
+                  {accountRows.map((a) => (
                     <tr key={a.id} className="border-b last:border-0">
                       <td className="px-4 py-3 font-mono text-xs">{a.code}</td>
-                      <td className="px-4 py-3 font-medium">{a.name}</td>
+                      <td className="px-4 py-3 font-medium">
+                        <div className="flex items-center gap-2" style={{ paddingLeft: `${a.depth * 16}px` }}>
+                          {a.isGroup ? <span className="text-muted-foreground">▾</span> : null}
+                          <span>{a.name}</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3">{a.type}</td>
                       <td className="px-4 py-3">
-                        <DeleteAccountButton id={a.id} />
+                        {a.isGroup ? (
+                          <span className="rounded-full bg-[hsl(var(--surface-elevated))] px-2 py-0.5 text-xs text-muted-foreground">
+                            Group
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Posting</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <DeleteAccountButton
+                          id={a.id}
+                          disabled={a.isGroup || a.hasChildren}
+                          disabledReason={
+                            a.hasChildren
+                              ? "Group accounts with children cannot be deleted."
+                              : a.isGroup
+                                ? "Group accounts cannot be deleted."
+                                : undefined
+                          }
+                        />
                       </td>
                     </tr>
                   ))}
                   {accounts.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-muted-foreground" colSpan={4}>
+                      <td className="px-4 py-8 text-muted-foreground" colSpan={5}>
                         No accounts yet. Click “Init chart of accounts” on Dashboard for a quick
                         setup.
                       </td>

@@ -25,6 +25,16 @@ export function resolveBootstrapTheme(
   return normalizeThemeMode(storedTheme) ?? initialTheme;
 }
 
+export function resolveBootstrapStorageSeed(
+  storedTheme: string | null | undefined,
+  initialTheme: NextThemeMode,
+): NextThemeMode | null {
+  if (normalizeThemeMode(storedTheme)) {
+    return null;
+  }
+  return initialTheme === "system" ? null : initialTheme;
+}
+
 export function resolveSyncResult(input: {
   persistedTheme: NextThemeMode;
   pendingTheme: NextThemeMode | null;
@@ -59,8 +69,7 @@ interface ThemePreferenceSyncProps {
 }
 
 export function ThemePreferenceSync({ enabled, initialTheme }: ThemePreferenceSyncProps) {
-  const { theme, setTheme } = useTheme();
-  const bootstrappedRef = useRef(false);
+  const { theme } = useTheme();
   const persistedThemeRef = useRef<NextThemeMode>(initialTheme);
   const pendingThemeRef = useRef<NextThemeMode | null>(null);
   const inFlightRef = useRef(false);
@@ -68,9 +77,7 @@ export function ThemePreferenceSync({ enabled, initialTheme }: ThemePreferenceSy
   const flushPendingSyncRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    if (!bootstrappedRef.current) {
-      persistedThemeRef.current = initialTheme;
-    }
+    persistedThemeRef.current = resolveBootstrapTheme(readStoredTheme(), initialTheme);
   }, [initialTheme]);
 
   const scheduleFlushPendingSync = useCallback(() => {
@@ -139,22 +146,7 @@ export function ThemePreferenceSync({ enabled, initialTheme }: ThemePreferenceSy
   }, [flushPendingSync]);
 
   useEffect(() => {
-    if (bootstrappedRef.current) return;
-
-    const storedTheme = readStoredTheme();
-    const targetTheme = resolveBootstrapTheme(storedTheme, initialTheme);
-    const normalizedTheme = normalizeThemeMode(theme);
-
-    if (normalizedTheme !== targetTheme) {
-      setTheme(targetTheme);
-    }
-
-    bootstrappedRef.current = true;
-  }, [initialTheme, setTheme, theme]);
-
-  useEffect(() => {
     if (!enabled) return;
-    if (!bootstrappedRef.current) return;
     const nextTheme = normalizeThemeMode(theme);
     if (!nextTheme) return;
 

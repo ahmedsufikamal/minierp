@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   normalizeThemeMode,
+  resolveBootstrapStorageSeed,
   resolveBootstrapTheme,
   resolveSyncResult,
   toApiTheme,
@@ -29,6 +30,13 @@ describe("theme preference sync helpers", () => {
     expect(resolveBootstrapTheme("system", "dark")).toBe("system");
     expect(resolveBootstrapTheme("invalid", "dark")).toBe("dark");
     expect(resolveBootstrapTheme(null, "system")).toBe("system");
+  });
+
+  it("only seeds storage when the server has an explicit light or dark preference", () => {
+    expect(resolveBootstrapStorageSeed("dark", "light")).toBeNull();
+    expect(resolveBootstrapStorageSeed(null, "light")).toBe("light");
+    expect(resolveBootstrapStorageSeed(undefined, "dark")).toBe("dark");
+    expect(resolveBootstrapStorageSeed(null, "system")).toBeNull();
   });
 
   it("keeps pending sync queued on failure and clears it on success", () => {

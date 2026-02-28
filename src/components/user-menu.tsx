@@ -77,14 +77,14 @@ export function UserMenu({ user }: UserMenuProps) {
         className="w-[300px] rounded-2xl border border-border bg-[hsl(var(--surface-1))] p-2 shadow-elevated"
       >
         <DropdownMenuItem asChild className={rowClass}>
-          <Link href="/settings">
+          <Link href="/settings/user">
             <UserRound className={iconClass} />
             <span>Your profile</span>
           </Link>
         </DropdownMenuItem>
 
         <DropdownMenuItem asChild className={rowClass}>
-          <Link href="/settings">
+          <Link href="/settings/user/sessions">
             <Bell className={iconClass} />
             <span>Activity &amp; notifications</span>
           </Link>
@@ -132,14 +132,14 @@ export function UserMenu({ user }: UserMenuProps) {
         <DropdownMenuSeparator className="mx-3 my-2" />
 
         <DropdownMenuItem asChild className={rowClass}>
-          <Link href="/settings">
+          <Link href="/settings/user/api">
             <CreditCard className={iconClass} />
             <span>View credit usage</span>
           </Link>
         </DropdownMenuItem>
 
         <DropdownMenuItem asChild className={rowClass}>
-          <Link href="/settings">
+          <Link href="/settings/user">
             <Rocket className={iconClass} />
             <span>Upgrade Plan</span>
           </Link>
@@ -148,7 +148,7 @@ export function UserMenu({ user }: UserMenuProps) {
         <DropdownMenuSeparator className="mx-3 my-2" />
 
         <DropdownMenuItem asChild className={cn(rowClass, "items-start py-3")}>
-          <Link href="/settings">
+          <Link href="/settings/user">
             <CalendarCheck2 className={cn(iconClass, "mt-0.5")} />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <span>Onboarding hub</span>

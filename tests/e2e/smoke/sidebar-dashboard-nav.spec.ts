@@ -115,6 +115,9 @@ test.describe("smoke: sidebar dashboard pinning", () => {
       const expandButton = desktopSidebar.getByRole("button", { name: "Expand sidebar" });
       await expect(expandButton).toBeVisible();
       await expect(expandButton).toHaveAttribute("aria-expanded", "false");
+      await expect(desktopSidebar.getByRole("button", { name: "Open user menu" })).toBeVisible();
+      await page.reload();
+      await expect(desktopSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
       await expandButton.click();
 
       await expect(desktopSidebar.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();

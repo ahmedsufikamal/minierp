@@ -195,7 +195,7 @@ test.describe("smoke: inventory theme persistence and contrast", () => {
           ([key, value]) => window.localStorage.setItem(key, value),
           [THEME_STORAGE_KEY, mode],
         );
-        await page.goto("/stock/overview");
+        await page.goto("/stock");
         await expectHtmlThemeClass(page, mode);
         await assertThemeContrastOnInventoryPage(page);
 
@@ -222,7 +222,7 @@ test.describe("smoke: inventory theme persistence and contrast", () => {
         companySlug: `${marker}-slug`,
       });
 
-      await page.goto("/stock/overview");
+      await page.goto("/stock");
 
       await page.emulateMedia({ colorScheme: "dark" });
       await expectHtmlThemeClass(page, "dark");

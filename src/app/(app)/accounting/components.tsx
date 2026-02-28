@@ -168,21 +168,40 @@ export function NewJournalEntryCard({ accounts }: { accounts: Account[] }) {
   );
 }
 
-export function DeleteAccountButton({ id }: { id: string }) {
+export function DeleteAccountButton({
+  id,
+  disabled = false,
+  disabledReason,
+}: {
+  id: string;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   return (
-    <Button
-      onClick={() =>
-        start(() => {
-          void deleteAccount(id);
-        })
-      }
-      disabled={pending}
-      variant="utility"
-      size="xs"
-    >
-      {pending ? "..." : "Delete"}
-    </Button>
+    <div className="space-y-1">
+      <Button
+        onClick={() =>
+          start(() => {
+            void (async () => {
+              setError(null);
+              const result = await deleteAccount(id);
+              if (!result.ok) {
+                setError(result.error ?? "Unable to delete account.");
+              }
+            })();
+          })
+        }
+        disabled={pending || disabled}
+        title={disabledReason}
+        variant="utility"
+        size="xs"
+      >
+        {pending ? "..." : "Delete"}
+      </Button>
+      {error ? <div className="text-[11px] text-amber-700">{error}</div> : null}
+    </div>
   );
 }
 

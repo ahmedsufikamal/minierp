@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Plus, Search, Sparkles, Upload } from "lucide-react";
+import { Menu, Plus, Search, Upload } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useCommandPalette } from "@/components/command-palette";
-import { UserMenu } from "@/components/user-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,17 +14,13 @@ import { cn } from "@/lib/utils";
 
 interface TopbarProps {
   onOpenMobile: () => void;
-  user?: {
-    name?: string | null;
-    email?: string | null;
-  } | null;
 }
 
-export function Topbar({ onOpenMobile, user }: TopbarProps) {
+export function Topbar({ onOpenMobile }: TopbarProps) {
   const { setOpen: setCommandOpen } = useCommandPalette();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-[hsl(var(--surface-1))] px-3 md:px-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-[hsl(var(--surface-1))/0.94] px-3 backdrop-blur md:px-4">
       <Button variant="ghost" size="icon" className="md:hidden" onClick={onOpenMobile} aria-label="Open sidebar">
         <Menu className="h-4 w-4" />
       </Button>
@@ -71,10 +66,6 @@ export function Topbar({ onOpenMobile, user }: TopbarProps) {
         <Button variant="outline" size="sm" className="hidden md:inline-flex">
           <Upload className="mr-1 h-4 w-4" /> Import
         </Button>
-        <Button variant="ghost" size="sm" className="hidden md:inline-flex">
-          <Sparkles className="mr-1 h-4 w-4" /> AI
-        </Button>
-        <UserMenu user={user} />
       </div>
     </header>
   );

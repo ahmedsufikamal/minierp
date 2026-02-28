@@ -9,10 +9,10 @@ export default async function StockWorkspacePage() {
   await getInventoryPageContext(inventoryPermissions.itemRead);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader
         title="Stock"
-        subtitle="Workspace view for stock value, warehouse movement insight, and master/report shortcuts."
+        subtitle="ERPNext-style stock workspace for warehouse insight, masters, and transaction shortcuts."
         actions={<WorkspaceHeaderActions />}
       />
       <StockWorkspaceClient />

@@ -29,7 +29,7 @@ export default async function SettingsPage() {
         </p>
         <Link
           href="/settings/audit-log"
-          className="text-sm font-medium text-indigo-600 hover:underline"
+          className="text-sm font-medium text-foreground hover:underline"
         >
           Open audit log →
         </Link>
@@ -41,7 +41,7 @@ export default async function SettingsPage() {
           <p className="text-sm text-muted-foreground mb-3">
             Manage your profile, active sessions, and MFA settings.
           </p>
-          <Link href="/settings/account" className="text-sm font-medium text-indigo-600 hover:underline">
+          <Link href="/settings/user" className="text-sm font-medium text-foreground hover:underline">
             Open account settings →
           </Link>
         </div>
@@ -50,7 +50,7 @@ export default async function SettingsPage() {
           <p className="text-sm text-muted-foreground mb-3">
             Configure tenant branding, members, roles, and auth policies.
           </p>
-          <Link href="/org/settings" className="text-sm font-medium text-indigo-600 hover:underline">
+          <Link href="/org/settings" className="text-sm font-medium text-foreground hover:underline">
             Open organization IAM →
           </Link>
         </div>
