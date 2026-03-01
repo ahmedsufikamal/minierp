@@ -55,7 +55,9 @@ export function ModuleSwitcher({ activeModule, modules, collapsed, subtext }: Mo
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-foreground">{activeModule.label}</span>
+                  <span className="truncate text-sm font-semibold text-foreground">
+                    {activeModule.label}
+                  </span>
                   <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{subtext}</p>
@@ -93,7 +95,9 @@ export function ModuleSwitcher({ activeModule, modules, collapsed, subtext }: Mo
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="truncate">{module.label}</span>
-                    {module.id === activeModule.id ? <Check className="ml-auto h-4 w-4 text-primary" /> : null}
+                    {module.id === activeModule.id ? (
+                      <Check className="ml-auto h-4 w-4 text-primary" />
+                    ) : null}
                   </button>
                 );
               })}
@@ -105,25 +109,79 @@ export function ModuleSwitcher({ activeModule, modules, collapsed, subtext }: Mo
               <p className="text-sm text-muted-foreground">{previewModule.description}</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              {previewModule.sections.map((section) => (
-                <div key={`${previewModule.id}-${section.title}`} className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    {section.title}
-                  </p>
+              {previewModule.sections.map((section, sectionIndex) => (
+                <div
+                  key={`${previewModule.id}-${section.title ?? `section-${sectionIndex}`}`}
+                  className="space-y-2"
+                >
+                  {section.title ? (
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      {section.title}
+                    </p>
+                  ) : null}
                   <div className="space-y-1.5">
                     {section.items.map((item) => {
                       const Icon = item.icon;
+                      if (!item.href) {
+                        return (
+                          <div
+                            key={`${previewModule.id}-${sectionIndex}-${item.label}`}
+                            className="rounded-xl border border-dashed border-border/70 px-3 py-2"
+                          >
+                            <div className="flex items-start gap-3 text-sm">
+                              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium text-foreground">
+                                  {item.label}
+                                </span>
+                              </span>
+                            </div>
+                            {item.children?.length ? (
+                              <div className="mt-2 space-y-1.5 pl-7">
+                                {item.children.map((child) => {
+                                  if (!child.href) return null;
+                                  const ChildIcon = child.icon;
+                                  return (
+                                    <Link
+                                      key={`${previewModule.id}-${sectionIndex}-${item.label}-${child.label}-${child.href}`}
+                                      href={child.href}
+                                      className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-[hsl(var(--surface-2))]"
+                                    >
+                                      <ChildIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                      <span className="min-w-0">
+                                        <span className="block truncate font-medium text-foreground">
+                                          {child.label}
+                                        </span>
+                                        {child.description ? (
+                                          <span className="block truncate text-xs text-muted-foreground">
+                                            {child.description}
+                                          </span>
+                                        ) : null}
+                                      </span>
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      }
+
                       return (
                         <Link
-                          key={`${previewModule.id}-${section.title}-${item.label}-${item.href}`}
+                          key={`${previewModule.id}-${sectionIndex}-${item.label}-${item.href}`}
                           href={item.href}
                           className="flex items-start gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-[hsl(var(--surface-2))]"
                         >
                           <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                           <span className="min-w-0">
-                            <span className="block truncate font-medium text-foreground">{item.label}</span>
+                            <span className="block truncate font-medium text-foreground">
+                              {item.label}
+                            </span>
                             {item.description ? (
-                              <span className="block truncate text-xs text-muted-foreground">{item.description}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {item.description}
+                              </span>
                             ) : null}
                           </span>
                         </Link>

@@ -19,23 +19,35 @@ export const primaryNavItem: NavItem = {
   icon: LayoutDashboard,
 };
 
-function toNavItem(item: ShellNavItem): NavItem {
+function toNavItem(item: ShellNavItem): NavItem | null {
+  if (!item.href) return null;
   return { href: item.href, label: item.label, icon: item.icon };
 }
 
+function collectNavItems(item: ShellNavItem): NavItem[] {
+  const current = toNavItem(item);
+  const children = (item.children ?? []).flatMap(collectNavItems);
+  return [...(current ? [current] : []), ...children];
+}
+
 export const navGroups: NavGroup[] = shellModules.flatMap((module) =>
-  module.sections.map((section) => ({
-    title: `${module.label} · ${section.title}`,
-    items: section.items.flatMap((item) => [toNavItem(item), ...(item.children ?? []).map(toNavItem)]),
-  })),
+  module.sections
+    .map((section) => ({
+      title: section.title ? `${module.label} · ${section.title}` : module.label,
+      items: section.items.flatMap(collectNavItems),
+    }))
+    .filter((group) => group.items.length > 0),
 );
 
-export const flatNavItems: NavItem[] = [primaryNavItem, ...flattenShellNavItems().map(toNavItem)].reduce<NavItem[]>(
-  (acc, item) => {
-    if (!acc.some((entry) => entry.href === item.href)) {
-      acc.push(item);
-    }
-    return acc;
-  },
-  [],
-);
+export const flatNavItems: NavItem[] = [
+  primaryNavItem,
+  ...flattenShellNavItems().flatMap((item) => {
+    const navItem = toNavItem(item);
+    return navItem ? [navItem] : [];
+  }),
+].reduce<NavItem[]>((acc, item) => {
+  if (!acc.some((entry) => entry.href === item.href)) {
+    acc.push(item);
+  }
+  return acc;
+}, []);

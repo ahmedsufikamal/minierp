@@ -27,14 +27,15 @@ import {
 
 export type ShellNavItem = {
   label: string;
-  href: string;
+  href?: string;
   icon: LucideIcon;
   description?: string;
+  defaultExpanded?: boolean;
   children?: ShellNavItem[];
 };
 
 export type ShellNavSection = {
-  title: string;
+  title?: string;
   items: ShellNavItem[];
 };
 
@@ -50,51 +51,214 @@ export type ShellModule = {
 
 export const shellHomeItems: ShellNavItem[] = [
   { label: "Home", href: "/dashboard", icon: Home, description: "Cross-module overview" },
-  { label: "Dashboard", href: "/stock", icon: LayoutDashboard, description: "Stock workspace dashboard" },
+  {
+    label: "Dashboard",
+    href: "/stock",
+    icon: LayoutDashboard,
+    description: "Stock workspace dashboard",
+  },
 ];
 
 export const shellModules: ShellModule[] = [
   {
     id: "stock",
     label: "Stock",
-    description: "Inventory workspace and warehouse operations",
+    description: "Stock-first workspace navigation, setup, tools, and reports",
     icon: Boxes,
     homeHref: "/stock",
     matchers: ["/stock", "/setup/item-groups", "/setup/uoms"],
     sections: [
       {
-        title: "Transactions",
         items: [
-          { label: "Stock Home", href: "/stock", icon: Boxes },
-          { label: "Stock Entry", href: "/stock/documents", icon: ClipboardCheck },
-          { label: "Purchase Receipt", href: "/buying/purchase-receipts", icon: Receipt },
-          { label: "Delivery Note", href: "/selling/delivery-notes", icon: Truck },
-          { label: "Material Request", href: "/buying/material-requests", icon: ClipboardList },
-          { label: "Pick List", href: "/stock/documents", icon: Package },
+          { label: "Stock Entry", href: "/stock/stock-entry", icon: ClipboardCheck },
+          { label: "Purchase Receipt", href: "/stock/purchase-receipt", icon: Receipt },
+          { label: "Delivery Note", href: "/stock/delivery-note", icon: Truck },
+          { label: "Material Request", href: "/stock/material-request", icon: ClipboardList },
+          { label: "Pick List", href: "/stock/pick-list", icon: Package },
         ],
       },
       {
-        title: "Tools",
-        items: [
-          { label: "Stock Ledger", href: "/stock/ledger", icon: BookCopy },
-          { label: "Stock Balance", href: "/reports/stock-balance", icon: FileBarChart },
-          { label: "Warehouse Ops", href: "/stock/admin/variance", icon: Wrench },
-        ],
-      },
-      {
-        title: "Setup",
         items: [
           {
-            label: "Items",
-            href: "/stock/items",
-            icon: Package,
+            label: "Tools",
+            icon: Wrench,
             children: [
-              { label: "Item Group", href: "/setup/item-groups", icon: FolderCog },
-              { label: "Brand", href: "/products", icon: Building2 },
+              {
+                label: "Stock Reconciliation",
+                href: "/stock/tools/stock-reconciliation",
+                icon: ClipboardCheck,
+              },
+              {
+                label: "Landed Cost Voucher",
+                href: "/stock/tools/landed-cost-voucher",
+                icon: Wallet,
+              },
+              {
+                label: "Repost Item Valuation",
+                href: "/stock/tools/repost-item-valuation",
+                icon: Wrench,
+              },
+              { label: "Packing Slip", href: "/stock/tools/packing-slip", icon: Package },
+              {
+                label: "Quality Inspection",
+                href: "/stock/tools/quality-inspection",
+                icon: ShieldCheck,
+              },
             ],
           },
-          { label: "Warehouse", href: "/stock/warehouses", icon: Building2 },
-          { label: "UoM", href: "/setup/uoms", icon: Scale },
+          {
+            label: "Setup",
+            icon: FolderCog,
+            children: [
+              { label: "Item", href: "/stock/setup/item", icon: Package },
+              { label: "Item Group", href: "/stock/setup/item-group", icon: FolderCog },
+              { label: "Item Attribute", href: "/stock/setup/item-attribute", icon: ClipboardList },
+              { label: "Brand", href: "/stock/setup/brand", icon: Building2 },
+              { label: "Warehouse", href: "/stock/setup/warehouse", icon: Building2 },
+              { label: "Unit of Measure (UOM)", href: "/stock/setup/unit-of-measure", icon: Scale },
+              {
+                label: "UOM Conversion Factor",
+                href: "/stock/setup/uom-conversion-factor",
+                icon: Scale,
+              },
+              { label: "Serial No", href: "/stock/setup/serial-no", icon: FileText },
+              { label: "Batch No", href: "/stock/setup/batch-no", icon: FileText },
+              {
+                label: "Serial and Batch Bundle",
+                href: "/stock/setup/serial-and-batch-bundle",
+                icon: Package,
+              },
+              {
+                label: "Inventory Dimension",
+                href: "/stock/setup/inventory-dimension",
+                icon: FileText,
+              },
+              { label: "Shipping Rule", href: "/stock/setup/shipping-rule", icon: Truck },
+              { label: "Item Alternative", href: "/stock/setup/item-alternative", icon: Package },
+              {
+                label: "Quality Inspection Template",
+                href: "/stock/setup/quality-inspection-template",
+                icon: ClipboardCheck,
+              },
+              { label: "Delivery Trip", href: "/stock/setup/delivery-trip", icon: Truck },
+            ],
+          },
+          {
+            label: "Reports",
+            icon: FileBarChart,
+            children: [
+              { label: "Stock Ledger", href: "/stock/reports/stock-ledger", icon: BookCopy },
+              { label: "Stock Balance", href: "/stock/reports/stock-balance", icon: FileBarChart },
+              {
+                label: "Quick Stock Balance",
+                href: "/stock/reports/quick-stock-balance",
+                icon: FileBarChart,
+              },
+              {
+                label: "Stock Projected Qty",
+                href: "/stock/reports/stock-projected-qty",
+                icon: FileBarChart,
+              },
+              {
+                label: "Stock Analytics",
+                href: "/stock/reports/stock-analytics",
+                icon: FileBarChart,
+              },
+              { label: "Stock Ageing", href: "/stock/reports/stock-ageing", icon: FileBarChart },
+              {
+                label: "Purchase Receipt Trends",
+                href: "/stock/reports/purchase-receipt-trends",
+                icon: FileBarChart,
+              },
+              {
+                label: "Delivery Note Trends",
+                href: "/stock/reports/delivery-note-trends",
+                icon: FileBarChart,
+              },
+              {
+                label: "Item Price Stock",
+                href: "/stock/reports/item-price-stock",
+                icon: FileBarChart,
+              },
+              {
+                label: "Warehouse Wise Stock Balance",
+                href: "/stock/reports/warehouse-wise-stock-balance",
+                icon: FileBarChart,
+              },
+              {
+                label: "Item Shortage Report",
+                href: "/stock/reports/item-shortage-report",
+                icon: FileBarChart,
+              },
+              {
+                label: "Serial No and Batch Traceability",
+                href: "/stock/reports/serial-no-and-batch-traceability",
+                icon: FileBarChart,
+              },
+              {
+                label: "Serial No Status",
+                href: "/stock/reports/serial-no-status",
+                icon: FileBarChart,
+              },
+              {
+                label: "Serial No Ledger",
+                href: "/stock/reports/serial-no-ledger",
+                icon: FileBarChart,
+              },
+              {
+                label: "Serial No Warranty Expiry",
+                href: "/stock/reports/serial-no-warranty-expiry",
+                icon: FileBarChart,
+              },
+              {
+                label: "Batch-Wise Balance History",
+                href: "/stock/reports/batch-wise-balance-history",
+                icon: FileBarChart,
+              },
+              {
+                label: "Batch Item Expiry Status",
+                href: "/stock/reports/batch-item-expiry-status",
+                icon: FileBarChart,
+              },
+              {
+                label: "Requested Items To Be Transferred",
+                href: "/stock/reports/requested-items-to-be-transferred",
+                icon: FileBarChart,
+              },
+              {
+                label: "Itemwise Recommended Reorder Level",
+                href: "/stock/reports/itemwise-recommended-reorder-level",
+                icon: FileBarChart,
+              },
+              {
+                label: "Item Variant Details",
+                href: "/stock/reports/item-variant-details",
+                icon: FileBarChart,
+              },
+            ],
+          },
+          {
+            label: "Settings",
+            icon: Settings,
+            children: [
+              { label: "Stock Settings", href: "/stock/settings/stock-settings", icon: Settings },
+              {
+                label: "Item Variant Settings",
+                href: "/stock/settings/item-variant-settings",
+                icon: Settings,
+              },
+              {
+                label: "Stock Reposting Settings",
+                href: "/stock/settings/stock-reposting-settings",
+                icon: Settings,
+              },
+              {
+                label: "Delivery Settings",
+                href: "/stock/settings/delivery-settings",
+                icon: Settings,
+              },
+            ],
+          },
         ],
       },
     ],
@@ -221,15 +385,12 @@ export const shellModules: ShellModule[] = [
   },
 ];
 
-export const shellQuickActions: ShellNavItem[] = [
-  { label: "Search", href: "#search", icon: LayoutDashboard, description: "Search commands and records" },
-  { label: "Notifications", href: "/settings/user", icon: Bell, description: "Recent activity and alerts" },
-];
-
 export function resolveActiveModule(pathname: string | null | undefined): ShellModule {
   const currentPath = pathname || "/dashboard";
   const match = shellModules.find((module) =>
-    module.matchers.some((matcher) => currentPath === matcher || currentPath.startsWith(`${matcher}/`)),
+    module.matchers.some(
+      (matcher) => currentPath === matcher || currentPath.startsWith(`${matcher}/`),
+    ),
   );
 
   return match ?? shellModules[0];
@@ -239,7 +400,7 @@ export function flattenShellNavItems(): ShellNavItem[] {
   const seen = new Map<string, ShellNavItem>();
 
   const add = (item: ShellNavItem) => {
-    if (!seen.has(item.href)) {
+    if (item.href && !seen.has(item.href)) {
       seen.set(item.href, item);
     }
     for (const child of item.children ?? []) {
@@ -259,7 +420,10 @@ export function flattenShellNavItems(): ShellNavItem[] {
   return Array.from(seen.values());
 }
 
-export function formatModuleSubtext(input: { email?: string | null; companyLabel?: string | null }): string {
+export function formatModuleSubtext(input: {
+  email?: string | null;
+  companyLabel?: string | null;
+}): string {
   if (input.companyLabel) return input.companyLabel;
   if (input.email) return input.email;
   return "Current workspace";

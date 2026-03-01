@@ -21,4 +21,11 @@ describe("shell nav", () => {
     expect(dashboardItems).toHaveLength(1);
     expect(flatNavItems[0]?.href).toBe("/dashboard");
   });
+
+  it("does not leak submenu parents without href into flattened items", () => {
+    expect(flatNavItems.some((item) => item.label === "Tools")).toBe(false);
+    expect(navGroups.some((group) => group.items.some((item) => item.label === "Tools"))).toBe(
+      false,
+    );
+  });
 });
