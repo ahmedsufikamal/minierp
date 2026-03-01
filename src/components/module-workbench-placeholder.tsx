@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, RefreshCcw } from "lucide-react";
+import { ArrowRight, Monitor, RefreshCcw } from "lucide-react";
 import { apiGet, apiPatch, apiPost, ApiClientError } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
+import { ListToolbar } from "@/components/listing/ListToolbar";
+import { WorkbenchTopBar } from "@/components/listing/WorkbenchTopBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,10 +17,21 @@ type ModuleWorkbenchPlaceholderProps = {
   moduleName: string;
   description: string;
   apiHref?: string;
+  headerVariant?: "legacy" | "erp-list";
+  breadcrumbTrail?: string[];
+  primaryActionLabel?: string;
+  primaryActionHref?: string;
+  enableSavedFilters?: boolean;
 };
 
 type RecordValue = string | number | boolean | null | undefined | Record<string, unknown> | unknown[];
 type RowRecord = Record<string, RecordValue>;
+type PlaceholderSavedFilterPreset = {
+  id: string;
+  name: string;
+  search: string;
+  createdAt: string;
+};
 
 function formatCell(value: RecordValue): string {
   if (value === null || value === undefined) return "—";
@@ -66,12 +80,93 @@ function normalizeRows(data: unknown): { rows: RowRecord[]; total: number; page:
   return { rows: rowsCandidate, total, page, pageSize };
 }
 
+function placeholderSavedFiltersStorageKey(pathname: string): string {
+  if (pathname === "/buying/purchase-receipts") {
+    return "minierp:list:purchase-receipts:saved-filters";
+  }
+
+  if (pathname === "/selling/delivery-notes") {
+    return "minierp:list:delivery-notes:saved-filters";
+  }
+
+  const slug = pathname
+    .split("/")
+    .filter(Boolean)
+    .join("-")
+    .replace(/[^a-zA-Z0-9-]/g, "");
+
+  return `minierp:list:${slug || "module"}:saved-filters`;
+}
+
+function loadPlaceholderSavedFilters(storageKey: string): PlaceholderSavedFilterPreset[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const candidate = entry as Partial<PlaceholderSavedFilterPreset>;
+        if (
+          typeof candidate.id !== "string" ||
+          typeof candidate.name !== "string" ||
+          typeof candidate.search !== "string" ||
+          typeof candidate.createdAt !== "string"
+        ) {
+          return null;
+        }
+
+        return {
+          id: candidate.id,
+          name: candidate.name,
+          search: candidate.search,
+          createdAt: candidate.createdAt,
+        };
+      })
+      .filter((entry): entry is PlaceholderSavedFilterPreset => Boolean(entry));
+  } catch {
+    return [];
+  }
+}
+
+function savePlaceholderSavedFilter(
+  storageKey: string,
+  name: string,
+  search: string,
+): PlaceholderSavedFilterPreset[] {
+  const trimmedName = name.trim();
+  if (!trimmedName || typeof window === "undefined") {
+    return loadPlaceholderSavedFilters(storageKey);
+  }
+
+  const nextPreset: PlaceholderSavedFilterPreset = {
+    id: globalThis.crypto?.randomUUID?.() ?? `placeholder-preset-${Date.now()}`,
+    name: trimmedName,
+    search,
+    createdAt: new Date().toISOString(),
+  };
+
+  const next = [nextPreset, ...loadPlaceholderSavedFilters(storageKey)];
+  window.localStorage.setItem(storageKey, JSON.stringify(next));
+  return next;
+}
+
 export function ModuleWorkbenchPlaceholder({
   moduleName,
   description,
   apiHref,
+  headerVariant = "legacy",
+  breadcrumbTrail,
+  primaryActionLabel,
+  primaryActionHref,
+  enableSavedFilters = false,
 }: ModuleWorkbenchPlaceholderProps) {
   const queryClient = useQueryClient();
+  const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
@@ -81,11 +176,25 @@ export function ModuleWorkbenchPlaceholder({
   const [actionPayload, setActionPayload] = useState("{}");
   const [createError, setCreateError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [savedFilters, setSavedFilters] = useState<PlaceholderSavedFilterPreset[]>([]);
 
   const apiPath = apiHref ?? "";
   const pathParts = apiPath.split("/").filter(Boolean);
   const moduleKey = pathParts[2] ?? "module";
   const resourceKey = pathParts.slice(3).join("/") || moduleName.toLowerCase();
+  const savedFiltersKey = useMemo(
+    () => (enableSavedFilters ? placeholderSavedFiltersStorageKey(pathname ?? "") : null),
+    [enableSavedFilters, pathname],
+  );
+
+  useEffect(() => {
+    if (!savedFiltersKey) {
+      setSavedFilters([]);
+      return;
+    }
+
+    setSavedFilters(loadPlaceholderSavedFilters(savedFiltersKey));
+  }, [savedFiltersKey]);
 
   const listQuery = useQuery({
     queryKey: queryKeys.list(moduleKey, resourceKey, { page, pageSize, q: search }),
@@ -162,6 +271,9 @@ export function ModuleWorkbenchPlaceholder({
   const canGoPrev = page > 1;
   const canGoNext = page * pageSize < total;
 
+  const effectiveBreadcrumbTrail =
+    breadcrumbTrail && breadcrumbTrail.length > 0 ? breadcrumbTrail : [moduleName];
+
   const runCreate = () => {
     setCreateError(null);
     try {
@@ -187,16 +299,66 @@ export function ModuleWorkbenchPlaceholder({
 
   return (
     <div className="space-y-5">
-      <Card>
-        <CardHeader>
-          <CardTitle>{moduleName}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <Badge variant="secondary">API-first baseline</Badge>
-          {apiHref ? <Badge variant="outline">Endpoint: {apiHref}</Badge> : null}
-        </CardContent>
-      </Card>
+      {headerVariant === "erp-list" ? (
+        <WorkbenchTopBar
+          breadcrumbs={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex min-w-0 items-center gap-2 text-[14px] font-medium text-muted-foreground sm:text-[15px]"
+            >
+              <Monitor className="h-4 w-4 shrink-0" aria-hidden />
+              {effectiveBreadcrumbTrail.map((segment, index) => (
+                <span key={`${segment}-${index}`} className="contents">
+                  {index > 0 ? <span className="shrink-0 text-muted-foreground/70">/</span> : null}
+                  <span
+                    className={index === effectiveBreadcrumbTrail.length - 1 ? "truncate font-semibold text-foreground" : "truncate"}
+                    aria-current={index === effectiveBreadcrumbTrail.length - 1 ? "page" : undefined}
+                  >
+                    {segment}
+                  </span>
+                </span>
+              ))}
+            </nav>
+          }
+          actions={
+            <ListToolbar
+              savedFilters={savedFilters.map((preset) => ({ id: preset.id, name: preset.name }))}
+              onRefresh={() => {
+                void listQuery.refetch();
+              }}
+              onSaveCurrentFilter={
+                savedFiltersKey
+                  ? () => {
+                      const name = window.prompt("Saved filter name");
+                      if (!name) return;
+                      setSavedFilters(savePlaceholderSavedFilter(savedFiltersKey, name, search));
+                    }
+                  : undefined
+              }
+              onApplySavedFilter={(presetId) => {
+                const preset = savedFilters.find((entry) => entry.id === presetId);
+                if (!preset) return;
+                setSearch(preset.search);
+                setPage(1);
+              }}
+              primaryActionLabel={primaryActionLabel}
+              primaryActionHref={primaryActionHref}
+              showSavedFilters={enableSavedFilters}
+            />
+          }
+        />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>{moduleName}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <Badge variant="secondary">API-first baseline</Badge>
+            {apiHref ? <Badge variant="outline">Endpoint: {apiHref}</Badge> : null}
+          </CardContent>
+        </Card>
+      )}
 
       {!apiHref ? (
         <Card>
@@ -217,16 +379,18 @@ export function ModuleWorkbenchPlaceholder({
                 placeholder="Search"
                 className="max-w-sm"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => listQuery.refetch()}
-                disabled={listQuery.isFetching}
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Refresh
-              </Button>
+              {headerVariant === "legacy" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => listQuery.refetch()}
+                  disabled={listQuery.isFetching}
+                >
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Refresh
+                </Button>
+              ) : null}
               <div className="ml-auto text-sm text-muted-foreground">Rows: {total}</div>
             </CardContent>
           </Card>

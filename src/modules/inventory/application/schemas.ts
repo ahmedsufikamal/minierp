@@ -274,10 +274,53 @@ export const exportJobSchema = z.object({
   filters: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const documentAdvancedFilterSchema = z.object({
+  field: z.enum(["id", "stockEntryType", "sourceWarehouseId", "targetWarehouseId", "status", "createdOn"]),
+  op: z.enum(["equals", "contains"]),
+  value: z.string(),
+});
+
+const documentFiltersQuerySchema = z.string().optional().transform((value, ctx) => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    const result = z.array(documentAdvancedFilterSchema).safeParse(parsed);
+    if (!result.success) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Invalid filters payload",
+      });
+      return z.NEVER;
+    }
+    return result.data;
+  } catch {
+    ctx.addIssue({
+      code: "custom",
+      message: "Invalid filters payload",
+    });
+    return z.NEVER;
+  }
+});
+
 export const documentListQuerySchema = paginationSchema.extend({
   status: z.nativeEnum(InventoryDocumentStatus).optional(),
   type: z.nativeEnum(InventoryDocumentType).optional(),
   q: z.string().optional(),
+  id: z.string().optional(),
+  sourceWarehouseId: z.string().optional(),
+  destinationWarehouseId: z.string().optional(),
+  sortField: z
+    .enum([
+      "created_on",
+      "last_updated_on",
+      "stock_entry_type",
+      "id",
+      "default_source_warehouse",
+      "default_target_warehouse",
+    ])
+    .optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
+  filters: documentFiltersQuerySchema,
 });
 
 export const ledgerQuerySchema = paginationSchema.extend({

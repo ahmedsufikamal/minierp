@@ -56,6 +56,148 @@ function pageToSkip(page: number, limit: number) {
   return Math.max(0, (page - 1) * limit);
 }
 
+type DocumentAdvancedFilterInput = {
+  field: "id" | "stockEntryType" | "sourceWarehouseId" | "targetWarehouseId" | "status" | "createdOn";
+  op: "equals" | "contains";
+  value: string;
+};
+
+function hasText(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function buildDocumentIdContainsCondition(term: string): Prisma.InventoryDocumentWhereInput {
+  return {
+    OR: [
+      { number: { contains: term, mode: "insensitive" } },
+      { id: { contains: term, mode: "insensitive" } },
+      { externalRef: { contains: term, mode: "insensitive" } },
+    ],
+  };
+}
+
+function buildDocumentIdEqualsCondition(term: string): Prisma.InventoryDocumentWhereInput {
+  return {
+    OR: [
+      { number: { equals: term, mode: "insensitive" } },
+      { id: { equals: term, mode: "insensitive" } },
+      { externalRef: { equals: term, mode: "insensitive" } },
+    ],
+  };
+}
+
+function matchDocumentTypes(term: string): InventoryDocumentType[] {
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) return [];
+  return Object.values(InventoryDocumentType).filter((value) =>
+    value.toLowerCase().includes(normalized),
+  );
+}
+
+function matchDocumentStatuses(term: string): InventoryDocumentStatus[] {
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) return [];
+  return Object.values(InventoryDocumentStatus).filter((value) =>
+    value.toLowerCase().includes(normalized),
+  );
+}
+
+function buildAdvancedDocumentFilterCondition(
+  filter: DocumentAdvancedFilterInput,
+): Prisma.InventoryDocumentWhereInput | null {
+  const value = filter.value.trim();
+  if (!value) return null;
+
+  switch (filter.field) {
+    case "id":
+      return filter.op === "equals"
+        ? buildDocumentIdEqualsCondition(value)
+        : buildDocumentIdContainsCondition(value);
+    case "stockEntryType":
+      if (filter.op === "equals") {
+        const matched = Object.values(InventoryDocumentType).find(
+          (entry) => entry.toLowerCase() === value.toLowerCase(),
+        );
+        return matched ? { documentType: matched } : null;
+      }
+      {
+        const matches = matchDocumentTypes(value);
+        return matches.length > 0 ? { documentType: { in: matches } } : null;
+      }
+    case "sourceWarehouseId":
+      return filter.op === "equals" ? { sourceWarehouseId: value } : null;
+    case "targetWarehouseId":
+      return filter.op === "equals" ? { destinationWarehouseId: value } : null;
+    case "status":
+      if (filter.op === "equals") {
+        const matched = Object.values(InventoryDocumentStatus).find(
+          (entry) => entry.toLowerCase() === value.toLowerCase(),
+        );
+        return matched ? { status: matched } : null;
+      }
+      {
+        const matches = matchDocumentStatuses(value);
+        return matches.length > 0 ? { status: { in: matches } } : null;
+      }
+    case "createdOn":
+      return null;
+    default:
+      return null;
+  }
+}
+
+function defaultSortDirectionForField(
+  field:
+    | "created_on"
+    | "last_updated_on"
+    | "stock_entry_type"
+    | "id"
+    | "default_source_warehouse"
+    | "default_target_warehouse"
+    | undefined,
+): Prisma.SortOrder {
+  switch (field) {
+    case "stock_entry_type":
+    case "id":
+    case "default_source_warehouse":
+    case "default_target_warehouse":
+      return "asc";
+    case "last_updated_on":
+    case "created_on":
+    default:
+      return "desc";
+  }
+}
+
+function resolveDocumentListOrderBy(params: {
+  sortField?:
+    | "created_on"
+    | "last_updated_on"
+    | "stock_entry_type"
+    | "id"
+    | "default_source_warehouse"
+    | "default_target_warehouse";
+  sortDirection?: Prisma.SortOrder;
+}): Prisma.InventoryDocumentOrderByWithRelationInput[] {
+  const direction = params.sortDirection ?? defaultSortDirectionForField(params.sortField);
+
+  switch (params.sortField) {
+    case "last_updated_on":
+      return [{ updatedAt: direction }, { createdAt: "desc" }];
+    case "stock_entry_type":
+      return [{ documentType: direction }, { createdAt: "desc" }];
+    case "id":
+      return [{ number: direction }, { createdAt: "desc" }];
+    case "default_source_warehouse":
+      return [{ sourceWarehouse: { code: direction } }, { createdAt: "desc" }];
+    case "default_target_warehouse":
+      return [{ destinationWarehouse: { code: direction } }, { createdAt: "desc" }];
+    case "created_on":
+    default:
+      return [{ createdAt: direction }];
+  }
+}
+
 function hashIdempotencyRequest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
@@ -208,20 +350,47 @@ export async function listInventoryDocuments(ctx: AppContext, input: unknown) {
   }
 
   const q = parsed.data;
+  const andConditions: Prisma.InventoryDocumentWhereInput[] = [];
+
+  if (hasText(q.q)) {
+    andConditions.push({
+      OR: [
+        { number: { contains: q.q, mode: "insensitive" } },
+        { externalRef: { contains: q.q, mode: "insensitive" } },
+        { notes: { contains: q.q, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  if (hasText(q.id)) {
+    andConditions.push(buildDocumentIdContainsCondition(q.id));
+  }
+
+  if (hasText(q.sourceWarehouseId)) {
+    andConditions.push({ sourceWarehouseId: q.sourceWarehouseId });
+  }
+
+  if (hasText(q.destinationWarehouseId)) {
+    andConditions.push({ destinationWarehouseId: q.destinationWarehouseId });
+  }
+
+  for (const filter of q.filters) {
+    const condition = buildAdvancedDocumentFilterCondition(filter as DocumentAdvancedFilterInput);
+    if (condition) {
+      andConditions.push(condition);
+    }
+  }
+
   const where: Prisma.InventoryDocumentWhereInput = {
     companyId: ctx.companyId,
     ...(q.status ? { status: q.status } : {}),
     ...(q.type ? { documentType: q.type } : {}),
-    ...(q.q
-      ? {
-          OR: [
-            { number: { contains: q.q, mode: "insensitive" } },
-            { externalRef: { contains: q.q, mode: "insensitive" } },
-            { notes: { contains: q.q, mode: "insensitive" } },
-          ],
-        }
-      : {}),
+    ...(andConditions.length > 0 ? { AND: andConditions } : {}),
   };
+  const orderBy = resolveDocumentListOrderBy({
+    sortField: q.sortField,
+    sortDirection: q.sortDirection,
+  });
 
   const [rows, total] = await Promise.all([
     prisma.inventoryDocument.findMany({
@@ -236,7 +405,7 @@ export async function listInventoryDocuments(ctx: AppContext, input: unknown) {
           orderBy: { lineNo: "asc" },
         },
       },
-      orderBy: [{ createdAt: "desc" }],
+      orderBy,
       skip: pageToSkip(q.page, q.limit),
       take: q.limit,
     }),
