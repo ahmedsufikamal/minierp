@@ -82,7 +82,7 @@ type PageProps = {
 
 export default async function StockReportPlaceholderPage(props: PageProps) {
   const { reportSlug } = await props.params;
-  const page = reportPlaceholders[reportSlug];
+  const page = reportPlaceholders[reportSlug as keyof typeof reportPlaceholders];
 
   if (!page) {
     notFound();

@@ -22,7 +22,7 @@ type PageProps = {
 
 export default async function StockSettingPlaceholderPage(props: PageProps) {
   const { settingSlug } = await props.params;
-  const page = settingPlaceholders[settingSlug];
+  const page = settingPlaceholders[settingSlug as keyof typeof settingPlaceholders];
 
   if (!page) {
     notFound();

@@ -289,6 +289,29 @@ export const shellModules: ShellModule[] = [
     ],
   },
   {
+    id: "trade",
+    label: "Trade Finance",
+    description: "Letters of credit, document scrutiny, and settlement workflows",
+    icon: Wallet,
+    homeHref: "/trade/lc",
+    matchers: ["/trade"],
+    sections: [
+      {
+        items: [
+          { label: "LC Dashboard", href: "/trade/lc", icon: LayoutDashboard },
+          { label: "LC Register", href: "/trade/lc/register", icon: FileText },
+          { label: "New LC", href: "/trade/lc/new", icon: ClipboardCheck },
+          { label: "Amendments", href: "/trade/lc/amendments", icon: ClipboardList },
+          { label: "Documents & Checklist", href: "/trade/lc/documents", icon: BookCopy },
+          { label: "Discrepancies", href: "/trade/lc/discrepancies", icon: ShieldCheck },
+          { label: "Charges & Payments", href: "/trade/lc/charges-payments", icon: Wallet },
+          { label: "Reports", href: "/trade/lc/reports", icon: FileBarChart },
+          { label: "Settings", href: "/trade/lc/settings", icon: FolderCog },
+        ],
+      },
+    ],
+  },
+  {
     id: "buying",
     label: "Buying",
     description: "Procurement, suppliers, and inbound flow",

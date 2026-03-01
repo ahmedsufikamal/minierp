@@ -23,7 +23,7 @@ type PageProps = {
 
 export default async function StockToolPlaceholderPage(props: PageProps) {
   const { toolSlug } = await props.params;
-  const page = toolPlaceholders[toolSlug];
+  const page = toolPlaceholders[toolSlug as keyof typeof toolPlaceholders];
 
   if (!page) {
     notFound();

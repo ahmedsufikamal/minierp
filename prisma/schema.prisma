@@ -453,6 +453,102 @@ enum ThemeMode {
   SYSTEM
 }
 
+enum TradeLcType {
+  IMPORT
+  EXPORT
+}
+
+enum TradeLcStatus {
+  DRAFT
+  REQUESTED
+  APPROVED
+  ISSUED
+  ACTIVE
+  DOCS_RECEIVED
+  UNDER_SCRUTINY
+  DISCREPANT
+  ACCEPTED
+  SETTLED
+  CLOSED
+  CANCELLED
+  EXPIRED
+}
+
+enum TradeLcAmendmentStatus {
+  DRAFT
+  PUBLISHED
+  CONFIRMED
+}
+
+enum TradeLcDocumentSetStatus {
+  PENDING
+  RECEIVED
+  VERIFIED
+  DISCREPANT
+  ACCEPTED
+  REJECTED
+}
+
+enum TradeLcDiscrepancySeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TradeLcDiscrepancyDecision {
+  PENDING
+  WAIVED
+  ACCEPTED
+  REJECTED
+}
+
+enum TradeLcAllocationTarget {
+  LANDED_COST
+  EXPENSE
+}
+
+enum TradeLcPaymentType {
+  MARGIN
+  SETTLEMENT
+  CHARGE
+  OTHER
+}
+
+enum TradeLcPaymentMethod {
+  BANK_TRANSFER
+  TT
+  CASH
+  OTHER
+}
+
+enum TradeLcPaymentStatus {
+  PLANNED
+  INITIATED
+  PAID
+  REVERSED
+}
+
+enum TradeLcEventType {
+  CREATED
+  UPDATED
+  SUBMITTED
+  APPROVED
+  ISSUED
+  DOCS_RECEIVED
+  DOCSET_VERIFIED
+  DISCREPANCY_ADDED
+  DISCREPANCY_WAIVED
+  DISCREPANCY_REJECTED
+  ACCEPTED
+  PAYMENT_POSTED
+  SETTLED
+  CLOSED
+  CANCELLED
+  EXPIRED
+  AMENDED
+  ATTACHMENT_UPLOADED
+}
+
 model User {
   id                    String          @id @default(cuid())
   email                 String          @unique
@@ -551,6 +647,7 @@ model Vendor {
   subcontractingReceipts     SubcontractingReceipt[]
   supplierPayments           SupplierPayment[]
   payableAgingSnapshots      PayableAgingSnapshot[]
+  tradeLcs                   TradeLc[]
 
   @@index([companyId, territoryId])
   @@index([companyId, supplierGroupId])
@@ -1096,6 +1193,7 @@ model PurchaseOrder {
 
   lines            PurchaseOrderLine[]
   purchaseReceipts PurchaseReceipt[]
+  tradeLcLinks     TradeLcPoLink[]
 
   @@unique([companyId, number])
 }
@@ -4393,6 +4491,350 @@ model MasterTaxCode {
   updatedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId, companyId, isActive])
+}
+
+model TradeLc {
+  id                     String        @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId               String
+  companyId              String
+  lcNo                   String?
+  lcType                 TradeLcType   @default(IMPORT)
+  status                 TradeLcStatus @default(DRAFT)
+  beneficiaryVendorId    String
+  beneficiaryVendor      Vendor        @relation(fields: [beneficiaryVendorId], references: [id], onDelete: Restrict)
+  issuingBankId          String
+  issuingBank            TradeLcBank   @relation("TradeLcIssuingBank", fields: [issuingBankId], references: [id], onDelete: Restrict)
+  advisingBankId         String?
+  advisingBank           TradeLcBank?  @relation("TradeLcAdvisingBank", fields: [advisingBankId], references: [id], onDelete: SetNull)
+  confirmingBankId       String?
+  confirmingBank         TradeLcBank?  @relation("TradeLcConfirmingBank", fields: [confirmingBankId], references: [id], onDelete: SetNull)
+  currency               String
+  lcAmount               Decimal       @db.Decimal(18, 2)
+  tolerancePercent       Decimal?      @db.Decimal(9, 4)
+  issueDate              DateTime?
+  maturityDate           DateTime?
+  latestShipmentDate     DateTime?
+  expiryDate             DateTime
+  placeOfExpiry          String?
+  shipmentFrom           String?
+  shipmentTo             String?
+  portOfLoading          String?
+  portOfDischarge        String?
+  partialShipmentAllowed Boolean       @default(false)
+  transshipmentAllowed   Boolean       @default(false)
+  marginPercent          Decimal?      @db.Decimal(9, 4)
+  marginAmount           Decimal?      @db.Decimal(18, 2)
+  lienReference          String?
+  incotermCode           String?
+  remarks                String?
+  termsText              String?
+  version                Int           @default(1)
+  createdBy              String?
+  updatedBy              String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  poLinks       TradeLcPoLink[]
+  amendments    TradeLcAmendment[]
+  documentSets  TradeLcDocumentSet[]
+  discrepancies TradeLcDiscrepancy[]
+  charges       TradeLcCharge[]
+  payments      TradeLcPayment[]
+  events        TradeLcEvent[]
+  attachments   TradeLcAttachment[]
+
+  @@unique([tenantId, companyId, lcNo])
+  @@index([tenantId, companyId, status, expiryDate])
+  @@index([tenantId, companyId, beneficiaryVendorId])
+  @@index([tenantId, companyId, issuingBankId])
+}
+
+model TradeLcPoLink {
+  id                String        @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId          String
+  companyId         String
+  lcId              String
+  lc                TradeLc       @relation(fields: [lcId], references: [id], onDelete: Cascade)
+  purchaseOrderId   String
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  coveredAmount     Decimal       @db.Decimal(18, 2)
+  coveredCurrency   String
+  externalReference String?
+  createdBy         String?
+  updatedBy         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([tenantId, companyId, lcId, purchaseOrderId])
+  @@index([tenantId, companyId, lcId])
+}
+
+model TradeLcAmendment {
+  id            String                 @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId      String
+  companyId     String
+  lcId          String
+  lc            TradeLc                @relation(fields: [lcId], references: [id], onDelete: Cascade)
+  amendmentNo   String
+  amendmentDate DateTime
+  changesJson   Json
+  reason        String
+  status        TradeLcAmendmentStatus @default(DRAFT)
+  publishedAt   DateTime?
+  publishedBy   String?
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@unique([tenantId, companyId, lcId, amendmentNo])
+  @@index([tenantId, companyId, lcId, status])
+}
+
+model TradeLcDocumentSet {
+  id                String                   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId          String
+  companyId         String
+  lcId              String
+  lc                TradeLc                  @relation(fields: [lcId], references: [id], onDelete: Cascade)
+  shipmentRef       String?
+  shipmentDate      DateTime?
+  etaDate           DateTime?
+  docsReceivedDate  DateTime?
+  status            TradeLcDocumentSetStatus @default(PENDING)
+  verificationNotes String?
+  createdBy         String?
+  updatedBy         String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  documentLines TradeLcDocumentLine[]
+  discrepancies TradeLcDiscrepancy[]
+
+  @@index([tenantId, companyId, lcId, status])
+}
+
+model TradeLcDocumentLine {
+  id               String             @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId         String
+  companyId        String
+  documentSetId    String
+  documentSet      TradeLcDocumentSet @relation(fields: [documentSetId], references: [id], onDelete: Cascade)
+  documentTypeCode String
+  required         Boolean            @default(true)
+  received         Boolean            @default(false)
+  referenceNo      String?
+  issueDate        DateTime?
+  notes            String?
+  attachmentId     String?
+  createdBy        String?
+  updatedBy        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@unique([tenantId, companyId, documentSetId, documentTypeCode])
+  @@index([tenantId, companyId, documentSetId, required, received])
+}
+
+model TradeLcDiscrepancy {
+  id            String                    @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId      String
+  companyId     String
+  lcId          String
+  lc            TradeLc                   @relation(fields: [lcId], references: [id], onDelete: Cascade)
+  documentSetId String?
+  documentSet   TradeLcDocumentSet?       @relation(fields: [documentSetId], references: [id], onDelete: SetNull)
+  code          String
+  title         String
+  description   String
+  severity      TradeLcDiscrepancySeverity @default(MEDIUM)
+  decision      TradeLcDiscrepancyDecision @default(PENDING)
+  decisionNotes String?
+  decidedBy     String?
+  decidedAt     DateTime?
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  @@index([tenantId, companyId, lcId, decision])
+  @@index([tenantId, companyId, severity, decision])
+}
+
+model TradeLcCharge {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId         String
+  companyId        String
+  lcId             String
+  lc               TradeLc                  @relation(fields: [lcId], references: [id], onDelete: Cascade)
+  chargeTypeCode   String
+  amount           Decimal                  @db.Decimal(18, 2)
+  currency         String
+  chargedBy        String
+  chargeDate       DateTime
+  allocatable      Boolean                  @default(false)
+  allocationTarget TradeLcAllocationTarget?
+  allocationNotes  String?
+  createdBy        String?
+  updatedBy        String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([tenantId, companyId, lcId, chargeDate])
+}
+
+model TradeLcPayment {
+  id            String               @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId      String
+  companyId     String
+  lcId          String
+  lc            TradeLc              @relation(fields: [lcId], references: [id], onDelete: Cascade)
+  paymentType   TradeLcPaymentType
+  amount        Decimal              @db.Decimal(18, 2)
+  currency      String
+  paymentDate   DateTime
+  valueDate     DateTime?
+  method        TradeLcPaymentMethod
+  bankAccountId String?
+  status        TradeLcPaymentStatus @default(PLANNED)
+  externalRef   String?
+  notes         String?
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([tenantId, companyId, lcId, status, paymentDate])
+}
+
+model TradeLcEvent {
+  id          String           @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId    String
+  companyId   String
+  lcId        String
+  lc          TradeLc          @relation(fields: [lcId], references: [id], onDelete: Cascade)
+  eventType   TradeLcEventType
+  message     String
+  dataJson    Json?
+  actorUserId String?
+  createdAt   DateTime         @default(now())
+
+  @@index([tenantId, companyId, lcId, createdAt])
+}
+
+model TradeLcAttachment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId       String
+  companyId      String
+  lcId           String?
+  lc             TradeLc? @relation(fields: [lcId], references: [id], onDelete: SetNull)
+  documentLineId String?
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  storageKey     String
+  uploadedBy     String?
+  uploadedAt     DateTime?
+  metadata       Json?
+  createdBy      String?
+  updatedBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId, companyId, lcId, createdAt])
+  @@index([tenantId, companyId, documentLineId])
+}
+
+model TradeLcSetting {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId           String
+  companyId          String
+  dualControlEnabled Boolean  @default(true)
+  expiringSoonDays   Int      @default(30)
+  maturitySoonDays   Int      @default(15)
+  createdBy          String?
+  updatedBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, companyId])
+}
+
+model TradeLcBank {
+  id          String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId    String
+  companyId   String
+  code        String
+  name        String
+  swift       String?
+  address     String?
+  country     String?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  issuedLcs    TradeLc[] @relation("TradeLcIssuingBank")
+  advisedLcs   TradeLc[] @relation("TradeLcAdvisingBank")
+  confirmedLcs TradeLc[] @relation("TradeLcConfirmingBank")
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId, companyId, isActive])
+}
+
+model TradeLcDocumentType {
+  id              String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId        String
+  companyId       String
+  code            String
+  name            String
+  description     String?
+  defaultRequired Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId, companyId, isActive, sortOrder])
+}
+
+model TradeLcChargeType {
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId                String
+  companyId               String
+  code                    String
+  name                    String
+  defaultAllocatable      Boolean                 @default(false)
+  defaultAllocationTarget TradeLcAllocationTarget?
+  isActive                Boolean                 @default(true)
+  createdBy               String?
+  updatedBy               String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId, companyId, isActive])
+}
+
+model TradeLcIncoterm {
+  id          String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  tenantId    String
+  companyId   String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([tenantId, companyId, code])
   @@index([tenantId, companyId, isActive])
