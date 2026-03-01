@@ -81,24 +81,24 @@ export function ModuleSwitcher({ activeModule, modules, collapsed, subtext }: Mo
                 const Icon = module.icon;
                 const selected = module.id === previewModule.id;
                 return (
-                  <button
+                  <Link
                     key={module.id}
-                    type="button"
+                    href={module.homeHref}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors",
                       "text-muted-foreground hover:bg-[hsl(var(--surface-3))] hover:text-foreground",
                       selected && "bg-[hsl(var(--surface-3))] text-foreground",
                     )}
+                    aria-current={module.id === activeModule.id ? "page" : undefined}
                     onPointerEnter={() => setPreviewModuleId(module.id)}
                     onFocus={() => setPreviewModuleId(module.id)}
-                    onClick={() => setPreviewModuleId(module.id)}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="truncate">{module.label}</span>
                     {module.id === activeModule.id ? (
                       <Check className="ml-auto h-4 w-4 text-primary" />
                     ) : null}
-                  </button>
+                  </Link>
                 );
               })}
             </div>
