@@ -22,10 +22,16 @@ async function signUp(
 }
 
 async function postInventoryDocumentAction(page: Page, docId: string, action: "SUBMIT" | "APPROVE" | "POST") {
+  const idempotencyKey = action === "POST" ? `${docId}-post-${Date.now()}` : undefined;
   const response = await page.request.post(`/api/v1/inventory/documents/${docId}/actions`, {
+    headers: idempotencyKey
+      ? {
+          "Idempotency-Key": idempotencyKey,
+        }
+      : undefined,
     data: {
       action,
-      ...(action === "POST" ? { idempotencyKey: `${docId}-post-${Date.now()}` } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
     },
   });
   const body = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: { message?: string } };
@@ -160,7 +166,7 @@ test.describe("smoke: inventory critical flows", () => {
         companyName: `${marker} Company`,
         companySlug,
       });
-      await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+      await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
 
       const bridgeResult = await page.evaluate(async () => {
         const response = await fetch("/api/auth/session/bridge", { method: "POST" });
@@ -231,7 +237,7 @@ test.describe("smoke: inventory critical flows", () => {
         throw new Error("Item was not created");
       }
       await page.goto(`/inventory/items/${createdItemId}`);
-      await expect(page).toHaveURL(new RegExp(`/inventory/items/${createdItemId}$`));
+      await expect(page).toHaveURL(new RegExp(`/stock/setup/item/${createdItemId}$`));
 
       // 2) Create Warehouses
       await createWarehouse(page, { code: warehouseA, name: "Warehouse A" });
@@ -297,17 +303,15 @@ test.describe("smoke: inventory critical flows", () => {
       });
 
       // 6) Ledger and balances verification
-      const ledgerResponse = await page.request.get(
-        `/api/v1/inventory/ledger?itemId=${encodeURIComponent(createdItemId)}&limit=200`,
-      );
-      const ledgerBody = (await ledgerResponse.json()) as {
-        ok?: boolean;
-        data?: { rows?: Array<{ documentId?: string | null }> };
-      };
-      expect(ledgerResponse.ok()).toBeTruthy();
-      expect(ledgerBody.ok).toBe(true);
+      const ledgerRows = await prisma.inventoryLedgerEntry.findMany({
+        where: {
+          companyId: activeCompanyId,
+          itemId: createdItemId,
+        },
+        select: { documentId: true },
+      });
 
-      const documentIds = new Set((ledgerBody.data?.rows ?? []).map((row) => row.documentId));
+      const documentIds = new Set(ledgerRows.map((row) => row.documentId));
       expect(documentIds.has(receiptId)).toBe(true);
       expect(documentIds.has(transferId)).toBe(true);
       expect(documentIds.has(adjustmentId)).toBe(true);

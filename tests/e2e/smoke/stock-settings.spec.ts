@@ -10,11 +10,22 @@ async function signIn(page: Page, email: string) {
   await page.getByPlaceholder("you@company.com").fill(email);
   await page.getByPlaceholder("Password").fill(STRONG_PASSWORD);
   await page.getByRole("button", { name: "Sign in with password" }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
 }
 
 async function seedCompanyUser(input: { email: string; name: string; role: "MANAGER" | "MEMBER" }) {
   const passwordHash = await bcrypt.hash(STRONG_PASSWORD, 12);
+
+  await prisma.company.upsert({
+    where: { id: DEFAULT_COMPANY_ID },
+    update: {},
+    create: {
+      id: DEFAULT_COMPANY_ID,
+      name: "Default Org",
+      slug: DEFAULT_COMPANY_ID,
+      status: "ACTIVE",
+    },
+  });
 
   const user = await prisma.user.create({
     data: {

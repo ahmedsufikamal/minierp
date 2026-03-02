@@ -53,31 +53,38 @@ export function SidebarNav({ sections, pathname, collapsed, onNavigate }: Sideba
   );
 
   useEffect(() => {
-    setExpanded((current) => {
-      let changed = false;
-      const next = { ...current };
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setExpanded((current) => {
+        let changed = false;
+        const next = { ...current };
 
-      for (const [sectionIndex, section] of sections.entries()) {
-        for (const item of section.items) {
-          if (!item.href && item.children?.length) {
-            const key = getItemKey(sectionIndex, item);
-            const shouldExpand =
-              Boolean(item.defaultExpanded) ||
-              item.children.some((child) => matchesItem(pathname, child));
-            if (shouldExpand && !next[key]) {
-              next[key] = true;
-              changed = true;
-            }
-            if (!(key in next)) {
-              next[key] = shouldExpand;
-              changed = true;
+        for (const [sectionIndex, section] of sections.entries()) {
+          for (const item of section.items) {
+            if (!item.href && item.children?.length) {
+              const key = getItemKey(sectionIndex, item);
+              const shouldExpand =
+                Boolean(item.defaultExpanded) ||
+                item.children.some((child) => matchesItem(pathname, child));
+              if (shouldExpand && !next[key]) {
+                next[key] = true;
+                changed = true;
+              }
+              if (!(key in next)) {
+                next[key] = shouldExpand;
+                changed = true;
+              }
             }
           }
         }
-      }
 
-      return changed ? next : current;
+        return changed ? next : current;
+      });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, sections]);
 
   return (

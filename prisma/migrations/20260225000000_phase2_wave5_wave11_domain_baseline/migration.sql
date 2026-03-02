@@ -1695,6 +1695,37 @@ ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_taskId_fkey" FOREIGN KEY ("tas
 ALTER TABLE "Timesheet" ADD CONSTRAINT "Timesheet_salesInvoiceId_fkey" FOREIGN KEY ("salesInvoiceId") REFERENCES "SalesInvoice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+DO $$
+BEGIN
+  IF to_regclass('"ProjectBillingEntry"') IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+       FROM pg_constraint
+       WHERE conname = 'ProjectBillingEntry_projectId_fkey'
+     ) THEN
+    ALTER TABLE "ProjectBillingEntry"
+    ADD CONSTRAINT "ProjectBillingEntry_projectId_fkey"
+    FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+-- AddForeignKey
+DO $$
+BEGIN
+  IF to_regclass('"ProjectBillingEntry"') IS NOT NULL
+     AND to_regclass('"Timesheet"') IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+       FROM pg_constraint
+       WHERE conname = 'ProjectBillingEntry_timesheetId_fkey'
+     ) THEN
+    ALTER TABLE "ProjectBillingEntry"
+    ADD CONSTRAINT "ProjectBillingEntry_timesheetId_fkey"
+    FOREIGN KEY ("timesheetId") REFERENCES "Timesheet"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+-- AddForeignKey
 ALTER TABLE "SlaPolicy" ADD CONSTRAINT "SlaPolicy_queueId_fkey" FOREIGN KEY ("queueId") REFERENCES "SupportQueue"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey

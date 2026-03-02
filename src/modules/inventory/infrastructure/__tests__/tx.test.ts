@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  advisoryLockInventoryScopeInTx,
   isSerializableConflict,
   stockScopeAdvisoryKey,
   withSerializableRetry,
@@ -69,5 +70,20 @@ describe("inventory tx helpers", () => {
     expect(a).toBe(b);
     expect(c).toBe("c1::i1::w1::loc-1");
     expect(c).not.toBe(a);
+  });
+
+  it("acquires advisory locks without deserializing a raw result", async () => {
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+    };
+
+    await advisoryLockInventoryScopeInTx(tx as never, {
+      companyId: "c1",
+      itemId: "i1",
+      warehouseId: "w1",
+      locationId: null,
+    });
+
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
   });
 });

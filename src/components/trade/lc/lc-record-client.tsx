@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPatch, apiPost, ApiClientError } from "@/lib/api/client";
@@ -12,7 +12,7 @@ import { LCChargesTable } from "@/components/trade/lc/lc-charges-table";
 import { LCConfirmDialog } from "@/components/trade/lc/lc-confirm-dialog";
 import { LCDiscrepancyPanel } from "@/components/trade/lc/lc-discrepancy-panel";
 import { LCDocChecklist } from "@/components/trade/lc/lc-doc-checklist";
-import { LCForm } from "@/components/trade/lc/lc-form";
+import { LCForm, type FormOptions, type LcFormValue } from "@/components/trade/lc/lc-form";
 import { LCPaymentsTable } from "@/components/trade/lc/lc-payments-table";
 import { LCStatusBadge } from "@/components/trade/lc/lc-status-badge";
 import { lcRecordTabs } from "@/components/trade/lc/lc-tabs";
@@ -21,12 +21,121 @@ import { LCTimeline } from "@/components/trade/lc/lc-timeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
+type LcRecord = LcFormValue & {
+  id: string;
+  version: number;
+  displayLcNo: string | null;
+  beneficiaryName: string;
+  issuingBankName: string;
+  status: string;
+  currency: string;
+  lcAmount: number;
+  outstandingAmount: number;
+  applicantPartyId?: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+};
+
+type LcActions = {
+  canEdit?: boolean;
+  canSubmit?: boolean;
+  canApprove?: boolean;
+  canIssue?: boolean;
+  canCancel?: boolean;
+  canClose?: boolean;
+  [key: string]: boolean | undefined;
+};
+
+type TimelineRow = {
+  id: string;
+  eventType: string;
+  message: string;
+  actorUserId?: string | null;
+  createdAt: string;
+};
 
 type DetailResponse = {
-  lc: Record<string, any>;
-  actions: Record<string, boolean>;
-  timeline: Array<Record<string, any>>;
+  lc: LcRecord;
+  actions: LcActions;
+  timeline: TimelineRow[];
+};
+
+type AmendmentRow = {
+  id: string;
+  amendmentNo: number;
+  amendmentDate: string;
+  reason: string;
+  status: string;
+};
+
+type AmendmentsResponse = {
+  rows: AmendmentRow[];
+};
+
+type DocumentSetRow = {
+  id: string;
+  shipmentRef?: string | null;
+  status: string;
+  requiredCount: number;
+  receivedCount: number;
+};
+
+type DocsetsResponse = {
+  rows: DocumentSetRow[];
+};
+
+type DiscrepancyRow = {
+  id: string;
+  code: string;
+  title: string;
+  severity: string;
+  decision: string;
+  decisionNotes?: string | null;
+};
+
+type DiscrepanciesResponse = {
+  rows: DiscrepancyRow[];
+};
+
+type ChargeRow = {
+  id: string;
+  chargeTypeCode: string;
+  amount: number;
+  currency: string;
+  chargedBy: string;
+  chargeDate: string;
+};
+
+type ChargesResponse = {
+  rows: ChargeRow[];
+};
+
+type PaymentRow = {
+  id: string;
+  paymentType: string;
+  amount: number;
+  currency: string;
+  paymentDate: string;
+  status: string;
+};
+
+type PaymentsResponse = {
+  rows: PaymentRow[];
+};
+
+type DocumentLineRow = {
+  id: string;
+  documentTypeCode: string;
+  required: boolean;
+  received: boolean;
+  referenceNo?: string | null;
+  issueDate?: string | null;
+  notes?: string | null;
+};
+
+type DocsetDetailResponse = {
+  documentLines: DocumentLineRow[];
 };
 
 function formatCurrency(value: number, currency: string) {
@@ -67,50 +176,52 @@ export function LCRecordClient({ lcId }: { lcId: string }) {
 
   const formOptions = useQuery({
     queryKey: queryKeys.detail("trade", "lc-form-options", "singleton"),
-    queryFn: () => apiGet<Record<string, any>>("/api/v1/trade/lc/form-options"),
+    queryFn: () => apiGet<FormOptions>("/api/v1/trade/lc/form-options"),
     enabled: Boolean(actions.canEdit),
   });
 
   const amendments = useQuery({
     queryKey: queryKeys.list("trade", "lc-amendments", { lcId }),
-    queryFn: () => apiGet<Record<string, any>>(`/api/v1/trade/lc/${lcId}/amendments`),
+    queryFn: () => apiGet<AmendmentsResponse>(`/api/v1/trade/lc/${lcId}/amendments`),
     enabled: activeTab === "amendments",
   });
 
   const docsets = useQuery({
     queryKey: queryKeys.list("trade", "lc-docsets", { lcId }),
-    queryFn: () => apiGet<Record<string, any>>(`/api/v1/trade/lc/${lcId}/docsets`),
+    queryFn: () => apiGet<DocsetsResponse>(`/api/v1/trade/lc/${lcId}/docsets`),
     enabled: activeTab === "documents",
   });
 
   const discrepancies = useQuery({
     queryKey: queryKeys.list("trade", "lc-discrepancies", { lcId }),
-    queryFn: () => apiGet<Record<string, any>>(`/api/v1/trade/lc/${lcId}/discrepancies`),
+    queryFn: () => apiGet<DiscrepanciesResponse>(`/api/v1/trade/lc/${lcId}/discrepancies`),
     enabled: activeTab === "discrepancies",
   });
 
   const charges = useQuery({
     queryKey: queryKeys.list("trade", "lc-charges", { lcId }),
-    queryFn: () => apiGet<Record<string, any>>(`/api/v1/trade/lc/${lcId}/charges`),
+    queryFn: () => apiGet<ChargesResponse>(`/api/v1/trade/lc/${lcId}/charges`),
     enabled: activeTab === "charges-payments",
   });
 
   const payments = useQuery({
     queryKey: queryKeys.list("trade", "lc-payments", { lcId }),
-    queryFn: () => apiGet<Record<string, any>>(`/api/v1/trade/lc/${lcId}/payments`),
+    queryFn: () => apiGet<PaymentsResponse>(`/api/v1/trade/lc/${lcId}/payments`),
     enabled: activeTab === "charges-payments",
   });
 
-  useEffect(() => {
-    if (!selectedDocsetId && docsets.data?.rows?.[0]?.id) {
-      setSelectedDocsetId(docsets.data.rows[0].id as string);
+  const documentsRows = useMemo(() => docsets.data?.rows ?? [], [docsets.data?.rows]);
+  const effectiveSelectedDocsetId = useMemo(() => {
+    if (selectedDocsetId && documentsRows.some((row) => row.id === selectedDocsetId)) {
+      return selectedDocsetId;
     }
-  }, [docsets.data, selectedDocsetId]);
+    return documentsRows[0]?.id ?? "";
+  }, [documentsRows, selectedDocsetId]);
 
   const docsetDetail = useQuery({
-    queryKey: queryKeys.detail("trade", "lc-docset", selectedDocsetId || "none"),
-    queryFn: () => apiGet<Record<string, any>>(`/api/v1/trade/lc/docsets/${selectedDocsetId}`),
-    enabled: activeTab === "documents" && Boolean(selectedDocsetId),
+    queryKey: queryKeys.detail("trade", "lc-docset", effectiveSelectedDocsetId || "none"),
+    queryFn: () => apiGet<DocsetDetailResponse>(`/api/v1/trade/lc/docsets/${effectiveSelectedDocsetId}`),
+    enabled: activeTab === "documents" && Boolean(effectiveSelectedDocsetId),
   });
 
   async function refreshAll() {
@@ -274,7 +385,7 @@ export function LCRecordClient({ lcId }: { lcId: string }) {
   const detailsContent = actions.canEdit ? (
     <LCForm
       options={formOptions.data ?? {}}
-      initialValue={lc ?? {}}
+      initialValue={lc}
       pending={detail.isFetching}
       error={error}
       onSubmit={saveDraft}
@@ -299,11 +410,10 @@ export function LCRecordClient({ lcId }: { lcId: string }) {
     </div>
   );
 
-  const amendmentsRows = (amendments.data?.rows ?? []) as Array<any>;
-  const documentsRows = (docsets.data?.rows ?? []) as Array<any>;
-  const discrepancyRows = (discrepancies.data?.rows ?? []) as Array<any>;
-  const chargeRows = (charges.data?.rows ?? []) as Array<any>;
-  const paymentRows = (payments.data?.rows ?? []) as Array<any>;
+  const amendmentsRows = amendments.data?.rows ?? [];
+  const discrepancyRows = discrepancies.data?.rows ?? [];
+  const chargeRows = charges.data?.rows ?? [];
+  const paymentRows = payments.data?.rows ?? [];
 
   const tabMain = activeTab === "details"
     ? detailsContent
@@ -349,12 +459,12 @@ export function LCRecordClient({ lcId }: { lcId: string }) {
                   <div className="flex flex-wrap gap-2">
                     <Input value={docsetShipmentRef} onChange={(e) => setDocsetShipmentRef(e.target.value)} placeholder="Shipment reference" className="max-w-sm" />
                     <Button type="button" onClick={() => void createDocset()}>Create Doc Set</Button>
-                    {selectedDocsetId ? (
+                    {effectiveSelectedDocsetId ? (
                       <>
-                        <Button type="button" variant="outline" onClick={() => void apiPost(`/api/v1/trade/lc/docsets/${selectedDocsetId}/verify`, {}).then(() => refreshAll())}>
+                        <Button type="button" variant="outline" onClick={() => void apiPost(`/api/v1/trade/lc/docsets/${effectiveSelectedDocsetId}/verify`, {}).then(() => refreshAll())}>
                           Verify
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => void apiPost(`/api/v1/trade/lc/docsets/${selectedDocsetId}/mark-discrepant`, {}).then(() => refreshAll())}>
+                        <Button type="button" variant="outline" onClick={() => void apiPost(`/api/v1/trade/lc/docsets/${effectiveSelectedDocsetId}/mark-discrepant`, {}).then(() => refreshAll())}>
                           Mark Discrepant
                         </Button>
                       </>
@@ -378,7 +488,7 @@ export function LCRecordClient({ lcId }: { lcId: string }) {
                   <CardTitle className="text-base">Checklist</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <LCDocChecklist rows={(docsetDetail.data?.documentLines ?? []) as Array<any>} />
+                  <LCDocChecklist rows={docsetDetail.data?.documentLines ?? []} />
                 </CardContent>
               </Card>
             </div>
@@ -441,18 +551,18 @@ export function LCRecordClient({ lcId }: { lcId: string }) {
                   </Card>
                 </div>
               )
-            : <LCTimeline rows={(detail.data?.timeline ?? []) as Array<any>} />;
+            : <LCTimeline rows={detail.data?.timeline ?? []} />;
 
   const inspector = (
     <InspectorPanel
       title={lc?.displayLcNo ?? "LC"}
       subtitle={lc ? `${lc.beneficiaryName} · ${lc.issuingBankName}` : "Loading..."}
-      initials="LC"
-      quickActions={[
-        { label: "Open Register", disabled: false },
-        { label: "Open Reports", disabled: false },
-        { label: "Review Documents", disabled: !selectedDocsetId },
-      ]}
+        initials="LC"
+        quickActions={[
+          { label: "Open Register", disabled: false },
+          { label: "Open Reports", disabled: false },
+          { label: "Review Documents", disabled: !effectiveSelectedDocsetId },
+        ]}
       meta={[
         { label: "Applicant", value: lc?.applicantPartyId ?? "—" },
         { label: "Beneficiary", value: lc?.beneficiaryName ?? "—" },

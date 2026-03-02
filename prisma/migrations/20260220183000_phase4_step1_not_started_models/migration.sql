@@ -395,7 +395,19 @@ ALTER TABLE "SupplierPayment" ADD CONSTRAINT "SupplierPayment_paidFromAccountId_
 ALTER TABLE "SupplierPayment" ADD CONSTRAINT "SupplierPayment_paidToAccountId_fkey" FOREIGN KEY ("paidToAccountId") REFERENCES "Account"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SupplierPayment" ADD CONSTRAINT "SupplierPayment_paymentEntryId_fkey" FOREIGN KEY ("paymentEntryId") REFERENCES "PaymentEntry"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF to_regclass('"PaymentEntry"') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'SupplierPayment_paymentEntryId_fkey'
+       ) THEN
+        ALTER TABLE "SupplierPayment"
+        ADD CONSTRAINT "SupplierPayment_paymentEntryId_fkey"
+        FOREIGN KEY ("paymentEntryId") REFERENCES "PaymentEntry"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
 ALTER TABLE "SupplierPaymentAllocation" ADD CONSTRAINT "SupplierPaymentAllocation_supplierPaymentId_fkey" FOREIGN KEY ("supplierPaymentId") REFERENCES "SupplierPayment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -416,10 +428,34 @@ ALTER TABLE "PayableAgingSnapshot" ADD CONSTRAINT "PayableAgingSnapshot_supplier
 ALTER TABLE "QualityFeedback" ADD CONSTRAINT "QualityFeedback_goalId_fkey" FOREIGN KEY ("goalId") REFERENCES "QualityGoal"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ProjectBillingEntry" ADD CONSTRAINT "ProjectBillingEntry_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF to_regclass('"Project"') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'ProjectBillingEntry_projectId_fkey'
+       ) THEN
+        ALTER TABLE "ProjectBillingEntry"
+        ADD CONSTRAINT "ProjectBillingEntry_projectId_fkey"
+        FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "ProjectBillingEntry" ADD CONSTRAINT "ProjectBillingEntry_timesheetId_fkey" FOREIGN KEY ("timesheetId") REFERENCES "Timesheet"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF to_regclass('"Timesheet"') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'ProjectBillingEntry_timesheetId_fkey'
+       ) THEN
+        ALTER TABLE "ProjectBillingEntry"
+        ADD CONSTRAINT "ProjectBillingEntry_timesheetId_fkey"
+        FOREIGN KEY ("timesheetId") REFERENCES "Timesheet"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 -- AddForeignKey
 ALTER TABLE "ProjectBillingEntry" ADD CONSTRAINT "ProjectBillingEntry_salesInvoiceId_fkey" FOREIGN KEY ("salesInvoiceId") REFERENCES "SalesInvoice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -432,4 +468,3 @@ ALTER TABLE "FormLayoutVersion" ADD CONSTRAINT "FormLayoutVersion_formLayoutId_f
 
 -- AddForeignKey
 ALTER TABLE "AutomationRuleRun" ADD CONSTRAINT "AutomationRuleRun_automationRuleId_fkey" FOREIGN KEY ("automationRuleId") REFERENCES "AutomationRule"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-

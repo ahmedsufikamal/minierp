@@ -19,6 +19,15 @@ type SettingsData = {
   counts: Record<string, number>;
 };
 
+type MasterRecord = {
+  id: string;
+  code?: string | null;
+  name?: string | null;
+  isActive?: boolean | null;
+};
+
+type MasterRecordColumnKey = "code" | "name" | "isActive";
+
 function MasterSection({
   title,
   endpoint,
@@ -29,7 +38,7 @@ function MasterSection({
   const client = useQueryClient();
   const query = useQuery({
     queryKey: queryKeys.list("trade", endpoint, {}),
-    queryFn: () => apiGet<Array<Record<string, unknown>>>(endpoint),
+    queryFn: () => apiGet<MasterRecord[]>(endpoint),
   });
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
@@ -61,12 +70,12 @@ function MasterSection({
       ];
     }
 
-    return ["code", "name", "isActive"].map((key) => ({
+    return (["code", "name", "isActive"] as MasterRecordColumnKey[]).map((key) => ({
       key,
       label: key,
-      render: (row: Record<string, unknown>) => {
-        const value = row[key];
-        if (value === null || value === undefined) return "—";
+        render: (row: MasterRecord) => {
+          const value = row[key];
+          if (value === null || value === undefined) return "—";
         if (typeof value === "boolean") return value ? "Yes" : "No";
         return String(value);
       },
@@ -87,7 +96,7 @@ function MasterSection({
           </Button>
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <LCTable rows={(query.data ?? []) as Array<any>} columns={columns as any} emptyLabel={query.isLoading ? "Loading..." : "No rows."} />
+        <LCTable rows={query.data ?? []} columns={columns} emptyLabel={query.isLoading ? "Loading..." : "No rows."} />
       </CardContent>
     </Card>
   );
@@ -106,11 +115,17 @@ export function LCSettingsClient() {
   const [maturitySoonDays, setMaturitySoonDays] = useState("15");
 
   useEffect(() => {
-    if (settings.data?.settings) {
+    if (!settings.data?.settings) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
       setDualControlEnabled(settings.data.settings.dualControlEnabled);
       setExpiringSoonDays(String(settings.data.settings.expiringSoonDays));
       setMaturitySoonDays(String(settings.data.settings.maturitySoonDays));
-    }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [settings.data]);
 
   const patchMutation = useMutation({

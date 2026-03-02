@@ -32,7 +32,7 @@ export function jsonCsv(body: string, filename: string): NextResponse {
     status: 200,
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename=\"${filename}\"`,
+      "content-disposition": `attachment; filename="${filename}"`,
     },
   });
 }

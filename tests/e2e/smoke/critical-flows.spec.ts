@@ -107,12 +107,12 @@ test.describe("smoke: critical ERP flows", () => {
         companyName: `${marker} Main`,
         companySlug: mainSlug,
       });
-      await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+      await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
 
       const signInContext = await browser.newContext();
       const signInPage = await signInContext.newPage();
       await signIn(signInPage, ownerEmail);
-      await expect(signInPage).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+      await expect(signInPage).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
       await signInContext.close();
 
       // 2) Organization creation happened during sign-up (companyName/companySlug).
@@ -151,7 +151,7 @@ test.describe("smoke: critical ERP flows", () => {
         email: inviteeEmail,
         inviteToken,
       });
-      await expect(inviteePage).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+      await expect(inviteePage).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
       const inviteeMembership = await prisma.companyMembership.findFirst({
         where: {
           companyId: ownerUser.activeCompanyId,

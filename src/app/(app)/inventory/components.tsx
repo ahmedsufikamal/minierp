@@ -27,6 +27,7 @@ export function NewMoveCard({ products }: { products: Product[] }) {
           <p>
             This action has been retired to preserve immutable stock ledger rules.
           </p>
+          <p>Catalog size: {products.length} products remain available through stock documents.</p>
           <p>
             Use <Link className="text-primary underline" href="/stock/documents">Stock Documents</Link> for all stock
             receipts, issues, transfers, and adjustments.

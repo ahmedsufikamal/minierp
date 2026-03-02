@@ -127,20 +127,23 @@ function inventoryJobKey(idempotencyKey: string, payload: unknown): string {
   return `${idempotencyKey}:${stableStringify(payload)}`;
 }
 
-async function markOpsJobRunning(jobId: string): Promise<void> {
-  await prisma.inventoryOpsJob.update({
-    where: { id: jobId },
+async function markOpsJobRunning(jobId: string, companyId: string): Promise<void> {
+  const updated = await prisma.inventoryOpsJob.updateMany({
+    where: { id: jobId, companyId },
     data: {
       status: InventoryOpsJobStatus.RUNNING,
       startedAt: new Date(),
       attempts: { increment: 1 },
     },
   });
+  if (updated.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Inventory ops job not found");
+  }
 }
 
-async function markOpsJobCompleted(jobId: string, result: Prisma.InputJsonValue): Promise<void> {
-  await prisma.inventoryOpsJob.update({
-    where: { id: jobId },
+async function markOpsJobCompleted(jobId: string, companyId: string, result: Prisma.InputJsonValue): Promise<void> {
+  const updated = await prisma.inventoryOpsJob.updateMany({
+    where: { id: jobId, companyId },
     data: {
       status: InventoryOpsJobStatus.COMPLETED,
       progressPct: 100,
@@ -149,17 +152,23 @@ async function markOpsJobCompleted(jobId: string, result: Prisma.InputJsonValue)
       error: null,
     },
   });
+  if (updated.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Inventory ops job not found");
+  }
 }
 
-async function markOpsJobFailed(jobId: string, error: unknown): Promise<void> {
-  await prisma.inventoryOpsJob.update({
-    where: { id: jobId },
+async function markOpsJobFailed(jobId: string, companyId: string, error: unknown): Promise<void> {
+  const updated = await prisma.inventoryOpsJob.updateMany({
+    where: { id: jobId, companyId },
     data: {
       status: InventoryOpsJobStatus.FAILED,
       completedAt: new Date(),
       error: error instanceof Error ? error.message : String(error ?? "unknown"),
     },
   });
+  if (updated.count === 0) {
+    throw new InventoryError("NOT_FOUND", "Inventory ops job not found");
+  }
 }
 
 export async function runInventoryOutboxRelay(input?: {
@@ -183,17 +192,24 @@ export async function runInventoryOutboxRelay(input?: {
 
   for (const event of pending) {
     try {
-      await prisma.inventoryOutboxEvent.update({
-        where: { id: event.id },
+      const claimed = await prisma.inventoryOutboxEvent.updateMany({
+        where: {
+          id: event.id,
+          companyId: event.companyId,
+          status: { in: [InventoryOutboxEventStatus.PENDING, InventoryOutboxEventStatus.FAILED] },
+        },
         data: {
           status: InventoryOutboxEventStatus.PROCESSING,
           attempts: { increment: 1 },
         },
       });
+      if (claimed.count === 0) {
+        continue;
+      }
 
       // Relay integration can publish to Kafka/SNS/etc. This baseline marks successful delivery.
-      await prisma.inventoryOutboxEvent.update({
-        where: { id: event.id },
+      await prisma.inventoryOutboxEvent.updateMany({
+        where: { id: event.id, companyId: event.companyId },
         data: {
           status: InventoryOutboxEventStatus.PROCESSED,
           processedAt: new Date(),
@@ -203,8 +219,8 @@ export async function runInventoryOutboxRelay(input?: {
       processed += 1;
     } catch (error) {
       failed += 1;
-      await prisma.inventoryOutboxEvent.update({
-        where: { id: event.id },
+      await prisma.inventoryOutboxEvent.updateMany({
+        where: { id: event.id, companyId: event.companyId },
         data: {
           status: event.attempts >= 9 ? InventoryOutboxEventStatus.DEAD_LETTER : InventoryOutboxEventStatus.FAILED,
           lastError: error instanceof Error ? error.message : String(error ?? "unknown"),
@@ -719,13 +735,15 @@ async function processOutboxRelayJob(job: InventoryOpsJob): Promise<Prisma.Input
   return toJsonValue(result);
 }
 
-export async function processInventoryOpsJobById(jobId: string): Promise<InventoryOpsJob> {
-  const job = await prisma.inventoryOpsJob.findUnique({ where: { id: jobId } });
+export async function processInventoryOpsJobById(jobId: string, companyId: string): Promise<InventoryOpsJob> {
+  const job = await prisma.inventoryOpsJob.findFirst({
+    where: { id: jobId, companyId },
+  });
   if (!job) {
     throw new InventoryError("NOT_FOUND", "Inventory ops job not found");
   }
 
-  await markOpsJobRunning(job.id);
+  await markOpsJobRunning(job.id, job.companyId);
 
   try {
     const result =
@@ -739,13 +757,15 @@ export async function processInventoryOpsJobById(jobId: string): Promise<Invento
                 throw new InventoryError("VALIDATION_ERROR", `Unknown inventory ops job type: ${job.jobType}`);
               })();
 
-    await markOpsJobCompleted(job.id, result);
+    await markOpsJobCompleted(job.id, job.companyId, result);
   } catch (error) {
-    await markOpsJobFailed(job.id, error);
+    await markOpsJobFailed(job.id, job.companyId, error);
     throw error;
   }
 
-  const updated = await prisma.inventoryOpsJob.findUnique({ where: { id: jobId } });
+  const updated = await prisma.inventoryOpsJob.findFirst({
+    where: { id: jobId, companyId },
+  });
   if (!updated) {
     throw new InventoryError("NOT_FOUND", "Inventory ops job disappeared after processing");
   }
@@ -755,12 +775,12 @@ export async function processInventoryOpsJobById(jobId: string): Promise<Invento
 async function enqueueOrRunInventoryJob(job: InventoryOpsJob): Promise<InventoryOpsJob> {
   const queue = getInventoryOpsQueue();
   if (queue.provider === "inline") {
-    return processInventoryOpsJobById(job.id);
+    return processInventoryOpsJobById(job.id, job.companyId);
   }
 
   await queue.enqueue({
     name: job.jobType as "inventory:repost" | "inventory:stock-closing" | "inventory:outbox-relay",
-    payload: { jobId: job.id },
+    payload: { jobId: job.id, companyId: job.companyId },
     jobId: job.id,
   });
 

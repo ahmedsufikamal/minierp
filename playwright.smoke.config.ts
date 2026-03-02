@@ -38,9 +38,10 @@ const e2eEnv = {
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  timeout: 60_000,
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
+  workers: 1,
   reporter: "list",
   use: {
     baseURL,

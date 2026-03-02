@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type FormOptions = {
+export type FormOptions = {
   vendors?: Array<{ id: string; name: string }>;
   banks?: Array<{ id: string; name: string }>;
   incoterms?: Array<{ code: string; name: string }>;
@@ -15,7 +15,7 @@ type FormOptions = {
   purchaseOrders?: Array<{ id: string; number: string; vendorName?: string }>;
 };
 
-type LcFormValue = {
+export type LcFormValue = {
   beneficiaryVendorId?: string;
   issuingBankId?: string;
   advisingBankId?: string | null;
@@ -86,29 +86,36 @@ export function LCForm({
   const [coveredCurrency, setCoveredCurrency] = useState("USD");
 
   useEffect(() => {
-    setVendorId(initialValue?.beneficiaryVendorId ?? "");
-    setIssuingBankId(initialValue?.issuingBankId ?? "");
-    setAdvisingBankId(initialValue?.advisingBankId ?? "");
-    setConfirmingBankId(initialValue?.confirmingBankId ?? "");
-    setCurrency(initialValue?.currency ?? "USD");
-    setAmount(initialValue?.lcAmount ? String(initialValue.lcAmount) : "");
-    setLatestShipmentDate(dateInputValue(initialValue?.latestShipmentDate));
-    setExpiryDate(dateInputValue(initialValue?.expiryDate));
-    setPlaceOfExpiry(initialValue?.placeOfExpiry ?? "");
-    setShipmentFrom(initialValue?.shipmentFrom ?? "");
-    setShipmentTo(initialValue?.shipmentTo ?? "");
-    setPortOfLoading(initialValue?.portOfLoading ?? "");
-    setPortOfDischarge(initialValue?.portOfDischarge ?? "");
-    setIncotermCode(initialValue?.incotermCode ?? "");
-    setRemarks(initialValue?.remarks ?? "");
-    setTermsText(initialValue?.termsText ?? "");
-    setPurchaseOrderId(initialValue?.poLinks?.[0]?.purchaseOrderId ?? "");
-    setCoveredAmount(
-      initialValue?.poLinks?.[0]?.coveredAmount
-        ? String(initialValue.poLinks[0].coveredAmount)
-        : "",
-    );
-    setCoveredCurrency(initialValue?.poLinks?.[0]?.coveredCurrency ?? initialValue?.currency ?? "USD");
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setVendorId(initialValue?.beneficiaryVendorId ?? "");
+      setIssuingBankId(initialValue?.issuingBankId ?? "");
+      setAdvisingBankId(initialValue?.advisingBankId ?? "");
+      setConfirmingBankId(initialValue?.confirmingBankId ?? "");
+      setCurrency(initialValue?.currency ?? "USD");
+      setAmount(initialValue?.lcAmount ? String(initialValue.lcAmount) : "");
+      setLatestShipmentDate(dateInputValue(initialValue?.latestShipmentDate));
+      setExpiryDate(dateInputValue(initialValue?.expiryDate));
+      setPlaceOfExpiry(initialValue?.placeOfExpiry ?? "");
+      setShipmentFrom(initialValue?.shipmentFrom ?? "");
+      setShipmentTo(initialValue?.shipmentTo ?? "");
+      setPortOfLoading(initialValue?.portOfLoading ?? "");
+      setPortOfDischarge(initialValue?.portOfDischarge ?? "");
+      setIncotermCode(initialValue?.incotermCode ?? "");
+      setRemarks(initialValue?.remarks ?? "");
+      setTermsText(initialValue?.termsText ?? "");
+      setPurchaseOrderId(initialValue?.poLinks?.[0]?.purchaseOrderId ?? "");
+      setCoveredAmount(
+        initialValue?.poLinks?.[0]?.coveredAmount
+          ? String(initialValue.poLinks[0].coveredAmount)
+          : "",
+      );
+      setCoveredCurrency(initialValue?.poLinks?.[0]?.coveredCurrency ?? initialValue?.currency ?? "USD");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [initialValue]);
 
   const defaultDocs = useMemo(

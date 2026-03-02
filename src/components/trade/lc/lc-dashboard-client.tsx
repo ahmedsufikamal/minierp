@@ -17,9 +17,27 @@ type DashboardResponse = {
     discrepant: number;
     outstandingAmount: number;
   };
-  expiringSoon: Array<Record<string, unknown>>;
-  documentsPending: Array<Record<string, unknown>>;
-  maturityUpcoming: Array<Record<string, unknown>>;
+  expiringSoon: Array<{
+    id?: string;
+    displayLcNo: string;
+    beneficiaryName: string;
+    expiryDate: string;
+    status: string;
+  }>;
+  documentsPending: Array<{
+    id?: string;
+    lcNo: string;
+    supplier: string;
+    shipmentRef?: string | null;
+    status: string;
+  }>;
+  maturityUpcoming: Array<{
+    id?: string;
+    displayLcNo: string;
+    beneficiaryName: string;
+    maturityDate?: string | null;
+    status: string;
+  }>;
 };
 
 export function LCDashboardClient() {
@@ -62,7 +80,7 @@ export function LCDashboardClient() {
           </CardHeader>
           <CardContent>
             <LCTable
-              rows={(data?.expiringSoon ?? []) as Array<any>}
+              rows={data?.expiringSoon ?? []}
               emptyLabel={dashboard.isLoading ? "Loading..." : "No expiring LCs."}
               columns={[
                 { key: "displayLcNo", label: "LC", render: (row) => row.displayLcNo },
@@ -79,7 +97,7 @@ export function LCDashboardClient() {
           </CardHeader>
           <CardContent>
             <LCTable
-              rows={(data?.documentsPending ?? []) as Array<any>}
+              rows={data?.documentsPending ?? []}
               emptyLabel={dashboard.isLoading ? "Loading..." : "No pending document sets."}
               columns={[
                 { key: "lcNo", label: "LC", render: (row) => row.lcNo },
@@ -96,7 +114,7 @@ export function LCDashboardClient() {
           </CardHeader>
           <CardContent>
             <LCTable
-              rows={(data?.maturityUpcoming ?? []) as Array<any>}
+              rows={data?.maturityUpcoming ?? []}
               emptyLabel={dashboard.isLoading ? "Loading..." : "No upcoming maturity."}
               columns={[
                 { key: "displayLcNo", label: "LC", render: (row) => row.displayLcNo },

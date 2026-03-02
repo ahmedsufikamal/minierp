@@ -188,12 +188,28 @@ export function ModuleWorkbenchPlaceholder({
   );
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!savedFiltersKey) {
-      setSavedFilters([]);
-      return;
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setSavedFilters([]);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    setSavedFilters(loadPlaceholderSavedFilters(savedFiltersKey));
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setSavedFilters(loadPlaceholderSavedFilters(savedFiltersKey));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [savedFiltersKey]);
 
   const listQuery = useQuery({

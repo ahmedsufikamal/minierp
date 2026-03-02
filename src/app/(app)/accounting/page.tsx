@@ -165,7 +165,11 @@ export default async function AccountingPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <DeleteEntryButton id={e.id} />
+                        <DeleteEntryButton
+                          id={e.id}
+                          canDelete={e.status === "DRAFT"}
+                          disabledReason="Only draft journal entries can be deleted."
+                        />
                       </td>
                     </tr>
                   ))}

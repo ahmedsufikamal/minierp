@@ -205,21 +205,40 @@ export function DeleteAccountButton({
   );
 }
 
-export function DeleteEntryButton({ id }: { id: string }) {
+export function DeleteEntryButton({
+  id,
+  canDelete = true,
+  disabledReason = "Only draft journal entries can be deleted.",
+}: {
+  id: string;
+  canDelete?: boolean;
+  disabledReason?: string;
+}) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   return (
-    <Button
-      onClick={() =>
-        start(() => {
-          void deleteJournalEntry(id);
-        })
-      }
-      disabled={pending}
-      variant="utility"
-      size="xs"
-    >
-      {pending ? "..." : "Delete"}
-    </Button>
+    <div className="flex flex-col items-start gap-1">
+      <Button
+        onClick={() =>
+          start(() => {
+            setError(null);
+            void (async () => {
+              const result = await deleteJournalEntry(id);
+              if (!result.ok) {
+                setError(result.error ?? "Unable to delete journal entry.");
+              }
+            })();
+          })
+        }
+        disabled={pending || !canDelete}
+        title={canDelete ? undefined : disabledReason}
+        variant="utility"
+        size="xs"
+      >
+        {pending ? "..." : "Delete"}
+      </Button>
+      {error ? <div className="text-[11px] text-amber-700">{error}</div> : null}
+    </div>
   );
 }
 

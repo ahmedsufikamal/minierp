@@ -4,11 +4,21 @@ import { prisma } from "@/lib/prisma";
 export type ApiKeySource = "authorization" | "x-api-key" | "query";
 
 export class ApiKeyAuthError extends Error {
-  readonly code: "MISSING_API_KEY_CONFIG" | "UNAUTHORIZED" | "QUERY_TRANSPORT_DISABLED" | "MISSING_COMPANY_CONTEXT";
+  readonly code:
+    | "MISSING_API_KEY_CONFIG"
+    | "UNAUTHORIZED"
+    | "QUERY_TRANSPORT_DISABLED"
+    | "MISSING_COMPANY_CONTEXT"
+    | "INVALID_COMPANY_CONTEXT";
   readonly status: number;
 
   constructor(
-    code: "MISSING_API_KEY_CONFIG" | "UNAUTHORIZED" | "QUERY_TRANSPORT_DISABLED" | "MISSING_COMPANY_CONTEXT",
+    code:
+      | "MISSING_API_KEY_CONFIG"
+      | "UNAUTHORIZED"
+      | "QUERY_TRANSPORT_DISABLED"
+      | "MISSING_COMPANY_CONTEXT"
+      | "INVALID_COMPANY_CONTEXT",
     message: string,
     status: number,
   ) {
@@ -36,11 +46,8 @@ function queryTransportEnabled(now = new Date()): boolean {
   const explicit = process.env.API_KEY_QUERY_FALLBACK_ENABLED;
   if (explicit === "1") return true;
   if (explicit === "0") return false;
-
-  const sunsetDate = getQuerySunsetDate();
-  const sunset = Date.parse(`${sunsetDate}T23:59:59Z`);
-  if (Number.isNaN(sunset)) return false;
-  return now.getTime() <= sunset;
+  void now;
+  return false;
 }
 
 function getRequestIp(request: Request): string | null {
@@ -110,21 +117,26 @@ export function hasApiKeyCredential(request: Request): boolean {
 }
 
 function resolveCompanyId(request: Request): string {
-  const companyId = request.headers.get("x-company-id")?.trim() || process.env.API_ORG_ID?.trim();
-  if (companyId) {
-    return companyId;
-  }
-
   const allowDevDefault = process.env.NODE_ENV !== "production" && process.env.API_ALLOW_DEFAULT_ORG_FALLBACK === "1";
-  if (allowDevDefault) {
-    return "default-org";
+  const configuredCompanyId = process.env.API_ORG_ID?.trim() || (allowDevDefault ? "default-org" : "");
+  if (!configuredCompanyId) {
+    throw new ApiKeyAuthError(
+      "MISSING_COMPANY_CONTEXT",
+      "API_ORG_ID is required for API key authentication",
+      500,
+    );
   }
 
-  throw new ApiKeyAuthError(
-    "MISSING_COMPANY_CONTEXT",
-    "x-company-id header or API_ORG_ID is required for API key requests",
-    400,
-  );
+  const requestedCompanyId = request.headers.get("x-company-id")?.trim();
+  if (requestedCompanyId && requestedCompanyId !== configuredCompanyId) {
+    throw new ApiKeyAuthError(
+      "INVALID_COMPANY_CONTEXT",
+      "x-company-id does not match the configured API_ORG_ID for this API key",
+      403,
+    );
+  }
+
+  return configuredCompanyId;
 }
 
 export async function authenticateApiKeyRequest(request: Request, scope: string): Promise<ApiKeyAuthResult> {

@@ -43,11 +43,18 @@ export function ProfileSettingsClient() {
 
   useEffect(() => {
     if (!profileQuery.data) return;
-    setForm({
-      name: profileQuery.data.name,
-      phone: profileQuery.data.phone ?? "",
-      avatarUrl: profileQuery.data.avatarUrl ?? "",
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setForm({
+        name: profileQuery.data.name,
+        phone: profileQuery.data.phone ?? "",
+        avatarUrl: profileQuery.data.avatarUrl ?? "",
+      });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [profileQuery.data]);
 
   const saveProfile = useMutation({

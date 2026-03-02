@@ -1,6 +1,5 @@
 import {
   Prisma,
-  type TradeLc,
   type TradeLcAmendmentStatus,
   type TradeLcDiscrepancyDecision,
   type TradeLcDocumentSetStatus,
@@ -22,6 +21,54 @@ import { ensureTradeLcDefaults } from "@/modules/trade/application/lc-seeding.se
 import { hasTradePermission, tradeLcOpenStatuses, tradeLcPostIssueStatuses, tradePermissions } from "@/modules/trade/domain/types";
 
 type TradeTx = Prisma.TransactionClient;
+
+type SerializableLcRow = {
+  id: string;
+  lcNo: string | null;
+  lcType: string;
+  status: TradeLcStatus;
+  companyId: string;
+  beneficiaryVendorId: string;
+  beneficiaryVendor: { name: string };
+  issuingBankId: string;
+  issuingBank: { name: string };
+  advisingBankId: string | null;
+  advisingBank: { name: string } | null;
+  confirmingBankId: string | null;
+  confirmingBank: { name: string } | null;
+  currency: string;
+  lcAmount: Prisma.Decimal | number | string;
+  tolerancePercent: Prisma.Decimal | number | string | null;
+  issueDate: Date | null;
+  maturityDate: Date | null;
+  latestShipmentDate: Date | null;
+  expiryDate: Date;
+  placeOfExpiry: string | null;
+  shipmentFrom: string | null;
+  shipmentTo: string | null;
+  portOfLoading: string | null;
+  portOfDischarge: string | null;
+  partialShipmentAllowed: boolean;
+  transshipmentAllowed: boolean;
+  marginPercent: Prisma.Decimal | number | string | null;
+  marginAmount: Prisma.Decimal | number | string | null;
+  lienReference: string | null;
+  incotermCode: string | null;
+  remarks: string | null;
+  termsText: string | null;
+  version: number;
+  poLinks?: Array<{
+    id: string;
+    purchaseOrderId: string;
+    coveredAmount: Prisma.Decimal | number | string;
+    coveredCurrency: string;
+    externalReference: string | null;
+  }>;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 type LcListInput = {
   cursor?: string;
@@ -460,7 +507,7 @@ async function resolveDiscrepancyDrivenStatus(tx: TradeTx, ctx: PlatformRequestC
 }
 
 function serializeLcRow(
-  lc: any,
+  lc: SerializableLcRow,
   input: {
     settlementPaid?: Prisma.Decimal;
     chargeTotal?: Prisma.Decimal;
@@ -473,7 +520,8 @@ function serializeLcRow(
   const chargeTotal = input.chargeTotal ?? new Prisma.Decimal(0);
   const pendingDiscrepancies = input.pendingDiscrepancies ?? 0;
   const pendingDocumentSets = input.pendingDocumentSets ?? 0;
-  const outstandingAmount = Prisma.Decimal.max(new Prisma.Decimal(0), lc.lcAmount.sub(settlementPaid));
+  const lcAmount = toDecimal(lc.lcAmount);
+  const outstandingAmount = Prisma.Decimal.max(new Prisma.Decimal(0), lcAmount.sub(settlementPaid));
 
   return {
     id: lc.id,
@@ -493,7 +541,7 @@ function serializeLcRow(
     confirmingBankId: lc.confirmingBankId,
     confirmingBankName: lc.confirmingBank?.name ?? null,
     currency: lc.currency,
-    lcAmount: toNumber(lc.lcAmount),
+    lcAmount: toNumber(lcAmount),
     tolerancePercent: lc.tolerancePercent ? toNumber(lc.tolerancePercent) : null,
     issueDate: lc.issueDate,
     maturityDate: lc.maturityDate,
@@ -513,7 +561,7 @@ function serializeLcRow(
     remarks: lc.remarks,
     termsText: lc.termsText,
     version: lc.version,
-    poLinks: (lc.poLinks ?? []).map((link: any) => ({
+    poLinks: (lc.poLinks ?? []).map((link) => ({
       id: link.id,
       purchaseOrderId: link.purchaseOrderId,
       coveredAmount: toNumber(link.coveredAmount),
@@ -2547,13 +2595,24 @@ async function listMasterRecords<
     | "tradeLcChargeType"
     | "tradeLcIncoterm",
 >(ctx: PlatformRequestContext, model: T) {
-  return (prisma[model] as any).findMany({
+  const query = {
     where: {
       tenantId: ctx.tenantId,
       companyId: ctx.companyId,
     },
-    orderBy: [{ code: "asc" }],
-  });
+    orderBy: [{ code: "asc" as const }],
+  };
+
+  switch (model) {
+    case "tradeLcBank":
+      return prisma.tradeLcBank.findMany(query);
+    case "tradeLcDocumentType":
+      return prisma.tradeLcDocumentType.findMany(query);
+    case "tradeLcChargeType":
+      return prisma.tradeLcChargeType.findMany(query);
+    case "tradeLcIncoterm":
+      return prisma.tradeLcIncoterm.findMany(query);
+  }
 }
 
 export async function listLcBanks(ctx: PlatformRequestContext) {

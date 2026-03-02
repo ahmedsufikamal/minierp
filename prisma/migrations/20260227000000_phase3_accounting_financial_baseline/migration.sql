@@ -157,3 +157,17 @@ FOREIGN KEY ("costCenterId") REFERENCES "AccountingCostCenter"("id") ON DELETE S
 ALTER TABLE "PaymentAllocation"
 ADD CONSTRAINT "PaymentAllocation_paymentEntryId_fkey"
 FOREIGN KEY ("paymentEntryId") REFERENCES "PaymentEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+DO $$
+BEGIN
+  IF to_regclass('"SupplierPayment"') IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+       FROM pg_constraint
+       WHERE conname = 'SupplierPayment_paymentEntryId_fkey'
+     ) THEN
+    ALTER TABLE "SupplierPayment"
+    ADD CONSTRAINT "SupplierPayment_paymentEntryId_fkey"
+    FOREIGN KEY ("paymentEntryId") REFERENCES "PaymentEntry"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;

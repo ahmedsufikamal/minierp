@@ -24,7 +24,15 @@ export function ModuleSwitcher({ activeModule, modules, collapsed, subtext }: Mo
   const [previewModuleId, setPreviewModuleId] = useState(activeModule.id);
 
   useEffect(() => {
-    setPreviewModuleId(activeModule.id);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setPreviewModuleId(activeModule.id);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [activeModule.id]);
 
   const previewModule = useMemo(

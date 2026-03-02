@@ -58,11 +58,11 @@ async function resolveUserContext(
       };
     } catch (error) {
       if (error instanceof ApiKeyAuthError) {
-        if (error.code === "MISSING_COMPANY_CONTEXT") {
-          throw new InventoryError("VALIDATION_ERROR", error.message);
-        }
-        if (error.code === "MISSING_API_KEY_CONFIG") {
+        if (error.code === "MISSING_API_KEY_CONFIG" || error.code === "MISSING_COMPANY_CONTEXT") {
           throw new InventoryError("INTERNAL_ERROR", error.message);
+        }
+        if (error.code === "INVALID_COMPANY_CONTEXT") {
+          throw new InventoryError("FORBIDDEN", error.message);
         }
         throw new InventoryError("UNAUTHORIZED", error.message);
       }

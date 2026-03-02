@@ -198,7 +198,7 @@ maybeDescribe("inventory module L integration", () => {
     );
 
     if (repostJob.status !== "COMPLETED") {
-      await adminOps.processInventoryOpsJobById(repostJob.id);
+      await adminOps.processInventoryOpsJobById(repostJob.id, repostJob.companyId);
     }
 
     const varianceAfter = await adminOps.generateInventoryVarianceReport(ctx, {
@@ -220,7 +220,7 @@ maybeDescribe("inventory module L integration", () => {
     );
 
     if (closing.job.status !== "COMPLETED") {
-      await adminOps.processInventoryOpsJobById(closing.job.id);
+      await adminOps.processInventoryOpsJobById(closing.job.id, closing.job.companyId);
     }
 
     const snapshot = await adminOps.readStockClosingSnapshot(ctx, { closingId: closing.closingId });

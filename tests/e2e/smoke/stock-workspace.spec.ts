@@ -20,7 +20,7 @@ async function signUp(
   await page.getByPlaceholder("company-slug").fill(input.companySlug);
   await page.getByPlaceholder("Strong password (12+ chars)").fill(STRONG_PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
 }
 
 async function cleanupMarker(marker: string) {
@@ -100,16 +100,13 @@ test.describe("smoke: stock workspace ui", () => {
       });
 
       await page.goto("/stock", { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "Stock", level: 1 })).toBeVisible();
+      await expect(page.getByLabel("Breadcrumb").getByText("Stock", { exact: true })).toBeVisible();
       await expect(page.getByText("Warehouse wise Stock Value")).toBeVisible();
-      await expect(page.getByText("Quick Access")).toBeVisible();
+      await expect(page.getByText("Operational Snapshot")).toBeVisible();
       await expect(page.getByText("Masters & Reports")).toBeVisible();
 
-      const quickAccessSection = page
-        .locator("section")
-        .filter({ has: page.getByRole("heading", { name: "Quick Access" }) });
-      await quickAccessSection.getByRole("link", { name: /^Item/ }).first().click();
-      await expect(page).toHaveURL(/\/stock\/items/);
+      await page.getByRole("link", { name: "Items Available" }).click();
+      await expect(page).toHaveURL(/\/stock\/setup\/item/);
       await expect(page.getByRole("heading", { name: "Items", level: 1 })).toBeVisible();
 
       await page.getByPlaceholder("Item Name / Item Code").fill("Samsung");

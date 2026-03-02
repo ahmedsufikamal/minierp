@@ -42,7 +42,7 @@ type InventoryDocumentPostResult = {
 };
 
 type FifoAllocation = {
-  layerId: string;
+  layerId: string | null;
   qty: number;
   unitCostMinor: number;
   currency: string;
@@ -1404,13 +1404,24 @@ export async function applyInventoryDocumentAction(ctx: AppContext, documentId: 
     throw new InventoryError("NOT_FOUND", "Document not found");
   }
 
-  if (action.action === "SUBMIT" || action.action === "APPROVE" || action.action === "POST") {
+  if (action.action === "SUBMIT" || action.action === "APPROVE") {
     const stockSettings = await loadStockSettings(ctx.companyId);
     assertFreezeWindow({
       ctx,
       settings: stockSettings,
       documentDate: document.documentDate,
       operation: `${action.action} for stock document`,
+    });
+  }
+
+  if (action.action === "POST") {
+    if (!action.idempotencyKey?.trim()) {
+      throw new InventoryError("VALIDATION_ERROR", "Idempotency key is required for document posting");
+    }
+    return postInventoryDocument(ctx, document.id, {
+      idempotencyKey: action.idempotencyKey,
+      allowNegativeOverride: action.allowNegativeOverride,
+      reason: action.reason,
     });
   }
 
@@ -1430,17 +1441,6 @@ export async function applyInventoryDocumentAction(ctx: AppContext, documentId: 
     if (!hasInventoryPermission(ctx.role, requiredPermission as (typeof inventoryPermissions)[keyof typeof inventoryPermissions])) {
       throw new InventoryError("FORBIDDEN", `Action requires permission '${requiredPermission}'`);
     }
-  }
-
-  if (action.action === "POST") {
-    if (!action.idempotencyKey?.trim()) {
-      throw new InventoryError("VALIDATION_ERROR", "Idempotency key is required for document posting");
-    }
-    return postInventoryDocument(ctx, document.id, {
-      idempotencyKey: action.idempotencyKey,
-      allowNegativeOverride: action.allowNegativeOverride,
-      reason: action.reason,
-    });
   }
 
   const status = transition.to as InventoryDocumentStatus;
@@ -1849,24 +1849,45 @@ export async function postInventoryDocument(
 
               let totalOutboundCost = consumed.totalCostMinor;
               let fallbackUsed = false;
-              if (consumed.consumedQty < qtyAbs) {
+              const transferAllocations = [...consumed.allocations];
+              const remainder = qtyAbs - consumed.consumedQty;
+              const fallbackUnitCost = existingBalance?.avgCostMinor ?? movement.defaultUnitCostMinor;
+              const availableUnlayeredQty = Math.max(previousOnHand - consumed.consumedQty, 0);
+              const fallbackQty = Math.min(remainder, availableUnlayeredQty);
+
+              if (fallbackQty > 0) {
+                totalOutboundCost += fallbackQty * fallbackUnitCost;
+                fallbackUsed = true;
+                transferAllocations.push({
+                  layerId: null,
+                  qty: fallbackQty,
+                  unitCostMinor: fallbackUnitCost,
+                  currency: movement.currency,
+                  sourceDocumentId: null,
+                  sourceLineId: null,
+                  batchId: batchIdFromExisting,
+                  serialId: null,
+                });
+              }
+
+              const uncoveredQty = remainder - fallbackQty;
+              if (uncoveredQty > 0) {
                 if (!allowNegativeOverride) {
                   throw new InventoryError(
                     "CONFLICT",
                     `Insufficient FIFO layers for item ${movement.itemId} (${movement.warehouseId})`,
                   );
                 }
-                const remainder = qtyAbs - consumed.consumedQty;
-                const fallbackUnitCost = existingBalance?.avgCostMinor ?? movement.defaultUnitCostMinor;
-                totalOutboundCost += remainder * fallbackUnitCost;
+                totalOutboundCost += uncoveredQty * fallbackUnitCost;
                 fallbackUsed = true;
               }
 
               ledgerUnitCostMinor = qtyAbs > 0 ? Math.round(totalOutboundCost / qtyAbs) : movement.defaultUnitCostMinor;
               ledgerTotalCostMinor = -totalOutboundCost;
               valuationMetadata.fifoConsumedQty = consumed.consumedQty;
+              valuationMetadata.fifoFallbackQty = fallbackQty;
               valuationMetadata.fifoFallbackUsed = fallbackUsed;
-              valuationMetadata.allocations = consumed.allocations.map((allocation) => ({
+              valuationMetadata.allocations = transferAllocations.map((allocation) => ({
                 layerId: allocation.layerId,
                 qty: allocation.qty,
                 unitCostMinor: allocation.unitCostMinor,
@@ -1874,7 +1895,7 @@ export async function postInventoryDocument(
               }));
 
               if (movement.metadata.kind === "TRANSFER_OUT") {
-                transferAllocationsByLine.set(movement.lineId, consumed.allocations);
+                transferAllocationsByLine.set(movement.lineId, transferAllocations);
               }
             } else if (stockSettings.default_valuation_method === "STANDARD") {
               const standardUnitCost = movement.defaultUnitCostMinor;
@@ -1921,7 +1942,7 @@ export async function postInventoryDocument(
                     },
                   });
 
-                  if (destinationLayer) {
+                  if (destinationLayer && allocation.layerId) {
                     await tx.inventoryCostLayerAllocation.create({
                       data: {
                         companyId: ctx.companyId,

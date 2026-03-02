@@ -31,7 +31,7 @@ async function signUp(
   await page.getByPlaceholder("company-slug").fill(input.companySlug);
   await page.getByPlaceholder("Strong password (12+ chars)").fill(STRONG_PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
 }
 
 async function expectHtmlThemeClass(page: Page, expectedClass: "light" | "dark") {

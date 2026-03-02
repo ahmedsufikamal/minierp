@@ -432,8 +432,8 @@ export function flattenShellNavItems(): ShellNavItem[] {
   };
 
   for (const item of shellHomeItems) add(item);
-  for (const module of shellModules) {
-    for (const section of module.sections) {
+  for (const shellModule of shellModules) {
+    for (const section of shellModule.sections) {
       for (const item of section.items) {
         add(item);
       }

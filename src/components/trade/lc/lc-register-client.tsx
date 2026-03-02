@@ -12,7 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 
 type ListResponse = {
-  rows: Array<Record<string, any>>;
+  rows: Array<{
+    id: string;
+    displayLcNo: string;
+    beneficiaryName: string;
+    issuingBankName: string;
+    currency?: string | null;
+    lcAmount?: number | string | null;
+    expiryDate: string;
+    latestShipmentDate?: string | null;
+    status: string;
+  }>;
   total: number;
 };
 

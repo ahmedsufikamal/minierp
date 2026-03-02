@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronRight, ShieldCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -123,21 +122,30 @@ export function AdminUserRecordClient({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!userQuery.data) return;
-    setForm({
-      name: userQuery.data.name,
-      email: userQuery.data.email,
-      phone: userQuery.data.phone ?? "",
-      avatarUrl: userQuery.data.avatarUrl ?? "",
-      status: userQuery.data.status,
-      platformRole: userQuery.data.platformRole,
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setForm({
+        name: userQuery.data.name,
+        email: userQuery.data.email,
+        phone: userQuery.data.phone ?? "",
+        avatarUrl: userQuery.data.avatarUrl ?? "",
+        status: userQuery.data.status,
+        platformRole: userQuery.data.platformRole,
+      });
+      const membership =
+        userQuery.data.memberships.find((entry) => entry.companyId === userQuery.data.selectedCompanyId) ??
+        userQuery.data.memberships[0];
+      if (membership) {
+        setSelectedCompanyId(membership.companyId);
+        setRoleId(membership.roleId ?? "");
+        setUserTypeLevel(membership.userTypeLevel);
+        setPermissionKeys(membership.permissionKeys);
+      }
     });
-    const membership = userQuery.data.memberships.find((entry) => entry.companyId === userQuery.data.selectedCompanyId) ?? userQuery.data.memberships[0];
-    if (membership) {
-      setSelectedCompanyId(membership.companyId);
-      setRoleId(membership.roleId ?? "");
-      setUserTypeLevel(membership.userTypeLevel);
-      setPermissionKeys(membership.permissionKeys);
-    }
+    return () => {
+      cancelled = true;
+    };
   }, [userQuery.data]);
 
   const currentMembership = useMemo(
@@ -147,9 +155,16 @@ export function AdminUserRecordClient({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!currentMembership) return;
-    setRoleId(currentMembership.roleId ?? "");
-    setUserTypeLevel(currentMembership.userTypeLevel);
-    setPermissionKeys(currentMembership.permissionKeys);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setRoleId(currentMembership.roleId ?? "");
+      setUserTypeLevel(currentMembership.userTypeLevel);
+      setPermissionKeys(currentMembership.permissionKeys);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [currentMembership]);
 
   const rolesQuery = useQuery({

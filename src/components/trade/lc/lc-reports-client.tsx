@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { LCTable } from "@/components/trade/lc/lc-table";
 
+type ReportRow = { id?: string } & Record<string, unknown>;
+
 const reports = [
   { key: "register", label: "Register" },
   { key: "expiry", label: "Expiry" },
@@ -24,10 +26,10 @@ export function LCReportsClient() {
   const endpoint = `/api/v1/trade/lc/reports/${reportKey}`;
   const reportQuery = useQuery({
     queryKey: queryKeys.list("trade", `report-${reportKey}`, { status }),
-    queryFn: () => apiGet<Array<Record<string, unknown>>>(endpoint, { query: { status: status || undefined } }),
+    queryFn: () => apiGet<ReportRow[]>(endpoint, { query: { status: status || undefined } }),
   });
 
-  const rows = reportQuery.data ?? [];
+  const rows = useMemo<ReportRow[]>(() => reportQuery.data ?? [], [reportQuery.data]);
   const columns = useMemo(() => {
     const first = rows[0];
     if (!first) {
@@ -40,7 +42,7 @@ export function LCReportsClient() {
       .map((key) => ({
         key,
         label: key,
-        render: (row: Record<string, unknown>) => {
+        render: (row: ReportRow) => {
           const value = row[key];
           if (value === null || value === undefined) return "—";
           if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -85,9 +87,9 @@ export function LCReportsClient() {
         </CardHeader>
         <CardContent>
           <LCTable
-            rows={rows as Array<any>}
+            rows={rows}
             emptyLabel={reportQuery.isLoading ? "Loading..." : "No rows found."}
-            columns={columns as any}
+            columns={columns}
           />
         </CardContent>
       </Card>

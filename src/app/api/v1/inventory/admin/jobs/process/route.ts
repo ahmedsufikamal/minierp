@@ -15,18 +15,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const payload = (await request.json().catch(() => ({}))) as { jobId?: string };
-  if (!payload.jobId) {
+  const payload = (await request.json().catch(() => ({}))) as { jobId?: string; companyId?: string };
+  if (!payload.jobId || !payload.companyId) {
     return NextResponse.json(
       {
         ok: false,
-        error: { code: "VALIDATION_ERROR", message: "jobId is required" },
+        error: { code: "VALIDATION_ERROR", message: "jobId and companyId are required" },
       },
       { status: 400 },
     );
   }
 
-  const job = await processInventoryOpsJobById(payload.jobId);
+  const job = await processInventoryOpsJobById(payload.jobId, payload.companyId);
   return NextResponse.json({ ok: true, data: job });
 }
-

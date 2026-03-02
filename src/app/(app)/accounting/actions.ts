@@ -1,5 +1,6 @@
 "use server";
 
+import { JournalEntryStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -89,6 +90,22 @@ export async function createJournalEntry(formData: FormData) {
   if (amountCents <= 0) return { ok: false, error: { amount: ["Amount must be > 0"] } };
 
   const date = parsed.data.date ? new Date(String(parsed.data.date)) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    return { ok: false, error: { date: ["Date must be valid"] } };
+  }
+
+  const accountIds = [...new Set([parsed.data.debitAccountId, parsed.data.creditAccountId])];
+  const accounts = await prisma.account.findMany({
+    where: {
+      companyId,
+      id: { in: accountIds },
+      isGroup: false,
+    },
+    select: { id: true },
+  });
+  if (accounts.length !== accountIds.length) {
+    return { ok: false, error: { accounts: ["Accounts must belong to the active company and be posting accounts."] } };
+  }
 
   await prisma.journalEntry.create({
     data: {
@@ -183,7 +200,26 @@ export async function deleteAccount(id: string) {
 
 export async function deleteJournalEntry(id: string) {
   const companyId = await getCompanyIdOrUserId();
-  await prisma.journalEntry.deleteMany({ where: { id, companyId } });
+  const entry = await prisma.journalEntry.findFirst({
+    where: { id, companyId },
+    select: { id: true, status: true },
+  });
+  if (!entry) {
+    return { ok: false, error: "Journal entry not found." };
+  }
+
+  if (entry.status !== JournalEntryStatus.DRAFT) {
+    return { ok: false, error: "Only draft journal entries can be deleted." };
+  }
+
+  const glEntryCount = await prisma.gLEntry.count({
+    where: { companyId, journalEntryId: entry.id },
+  });
+  if (glEntryCount > 0) {
+    return { ok: false, error: "Posted journal entries cannot be deleted." };
+  }
+
+  await prisma.journalEntry.delete({ where: { id: entry.id } });
   revalidatePath("/accounting");
   return { ok: true };
 }

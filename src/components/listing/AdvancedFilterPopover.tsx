@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Filter, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,12 +23,6 @@ export function AdvancedFilterPopover({ value, onApply, onClear }: AdvancedFilte
   const [draftFilters, setDraftFilters] = useState<AdvancedFilter[]>(
     value.length > 0 ? value : [createEmptyAdvancedFilter()],
   );
-
-  useEffect(() => {
-    if (!open) {
-      setDraftFilters(value.length > 0 ? value : [createEmptyAdvancedFilter()]);
-    }
-  }, [open, value]);
 
   const updateRow = (index: number, next: Partial<AdvancedFilter>) => {
     setDraftFilters((current) =>
@@ -53,7 +47,15 @@ export function AdvancedFilterPopover({ value, onApply, onClear }: AdvancedFilte
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setDraftFilters(value.length > 0 ? value : [createEmptyAdvancedFilter()]);
+        }
+        setOpen(nextOpen);
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="rounded-xl">
           <Filter className="mr-2 h-4 w-4" />

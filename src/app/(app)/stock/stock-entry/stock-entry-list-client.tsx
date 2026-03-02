@@ -12,7 +12,6 @@ import { QuickFiltersRow } from "@/components/listing/QuickFiltersRow";
 import { SortMenu } from "@/components/listing/SortMenu";
 import {
   applySavedStockEntryFilter,
-  createDefaultStockEntryListState,
   loadSavedStockEntryFilters,
   parseStockEntryListState,
   saveCurrentStockEntryFilter,
@@ -94,17 +93,22 @@ export function StockEntryListClient({ warehouseOptions }: StockEntryListClientP
   );
 
   const [state, setState] = useState<StockEntryListState>(urlState);
-  const [savedFilters, setSavedFilters] = useState<SavedFilterPreset[]>([]);
+  const [savedFilters, setSavedFilters] = useState<SavedFilterPreset[]>(() =>
+    loadSavedStockEntryFilters(),
+  );
 
   useEffect(() => {
-    setSavedFilters(loadSavedStockEntryFilters());
-  }, []);
-
-  useEffect(() => {
-    setState((current) => {
-      const currentQueryString = toStockEntryListSearchParams(current).toString();
-      return currentQueryString === urlStateQueryString ? current : urlState;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setState((current) => {
+        const currentQueryString = toStockEntryListSearchParams(current).toString();
+        return currentQueryString === urlStateQueryString ? current : urlState;
+      });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [urlState, urlStateQueryString]);
 
   const stateQueryString = useMemo(

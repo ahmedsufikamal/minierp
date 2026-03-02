@@ -19,10 +19,18 @@ export type SessionPayload = {
 };
 
 export async function encryptSessionToken(payload: SessionPayload) {
-  return new SignJWT(payload)
+  const expiresAt = payload.expiresAt instanceof Date ? payload.expiresAt : new Date(payload.expiresAt);
+  if (Number.isNaN(expiresAt.getTime())) {
+    throw new Error("Legacy session expiresAt must be a valid date");
+  }
+
+  return new SignJWT({
+    ...payload,
+    expiresAt: expiresAt.toISOString(),
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(Math.floor(expiresAt.getTime() / 1000))
     .sign(getJwtKey());
 }
 
@@ -31,7 +39,28 @@ export async function decryptSessionToken(session: string | undefined = "") {
     const { payload } = await jwtVerify(session, getJwtKey(), {
       algorithms: ["HS256"],
     });
-    return payload as SessionPayload;
+    if (
+      typeof payload.userId !== "string" ||
+      typeof payload.companyId !== "string" ||
+      typeof payload.email !== "string" ||
+      typeof payload.name !== "string" ||
+      typeof payload.expiresAt !== "string"
+    ) {
+      return null;
+    }
+
+    const expiresAt = new Date(payload.expiresAt);
+    if (Number.isNaN(expiresAt.getTime())) {
+      return null;
+    }
+
+    return {
+      userId: payload.userId,
+      companyId: payload.companyId,
+      email: payload.email,
+      name: payload.name,
+      expiresAt,
+    } satisfies SessionPayload;
   } catch {
     return null;
   }

@@ -62,7 +62,7 @@ describe("proxyStockWorkspaceToRust", () => {
       pathSuffix: "metrics",
     });
 
-    const [_, calledInit] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    const [, calledInit] = fetchMock.mock.calls[0] as [URL, RequestInit];
     const headers = new Headers(calledInit.headers);
     expect(headers.get("x-minierp-proxy-secret")).toBeNull();
     expect(response.status).toBe(200);

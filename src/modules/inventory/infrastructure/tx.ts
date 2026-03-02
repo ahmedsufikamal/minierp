@@ -66,5 +66,5 @@ export async function advisoryLockInventoryScopeInTx(
   },
 ): Promise<void> {
   const key = stockScopeAdvisoryKey(params);
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0));`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0));`;
 }

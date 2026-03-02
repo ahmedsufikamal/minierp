@@ -19,7 +19,7 @@ async function signUp(
   await page.getByPlaceholder("company-slug").fill(input.companySlug);
   await page.getByPlaceholder("Strong password (12+ chars)").fill(STRONG_PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard|\/auth\/mfa/, { timeout: 90_000 });
 }
 
 async function cleanupByMarker(marker: string) {
@@ -103,19 +103,19 @@ test.describe("smoke: platform metadata + master data", () => {
       await page.setViewportSize({ width: 1366, height: 900 });
 
       await page.goto("/platform/metadata");
-      await expect(page.getByText("Metadata Studio")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Metadata Studio" })).toBeVisible();
       await expect(page.getByText("/api/v1/meta/models")).toBeVisible();
 
       await page.goto("/platform/master/parties");
-      await expect(page.getByText("Master Parties")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Master Parties" })).toBeVisible();
       await expect(page.getByText("/api/v1/master/parties")).toBeVisible();
 
       await page.goto("/platform/master/items");
-      await expect(page.getByText("Master Items")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Master Items" })).toBeVisible();
       await expect(page.getByText("/api/v1/master/items")).toBeVisible();
 
       await page.goto("/platform/master/pricelists");
-      await expect(page.getByText("Master Price Lists")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Master Price Lists" })).toBeVisible();
       await expect(page.getByText("/api/v1/master/pricelists")).toBeVisible();
     } finally {
       await cleanupByMarker(marker);

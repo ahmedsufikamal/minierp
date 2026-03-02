@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPost, ApiClientError } from "@/lib/api/client";
 import { queryKeys } from "@/lib/api/query-keys";
-import { LCForm } from "@/components/trade/lc/lc-form";
+import { LCForm, type FormOptions } from "@/components/trade/lc/lc-form";
 
 type CreateResponse = {
   lc: { id: string };
@@ -18,7 +18,7 @@ export function LCNewClient() {
 
   const options = useQuery({
     queryKey: queryKeys.detail("trade", "lc-form-options", "singleton"),
-    queryFn: () => apiGet<Record<string, unknown>>("/api/v1/trade/lc/form-options"),
+    queryFn: () => apiGet<FormOptions>("/api/v1/trade/lc/form-options"),
   });
 
   async function create(payload: Record<string, unknown>, submitAfter = false) {
@@ -43,7 +43,7 @@ export function LCNewClient() {
 
   return (
     <LCForm
-      options={(options.data ?? {}) as any}
+      options={options.data ?? {}}
       pending={pending || options.isLoading}
       error={error}
       submitLabel="Save Draft"

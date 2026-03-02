@@ -217,7 +217,31 @@ const coreMetaSeed: Array<{
   },
 ];
 
-export async function seedCoreMetaModels(ctx: PlatformRequestContext): Promise<{ createdModels: number; createdFields: number }> {
+type SeedCoreMetaModelsResult = {
+  createdModels: number;
+  createdFields: number;
+};
+
+const seedCoreMetaModelsInFlight = new Map<string, Promise<SeedCoreMetaModelsResult>>();
+
+export async function seedCoreMetaModels(ctx: PlatformRequestContext): Promise<SeedCoreMetaModelsResult> {
+  const lockKey = `${ctx.tenantId}:${ctx.companyId}`;
+  const pending = seedCoreMetaModelsInFlight.get(lockKey);
+  if (pending) {
+    return pending;
+  }
+
+  const run = seedCoreMetaModelsInternal(ctx).finally(() => {
+    if (seedCoreMetaModelsInFlight.get(lockKey) === run) {
+      seedCoreMetaModelsInFlight.delete(lockKey);
+    }
+  });
+
+  seedCoreMetaModelsInFlight.set(lockKey, run);
+  return run;
+}
+
+async function seedCoreMetaModelsInternal(ctx: PlatformRequestContext): Promise<SeedCoreMetaModelsResult> {
   let createdModels = 0;
   let createdFields = 0;
 
@@ -231,21 +255,27 @@ export async function seedCoreMetaModels(ctx: PlatformRequestContext): Promise<{
       select: { id: true },
     });
 
-    const model =
-      existing ??
-      (await prisma.metaModel.create({
-        data: {
+    const model = await prisma.metaModel.upsert({
+      where: {
+        tenantId_companyId_name: {
           tenantId: ctx.tenantId,
           companyId: ctx.companyId,
           name: modelDef.name,
-          label: modelDef.label,
-          isCore: true,
-          draftConfig: {},
-          createdBy: ctx.userId,
-          updatedBy: ctx.userId,
         },
-        select: { id: true },
-      }));
+      },
+      update: {},
+      create: {
+        tenantId: ctx.tenantId,
+        companyId: ctx.companyId,
+        name: modelDef.name,
+        label: modelDef.label,
+        isCore: true,
+        draftConfig: {},
+        createdBy: ctx.userId,
+        updatedBy: ctx.userId,
+      },
+      select: { id: true },
+    });
 
     if (!existing) createdModels += 1;
 

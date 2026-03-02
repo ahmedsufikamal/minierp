@@ -4,8 +4,11 @@ const mocks = vi.hoisted(() => ({
   getCompanyIdOrUserId: vi.fn(),
   revalidatePath: vi.fn(),
   accountFindFirst: vi.fn(),
+  accountFindMany: vi.fn(),
   accountCount: vi.fn(),
   accountDelete: vi.fn(),
+  journalEntryFindFirst: vi.fn(),
+  journalEntryDelete: vi.fn(),
   journalLineCount: vi.fn(),
   glEntryCount: vi.fn(),
   paymentEntryCount: vi.fn(),
@@ -24,8 +27,13 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     account: {
       findFirst: mocks.accountFindFirst,
+      findMany: mocks.accountFindMany,
       count: mocks.accountCount,
       delete: mocks.accountDelete,
+    },
+    journalEntry: {
+      findFirst: mocks.journalEntryFindFirst,
+      delete: mocks.journalEntryDelete,
     },
     journalLine: {
       count: mocks.journalLineCount,
@@ -42,13 +50,16 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { deleteAccount } from "./actions";
+import { deleteAccount, deleteJournalEntry } from "./actions";
 
 beforeEach(() => {
   mocks.getCompanyIdOrUserId.mockResolvedValue("company-1");
   mocks.accountFindFirst.mockReset();
+  mocks.accountFindMany.mockReset();
   mocks.accountCount.mockReset();
   mocks.accountDelete.mockReset();
+  mocks.journalEntryFindFirst.mockReset();
+  mocks.journalEntryDelete.mockReset();
   mocks.journalLineCount.mockReset();
   mocks.glEntryCount.mockReset();
   mocks.paymentEntryCount.mockReset();
@@ -103,5 +114,32 @@ describe("deleteAccount", () => {
     expect(mocks.accountDelete).toHaveBeenCalledWith({ where: { id: "acct-1" } });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/accounting");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard");
+  });
+});
+
+describe("deleteJournalEntry", () => {
+  it("blocks deleting a non-draft journal entry", async () => {
+    mocks.journalEntryFindFirst.mockResolvedValue({ id: "je-1", status: "SUBMITTED" });
+
+    await expect(deleteJournalEntry("je-1")).resolves.toEqual({
+      ok: false,
+      error: "Only draft journal entries can be deleted.",
+    });
+
+    expect(mocks.journalEntryDelete).not.toHaveBeenCalled();
+  });
+
+  it("deletes a draft journal entry without posted GL rows", async () => {
+    mocks.journalEntryFindFirst.mockResolvedValue({ id: "je-1", status: "DRAFT" });
+    mocks.glEntryCount.mockResolvedValue(0);
+    mocks.journalEntryDelete.mockResolvedValue({ id: "je-1" });
+
+    await expect(deleteJournalEntry("je-1")).resolves.toEqual({ ok: true });
+
+    expect(mocks.glEntryCount).toHaveBeenCalledWith({
+      where: { companyId: "company-1", journalEntryId: "je-1" },
+    });
+    expect(mocks.journalEntryDelete).toHaveBeenCalledWith({ where: { id: "je-1" } });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/accounting");
   });
 });
