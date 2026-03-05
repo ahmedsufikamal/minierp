@@ -1,10 +1,10 @@
-import { InventoryDocumentStatus, InventoryDocumentType } from "@prisma/client";
+import { InventoryDocumentStatus, InventoryDocumentType, type Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMocks = vi.hoisted(() => ({
   inventoryDocument: {
-    findMany: vi.fn(async () => []),
-    count: vi.fn(async () => 0),
+    findMany: vi.fn<(args: Prisma.InventoryDocumentFindManyArgs) => Promise<unknown[]>>(async () => []),
+    count: vi.fn<(args: Prisma.InventoryDocumentCountArgs) => Promise<number>>(async () => 0),
   },
 }));
 
@@ -43,9 +43,10 @@ describe("inventory document list query", () => {
     });
 
     const args = prismaMocks.inventoryDocument.findMany.mock.calls[0]?.[0];
+    const where = args?.where as Prisma.InventoryDocumentWhereInput;
 
-    expect(args?.where.companyId).toBe("company-1");
-    expect(args?.where.AND).toEqual(
+    expect(where.companyId).toBe("company-1");
+    expect(where.AND).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           OR: expect.arrayContaining([
@@ -80,14 +81,15 @@ describe("inventory document list query", () => {
     });
 
     const args = prismaMocks.inventoryDocument.findMany.mock.calls[0]?.[0];
+    const where = args?.where as Prisma.InventoryDocumentWhereInput;
 
-    expect(args?.where.AND).toEqual(
+    expect(where.AND).toEqual(
       expect.arrayContaining([
         { documentType: { in: [InventoryDocumentType.TRANSFER] } },
         { status: { in: [InventoryDocumentStatus.POSTED] } },
       ]),
     );
-    expect(args?.where.AND).toHaveLength(2);
+    expect(where.AND).toHaveLength(2);
   });
 
   it("falls back to createdAt descending sort by default", async () => {

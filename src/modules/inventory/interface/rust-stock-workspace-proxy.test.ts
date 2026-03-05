@@ -3,10 +3,6 @@ import { InventoryError } from "@/modules/inventory/domain/errors";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { proxyStockWorkspaceToRust } from "@/modules/inventory/interface/rust-stock-workspace-proxy";
 
-const originalRustApiBaseUrl = process.env.RUST_API_BASE_URL;
-const originalTrustedProxySecret = process.env.RUST_TRUSTED_PROXY_SECRET;
-const originalNodeEnv = process.env.NODE_ENV;
-
 const ctx: InventoryRequestContext = {
   requestId: "req-123",
   tenantId: "tenant-1",
@@ -20,19 +16,18 @@ const ctx: InventoryRequestContext = {
 describe("proxyStockWorkspaceToRust", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    process.env.RUST_API_BASE_URL = "https://rust.local";
-    process.env.RUST_TRUSTED_PROXY_SECRET = "secret-1";
-    process.env.NODE_ENV = "test";
+    vi.unstubAllEnvs();
+    vi.stubEnv("RUST_API_BASE_URL", "https://rust.local");
+    vi.stubEnv("RUST_TRUSTED_PROXY_SECRET", "secret-1");
+    vi.stubEnv("NODE_ENV", "test");
   });
 
   afterEach(() => {
-    process.env.RUST_API_BASE_URL = originalRustApiBaseUrl;
-    process.env.RUST_TRUSTED_PROXY_SECRET = originalTrustedProxySecret;
-    process.env.NODE_ENV = originalNodeEnv;
+    vi.unstubAllEnvs();
   });
 
   it("throws when RUST_API_BASE_URL is missing", async () => {
-    process.env.RUST_API_BASE_URL = "";
+    vi.stubEnv("RUST_API_BASE_URL", "");
 
     const request = new Request("https://app.local/api/stock/workspace/metrics");
 
@@ -50,7 +45,7 @@ describe("proxyStockWorkspaceToRust", () => {
   });
 
   it("forwards request in non-production when RUST_TRUSTED_PROXY_SECRET is missing", async () => {
-    process.env.RUST_TRUSTED_PROXY_SECRET = "";
+    vi.stubEnv("RUST_TRUSTED_PROXY_SECRET", "");
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }));
@@ -69,8 +64,8 @@ describe("proxyStockWorkspaceToRust", () => {
   });
 
   it("throws in production when RUST_TRUSTED_PROXY_SECRET is missing", async () => {
-    process.env.NODE_ENV = "production";
-    process.env.RUST_TRUSTED_PROXY_SECRET = "";
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RUST_TRUSTED_PROXY_SECRET", "");
 
     const request = new Request("https://app.local/api/stock/workspace/metrics");
 

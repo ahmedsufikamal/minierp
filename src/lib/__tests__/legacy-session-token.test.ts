@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptSessionToken, encryptSessionToken } from "@/lib/legacy-session-token";
 
+const FAR_FUTURE_EXPIRY = new Date("2099-03-03T12:00:00.000Z");
+
 beforeEach(() => {
   vi.unstubAllEnvs();
   vi.stubEnv("JWT_SECRET", "12345678901234567890123456789012");
@@ -8,7 +10,7 @@ beforeEach(() => {
 
 describe("legacy session token", () => {
   it("round-trips the requested expiry", async () => {
-    const expiresAt = new Date("2026-03-03T12:00:00.000Z");
+    const expiresAt = FAR_FUTURE_EXPIRY;
     const token = await encryptSessionToken({
       userId: "user-1",
       companyId: "company-1",

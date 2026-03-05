@@ -61,7 +61,7 @@ vi.mock("@/components/ui/button", () => ({
     variant?: string;
   }) => {
     if (asChild) {
-      return <div {...props}>{children}</div>;
+      return <>{children}</>;
     }
     return <button {...props}>{children}</button>;
   },
