@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   Bell,
   BookCopy,
   Boxes,
@@ -18,11 +19,13 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
+  Sparkles,
   Truck,
   UserRound,
   Users,
   Wallet,
   Wrench,
+  Gauge,
 } from "lucide-react";
 
 export type ShellNavItem = {
@@ -51,6 +54,12 @@ export type ShellModule = {
 
 export const shellHomeItems: ShellNavItem[] = [
   { label: "Home", href: "/dashboard", icon: Home, description: "Cross-module overview" },
+  {
+    label: "Ops Inbox",
+    href: "/ops/inbox",
+    icon: Activity,
+    description: "Prioritized approvals, blockers, and exceptions",
+  },
   {
     label: "Dashboard",
     href: "/stock",
@@ -377,6 +386,24 @@ export const shellModules: ShellModule[] = [
           { label: "Price Lists", href: "/platform/master/pricelists", icon: Wallet },
           { label: "Currencies", href: "/platform/master/currencies", icon: Landmark },
           { label: "Tax Codes", href: "/platform/master/taxcodes", icon: Receipt },
+        ],
+      },
+    ],
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    description: "Execution inbox, AI recommendations, and operating KPIs",
+    icon: Activity,
+    homeHref: "/ops/inbox",
+    matchers: ["/ops"],
+    sections: [
+      {
+        title: "Execution",
+        items: [
+          { label: "Ops Inbox", href: "/ops/inbox", icon: Activity },
+          { label: "Recommendations", href: "/ops/recommendations", icon: Sparkles },
+          { label: "Analytics", href: "/ops/analytics", icon: Gauge },
         ],
       },
     ],

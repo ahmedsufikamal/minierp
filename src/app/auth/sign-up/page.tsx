@@ -6,13 +6,15 @@ import { useFormStatus } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signup } from "@/app/auth-actions";
+import { ActionErrorMessage } from "@/components/auth/action-error-message";
 import { TurnstileField } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { MiniERPLogo } from "@/components/minierp-logo";
+import type { AuthActionError } from "@/modules/iam/interface/action-error";
 
-const initialState = { error: "" };
+const initialState: { error?: AuthActionError } = {};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -75,7 +77,7 @@ export default function AuthSignUpPage() {
               {!hasInviteToken ? <Input name="companySlug" placeholder="company-slug" /> : null}
               <Input name="password" type="password" placeholder="Strong password (12+ chars)" minLength={12} required />
               <TurnstileField />
-              {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+              <ActionErrorMessage error={state?.error} />
               <SubmitButton />
             </form>
           ) : (

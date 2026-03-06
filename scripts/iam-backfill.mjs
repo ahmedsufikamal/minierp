@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { disconnectPrisma, prisma } from "./prisma-client.mjs";
 
 const permissionCatalog = [
   { key: "inventory.read", module: "inventory", description: "Read inventory entities" },
@@ -194,5 +192,5 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await disconnectPrisma();
   });

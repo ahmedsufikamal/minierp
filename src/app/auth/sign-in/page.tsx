@@ -6,15 +6,17 @@ import { useFormStatus } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signin, sendMagicLinkAction } from "@/app/auth-actions";
+import { ActionErrorMessage } from "@/components/auth/action-error-message";
 import { TurnstileField } from "@/components/auth/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { MiniERPLogo } from "@/components/minierp-logo";
+import type { AuthActionError } from "@/modules/iam/interface/action-error";
 
-const initialState = { error: "" };
-type MagicState = { error: string } | { ok: true };
-const initialMagic: MagicState = { error: "" };
+const initialState: { error?: AuthActionError } = {};
+type MagicState = { error?: AuthActionError; ok?: true };
+const initialMagic: MagicState = {};
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -32,8 +34,6 @@ export default function AuthSignInPage() {
   const [allowedAuthMethods, setAllowedAuthMethods] = useState<string[]>([
     "PASSWORD",
     "MAGIC_LINK",
-    "OAUTH_GOOGLE",
-    "OAUTH_MICROSOFT",
   ]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const searchParams = useSearchParams();
@@ -55,8 +55,6 @@ export default function AuthSignInPage() {
 
   const passwordEnabled = allowedAuthMethods.includes("PASSWORD");
   const magicEnabled = allowedAuthMethods.includes("MAGIC_LINK");
-  const googleEnabled = allowedAuthMethods.includes("OAUTH_GOOGLE");
-  const microsoftEnabled = allowedAuthMethods.includes("OAUTH_MICROSOFT");
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background px-4">
@@ -89,27 +87,12 @@ export default function AuthSignInPage() {
                 <input type="checkbox" name="rememberMe" /> Remember me
               </label>
               <TurnstileField />
-              {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+              <ActionErrorMessage error={state?.error} />
               <SubmitButton label="Sign in with password" />
             </form>
           ) : (
             <p className="text-sm text-muted-foreground">Password sign-in is disabled for this tenant.</p>
           )}
-
-          {googleEnabled || microsoftEnabled ? (
-            <div className="grid grid-cols-2 gap-2">
-              {googleEnabled ? (
-                <Button asChild variant="outline">
-                  <a href="/api/auth/oauth/google/start">Continue with Google</a>
-                </Button>
-              ) : null}
-              {microsoftEnabled ? (
-                <Button asChild variant="outline">
-                  <a href="/api/auth/oauth/microsoft/start">Continue with Microsoft</a>
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
 
           {magicEnabled ? (
             <div className="rounded-lg border border-border p-3">
@@ -118,7 +101,7 @@ export default function AuthSignInPage() {
                 <input type="hidden" name="redirectTo" value={nextPath || "/dashboard"} />
                 <TurnstileField />
                 <SubmitButton label="Send magic link" />
-                {"error" in magicState && magicState.error ? <p className="text-sm text-destructive">{magicState.error}</p> : null}
+                <ActionErrorMessage error={magicState?.error} />
                 {"ok" in magicState && magicState.ok ? <p className="text-sm text-emerald-600">Magic link sent. Check your inbox.</p> : null}
               </form>
             </div>

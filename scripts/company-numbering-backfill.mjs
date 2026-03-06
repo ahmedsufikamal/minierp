@@ -1,6 +1,5 @@
-import { NumberSeriesResetPolicy, PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { NumberSeriesResetPolicy } from "@prisma/client";
+import { disconnectPrisma, prisma } from "./prisma-client.mjs";
 
 const requiredFormats = [
   {
@@ -165,5 +164,5 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await disconnectPrisma();
   });

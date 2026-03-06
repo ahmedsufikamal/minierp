@@ -13,14 +13,68 @@ import {
 } from "@/components/ui/command";
 import { nav } from "@/config/nav";
 
-const quickActions = [
-  { label: "New customer", href: "/selling/customers", keywords: ["add", "create", "selling"] },
-  { label: "New quotation", href: "/selling/quotations", keywords: ["add", "create", "selling"] },
-  { label: "New sales order", href: "/selling/sales-orders", keywords: ["add", "create", "selling"] },
-  { label: "New supplier", href: "/buying/suppliers", keywords: ["add", "create", "buying"] },
-  { label: "New material request", href: "/buying/material-requests", keywords: ["add", "create", "buying"] },
-  { label: "New work order", href: "/manufacturing/work-orders", keywords: ["add", "create", "manufacturing"] },
-  { label: "Open support ticket", href: "/support/tickets", keywords: ["add", "create", "support"] },
+type CommandAction = {
+  id: string;
+  label: string;
+  href: string;
+  keywords: string[];
+};
+
+const quickActions: CommandAction[] = [
+  {
+    id: "customer.create",
+    label: "New customer",
+    href: "/selling/customers",
+    keywords: ["add", "create", "selling"],
+  },
+  {
+    id: "quotation.create",
+    label: "New quotation",
+    href: "/selling/quotations",
+    keywords: ["add", "create", "selling"],
+  },
+  {
+    id: "sales-order.create",
+    label: "New sales order",
+    href: "/selling/sales-orders",
+    keywords: ["add", "create", "selling"],
+  },
+  {
+    id: "supplier.create",
+    label: "New supplier",
+    href: "/buying/suppliers",
+    keywords: ["add", "create", "buying"],
+  },
+  {
+    id: "material-request.create",
+    label: "New material request",
+    href: "/buying/material-requests",
+    keywords: ["add", "create", "buying"],
+  },
+  {
+    id: "work-order.create",
+    label: "New work order",
+    href: "/manufacturing/work-orders",
+    keywords: ["add", "create", "manufacturing"],
+  },
+  {
+    id: "support-ticket.open",
+    label: "Open support ticket",
+    href: "/support/tickets",
+    keywords: ["add", "create", "support"],
+  },
+  {
+    id: "ops-inbox.open",
+    label: "Open Ops Inbox",
+    href: "/ops/inbox",
+    keywords: ["ops", "inbox", "priority", "exceptions"],
+  },
+  {
+    id: "ops-recommendations.review",
+    label: "Review Action Recommendations",
+    href: "/ops/recommendations",
+    keywords: ["ops", "ai", "recommendations", "next-best-action"],
+  },
 ];
 
 type CommandPaletteContextType = {
@@ -89,8 +143,8 @@ export function CommandPalette() {
             <CommandGroup heading="Quick actions">
               {quickActions.map((a) => (
                 <CommandItem
-                  key={a.href + a.label}
-                  value={`${a.label} ${a.href} ${a.keywords.join(" ")}`}
+                  key={a.id}
+                  value={`${a.id} ${a.label} ${a.href} ${a.keywords.join(" ")}`}
                   onSelect={() => run(a.href)}
                 >
                   {a.label}

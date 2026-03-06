@@ -6,6 +6,11 @@ import { verifyMagicLinkAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { formatAuthActionError, type AuthActionError } from "@/modules/iam/interface/action-error";
+
+type VerifyMagicLinkResult = {
+  error?: AuthActionError;
+};
 
 export default function VerifyAuthPage() {
   const searchParams = useSearchParams();
@@ -22,9 +27,9 @@ export default function VerifyAuthPage() {
       const fd = new FormData();
       fd.set("token", token);
       startTransition(async () => {
-        const result = await verifyMagicLinkAction({}, fd);
-        if ((result as { error?: string })?.error) {
-          setMessage((result as { error: string }).error);
+        const result = (await verifyMagicLinkAction({}, fd)) as VerifyMagicLinkResult;
+        if (result.error) {
+          setMessage(formatAuthActionError(result.error));
         }
       });
     }
@@ -40,9 +45,9 @@ export default function VerifyAuthPage() {
         <CardContent className="space-y-4">
           <form
             action={async (formData) => {
-              const result = await verifyMagicLinkAction({}, formData);
-              if ((result as { error?: string })?.error) {
-                setMessage((result as { error: string }).error);
+              const result = (await verifyMagicLinkAction({}, formData)) as VerifyMagicLinkResult;
+              if (result.error) {
+                setMessage(formatAuthActionError(result.error));
               }
             }}
             className="space-y-2"

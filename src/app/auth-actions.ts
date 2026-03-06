@@ -3,7 +3,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
 import { createSession, deleteSession, syncLegacyFromIamSession } from "@/lib/session";
@@ -23,16 +22,20 @@ import { IamError, isIamError } from "@/modules/iam/domain/errors";
 import { assertRateLimit } from "@/modules/iam/infrastructure/rate-limit";
 import { verifyTurnstileToken } from "@/modules/iam/infrastructure/turnstile";
 import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
+import type { AuthActionError } from "@/modules/iam/interface/action-error";
+import {
+  createDemoUserMissingAuthActionError,
+  createSetupRequiredAuthActionError,
+  createValidationAuthActionError,
+  mapAuthActionError,
+} from "@/modules/iam/application/auth-action-error-mapper";
 
 function isIamV2Enabled(): boolean {
   return process.env.IAM_V2_ENABLED === "1";
 }
 
-function isSchemaMismatch(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    (error.code === "P2021" || error.code === "P2022")
-  );
+function isProductionEnvironment(): boolean {
+  return process.env.NODE_ENV === "production";
 }
 
 function safeInt(value: string | undefined, fallback: number, min = 1, max = 86_400): number {
@@ -62,13 +65,12 @@ async function applyAuthAbuseChecks(input: {
   });
 }
 
-function toActionErrorMessage(error: unknown): string {
-  if (isIamError(error)) return error.message;
-  if (isSchemaMismatch(error)) {
-    return "IAM database schema is outdated. Run prisma migrations and seed.";
-  }
-  if (error instanceof Error) return error.message;
-  return "Unexpected authentication error";
+function toActionError(error: unknown, requestId: string): AuthActionError {
+  return mapAuthActionError({
+    error,
+    requestId,
+    isProduction: isProductionEnvironment(),
+  });
 }
 
 async function legacySignIn(input: { email: string; password: string }) {
@@ -101,7 +103,8 @@ async function requestContext() {
   const forwarded = h.get("x-forwarded-for");
   const ip = forwarded?.split(",")[0]?.trim() || h.get("x-real-ip");
   const userAgent = h.get("user-agent");
-  return { ip: ip ?? null, userAgent: userAgent ?? null };
+  const requestId = h.get("x-request-id")?.trim() || crypto.randomUUID();
+  return { ip: ip ?? null, userAgent: userAgent ?? null, requestId };
 }
 
 function formToObject(formData: FormData): Record<string, unknown> {
@@ -121,15 +124,23 @@ function safeNextPath(value: unknown): string | null {
   return normalized;
 }
 
+function getConfiguredSeedDemoEmails(): Set<string> {
+  return new Set(
+    [process.env.SEED_OWNER_EMAIL || "owner@demo.local", process.env.SEED_MANAGER_EMAIL || "manager@demo.local"]
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length > 0),
+  );
+}
+
 export async function signup(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = signUpSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid input", ctx.requestId) };
   }
 
   try {
     const provider = getIdentityProvider();
-    const ctx = await requestContext();
     await applyAuthAbuseChecks({
       scope: "signup",
       key: parsed.data.email.trim().toLowerCase(),
@@ -153,21 +164,47 @@ export async function signup(prevState: unknown, formData: FormData) {
       await syncLegacyFromIamSession();
     }
   } catch (error) {
-    return { error: toActionErrorMessage(error) };
+    return { error: toActionError(error, ctx.requestId) };
   }
 
   redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
 export async function signin(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = signInSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid input", ctx.requestId) };
   }
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
 
   let mfaRequired = false;
   try {
-    const ctx = await requestContext();
+    if (getConfiguredSeedDemoEmails().has(normalizedEmail)) {
+      const demoAccount = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+      });
+      if (!demoAccount) {
+        return {
+          error: createDemoUserMissingAuthActionError({
+            requestId: ctx.requestId,
+            isProduction: isProductionEnvironment(),
+            email: normalizedEmail,
+          }),
+        };
+      }
+    }
+
+    if ((await prisma.user.count()) === 0) {
+      return {
+        error: createSetupRequiredAuthActionError({
+          requestId: ctx.requestId,
+          isProduction: isProductionEnvironment(),
+        }),
+      };
+    }
+
     await applyAuthAbuseChecks({
       scope: "signin",
       key: parsed.data.email.trim().toLowerCase(),
@@ -203,7 +240,7 @@ export async function signin(prevState: unknown, formData: FormData) {
       const next = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
       redirect(`/auth/reset-password?email=${email}${next}`);
     }
-    return { error: toActionErrorMessage(error) };
+    return { error: toActionError(error, ctx.requestId) };
   }
 
   if (mfaRequired) {
@@ -218,56 +255,69 @@ export async function signin(prevState: unknown, formData: FormData) {
 }
 
 export async function resetPasswordAction(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = resetPasswordSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid reset payload" };
+    return {
+      error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid reset payload", ctx.requestId),
+    };
   }
 
-  const normalizedEmail = parsed.data.email.trim().toLowerCase();
-  const user = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    select: {
-      id: true,
-      passwordHash: true,
-      mustResetPassword: true,
-      activeCompanyId: true,
-    },
-  });
-  if (!user) {
-    return { error: "Invalid credentials" };
-  }
-  if (!user.mustResetPassword) {
-    return { error: "Password reset is not currently required for this account" };
-  }
-
-  const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
-  if (!valid) {
-    return { error: "Invalid credentials" };
-  }
-
-  const nextHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash: nextHash,
-        mustResetPassword: false,
+  try {
+    const normalizedEmail = parsed.data.email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        passwordHash: true,
+        mustResetPassword: true,
+        activeCompanyId: true,
       },
-    }),
-    prisma.iamSession.updateMany({
-      where: { userId: user.id, revokedAt: null },
-      data: { revokedAt: new Date(), revokeReason: "SECURITY_EVENT" },
-    }),
-  ]);
+    });
+    if (!user) {
+      return { error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: ctx.requestId } };
+    }
+    if (!user.mustResetPassword) {
+      return {
+        error: {
+          code: "FORBIDDEN",
+          message: "Password reset is not currently required for this account",
+          requestId: ctx.requestId,
+        },
+      };
+    }
 
-  await writeIamAudit({
-    action: "POLICY_UPDATED",
-    companyId: user.activeCompanyId ?? null,
-    actorUserId: user.id,
-    entityType: "User",
-    entityId: user.id,
-    metadata: { passwordResetCompleted: true },
-  });
+    const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
+    if (!valid) {
+      return { error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: ctx.requestId } };
+    }
+
+    const nextHash = await bcrypt.hash(parsed.data.newPassword, 12);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: nextHash,
+          mustResetPassword: false,
+        },
+      }),
+      prisma.iamSession.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date(), revokeReason: "SECURITY_EVENT" },
+      }),
+    ]);
+
+    await writeIamAudit({
+      action: "POLICY_UPDATED",
+      companyId: user.activeCompanyId ?? null,
+      actorUserId: user.id,
+      entityType: "User",
+      entityId: user.id,
+      metadata: { passwordResetCompleted: true },
+    });
+  } catch (error) {
+    return { error: toActionError(error, ctx.requestId) };
+  }
 
   const nextPath = safeNextPath(parsed.data.next);
   const next = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
@@ -275,13 +325,13 @@ export async function resetPasswordAction(prevState: unknown, formData: FormData
 }
 
 export async function sendMagicLinkAction(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = sendMagicLinkSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid input", ctx.requestId) };
   }
 
   try {
-    const ctx = await requestContext();
     await applyAuthAbuseChecks({
       scope: "magic_link_send",
       key: parsed.data.email.trim().toLowerCase(),
@@ -297,20 +347,20 @@ export async function sendMagicLinkAction(prevState: unknown, formData: FormData
       redirectTo: parsed.data.redirectTo,
     });
   } catch (error) {
-    return { error: toActionErrorMessage(error) };
+    return { error: toActionError(error, ctx.requestId) };
   }
 
   return { ok: true };
 }
 
 export async function verifyMagicLinkAction(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = verifyMagicLinkSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid token" };
+    return { error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid token", ctx.requestId) };
   }
 
   try {
-    const ctx = await requestContext();
     await assertRateLimit({
       key: `verify:${ctx.ip ?? "unknown"}`,
       scope: "magic_link_verify",
@@ -327,22 +377,22 @@ export async function verifyMagicLinkAction(prevState: unknown, formData: FormDa
     if (isIamError(error) && error.code === "PASSWORD_RESET_REQUIRED") {
       redirect("/auth/reset-password");
     }
-    return { error: toActionErrorMessage(error) };
+    return { error: toActionError(error, ctx.requestId) };
   }
 
   redirect("/dashboard");
 }
 
 export async function enrollMfaAction(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = mfaEnrollSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return { error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid input", ctx.requestId) };
   }
 
   try {
     const principal = await requireAuth({ allowMfaPending: true });
     const provider = getIdentityProvider();
-    const ctx = await requestContext();
 
     await assertRateLimit({
       scope: "mfa_enroll_user",
@@ -364,20 +414,20 @@ export async function enrollMfaAction(prevState: unknown, formData: FormData) {
 
     return { ok: true, data: enrolled };
   } catch (error) {
-    return { error: toActionErrorMessage(error) };
+    return { error: toActionError(error, ctx.requestId) };
   }
 }
 
 export async function verifyMfaAction(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = mfaVerifySchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid code" };
+    return { error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid code", ctx.requestId) };
   }
 
   try {
     const principal = await requireAuth({ allowMfaPending: true });
     const provider = getIdentityProvider();
-    const ctx = await requestContext();
 
     await assertRateLimit({
       scope: "mfa_verify_user",
@@ -400,16 +450,19 @@ export async function verifyMfaAction(prevState: unknown, formData: FormData) {
       await syncLegacyFromIamSession();
     }
   } catch (error) {
-    return { error: toActionErrorMessage(error) };
+    return { error: toActionError(error, ctx.requestId) };
   }
 
   redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
 export async function verifyMfaRecoveryAction(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = mfaRecoveryVerifySchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid recovery code" };
+    return {
+      error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid recovery code", ctx.requestId),
+    };
   }
 
   const next = safeNextPath(formData.get("next"));
@@ -417,7 +470,6 @@ export async function verifyMfaRecoveryAction(prevState: unknown, formData: Form
   try {
     const principal = await requireAuth({ allowMfaPending: true });
     const provider = getIdentityProvider();
-    const ctx = await requestContext();
 
     await assertRateLimit({
       scope: "mfa_recovery_user",
@@ -440,21 +492,26 @@ export async function verifyMfaRecoveryAction(prevState: unknown, formData: Form
       await syncLegacyFromIamSession();
     }
   } catch (error) {
-    return { error: toActionErrorMessage(error) };
+    return { error: toActionError(error, ctx.requestId) };
   }
 
   redirect(next ?? "/dashboard");
 }
 
 export async function revokeSessionAction(prevState: unknown, formData: FormData) {
+  const ctx = await requestContext();
   const parsed = sessionRevokeSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid session" };
+    return { error: createValidationAuthActionError(parsed.error.issues[0]?.message ?? "Invalid session", ctx.requestId) };
   }
 
-  const principal = await requireAuth();
-  const provider = getIdentityProvider();
-  await provider.revokeSession(parsed.data.sessionId, principal.userId);
+  try {
+    const principal = await requireAuth();
+    const provider = getIdentityProvider();
+    await provider.revokeSession(parsed.data.sessionId, principal.userId);
+  } catch (error) {
+    return { error: toActionError(error, ctx.requestId) };
+  }
 
   return { ok: true };
 }

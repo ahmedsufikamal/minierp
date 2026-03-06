@@ -47,6 +47,21 @@ function isSchemaMismatch(error: unknown): boolean {
   );
 }
 
+function isCompanySlugUniqueViolation(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+    return false;
+  }
+
+  const target = error.meta?.target;
+  if (typeof target === "string") {
+    return target.toLowerCase().includes("slug");
+  }
+  if (Array.isArray(target)) {
+    return target.some((value) => String(value).toLowerCase().includes("slug"));
+  }
+  return false;
+}
+
 function isInviteSignupBridgeEnabled(): boolean {
   const explicit = process.env.IAM_INVITE_SIGNUP_BRIDGE_ENABLED;
   if (explicit === "1") return true;
@@ -295,6 +310,7 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
     userAgent?: string | null;
   }): Promise<{ sessionId: string }> {
     const normalizedEmail = input.email.trim().toLowerCase();
+    const normalizedCompanySlug = input.companySlug?.trim().toLowerCase() || undefined;
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
     if (existing) {
       throw new IamError("CONFLICT", "Email is already registered");
@@ -314,14 +330,23 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
       throw new IamError("FORBIDDEN", "Self-service organization creation is disabled. Ask a Super Admin for an invite.");
     }
 
-    const companyId =
-      invitePreview?.companyId ??
-      autoJoinMatch?.companyId ??
-      (
-        await prisma.company.create({
+    if (!invitePreview && !autoJoinMatch && normalizedCompanySlug) {
+      const existingCompanyBySlug = await prisma.company.findUnique({
+        where: { slug: normalizedCompanySlug },
+        select: { id: true },
+      });
+      if (existingCompanyBySlug) {
+        throw new IamError("CONFLICT", "Organization slug already exists");
+      }
+    }
+
+    let provisionedCompanyId: string | null = null;
+    if (!invitePreview && !autoJoinMatch) {
+      try {
+        const company = await prisma.company.create({
           data: {
             name: input.companyName || `${input.name}'s Company`,
-            slug: input.companySlug ?? randomToken(6).toLowerCase(),
+            slug: normalizedCompanySlug ?? randomToken(6).toLowerCase(),
             status: "ACTIVE",
             allowedAuthMethods: ["PASSWORD", "MAGIC_LINK", "OAUTH_GOOGLE", "OAUTH_MICROSOFT"],
             mfaPolicy: { mode: "OPTIONAL", enforceForRoles: ["OWNER", "ADMIN"], allowOtpFallback: true },
@@ -334,8 +359,19 @@ export class LocalIdentityProvider implements IdentityProviderAdapter {
             botProtectionPolicy: { turnstileEnabled: false, rateLimitWindowSeconds: 60, rateLimitMaxAttempts: 8 },
           },
           select: { id: true },
-        })
-      ).id;
+        });
+        provisionedCompanyId = company.id;
+      } catch (error) {
+        if (isCompanySlugUniqueViolation(error)) {
+          throw new IamError("CONFLICT", "Organization slug already exists");
+        }
+        throw error;
+      }
+    }
+    const companyId = invitePreview?.companyId ?? autoJoinMatch?.companyId ?? provisionedCompanyId;
+    if (!companyId) {
+      throw new IamError("INTERNAL_ERROR", "Unable to provision organization");
+    }
 
     if (invitePreview || autoJoinMatch) {
       await assertAuthMethodAllowed(companyId, "PASSWORD");

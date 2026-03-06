@@ -447,6 +447,73 @@ enum AutomationRuleRunStatus {
   CANCELLED
 }
 
+enum AuditEventOrigin {
+  HUMAN
+  AUTOMATION
+  AI
+}
+
+enum OpsTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum OpsTaskStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  ARCHIVED
+}
+
+enum OpsExceptionSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum OpsExceptionStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum OpsActionExecutionStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REPLAYED
+}
+
+enum AiRecommendationStatus {
+  ACTIVE
+  APPLIED
+  DISMISSED
+  EXPIRED
+}
+
+enum AiResolutionDraftStatus {
+  DRAFT
+  APPLIED
+  DISCARDED
+}
+
+enum AiFeedbackType {
+  ACCEPT
+  EDIT
+  REJECT
+}
+
+enum WorkflowPolicyMode {
+  STRICT
+  BALANCED
+  HIGH_THROUGHPUT
+}
+
 enum ThemeMode {
   LIGHT
   DARK
@@ -3942,6 +4009,8 @@ model AuditEvent {
   before      Json?
   after       Json?
   metadata    Json?
+  origin      AuditEventOrigin @default(HUMAN)
+  decisionTrace Json?
   requestId   String?
   ipAddress   String?
   userAgent   String?
@@ -3989,6 +4058,162 @@ model OutboxEvent {
 
   @@index([tenantId, status, availableAt])
   @@index([tenantId, topic, createdAt])
+}
+
+model OpsTask {
+  id             String          @id @default(cuid())
+  tenantId       String
+  companyId      String
+  title          String
+  summary        String
+  priority       OpsTaskPriority @default(MEDIUM)
+  status         OpsTaskStatus   @default(OPEN)
+  dueAt          DateTime?
+  sourceType     String
+  sourceId       String?
+  assigneeUserId String?
+  metadata       Json?
+  createdBy      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([tenantId, companyId, status, priority])
+  @@index([tenantId, companyId, dueAt, createdAt])
+}
+
+model OpsException {
+  id          String               @id @default(cuid())
+  tenantId    String
+  companyId   String
+  kind        String
+  severity    OpsExceptionSeverity @default(MEDIUM)
+  status      OpsExceptionStatus   @default(OPEN)
+  summary     String
+  details     Json?
+  sourceType  String
+  sourceId    String?
+  detectedAt  DateTime             @default(now())
+  resolvedAt  DateTime?
+  metadata    Json?
+  createdBy   String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([tenantId, companyId, status, severity])
+  @@index([tenantId, companyId, detectedAt, createdAt])
+}
+
+model OpsActionExecution {
+  id              String                   @id @default(cuid())
+  tenantId        String
+  companyId       String
+  actionId        String
+  commandKey      String
+  idempotencyKey  String
+  requestId       String?
+  actorUserId     String?
+  input           Json?
+  output          Json?
+  status          OpsActionExecutionStatus @default(PENDING)
+  error           String?
+  reversibleState Json?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([tenantId, companyId, idempotencyKey])
+  @@index([tenantId, companyId, status, createdAt])
+  @@index([tenantId, companyId, actionId, createdAt])
+}
+
+model AiRecommendation {
+  id          String                 @id @default(cuid())
+  tenantId    String
+  companyId   String
+  role        String
+  contextType String
+  contextRef  String?
+  score       Float
+  confidence  Float
+  rationale   Json?
+  actionId    String
+  actionLabel String
+  status      AiRecommendationStatus @default(ACTIVE)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([tenantId, companyId, role, status, createdAt])
+  @@index([tenantId, companyId, contextType, contextRef, createdAt])
+}
+
+model AiResolutionDraft {
+  id             String                  @id @default(cuid())
+  tenantId       String
+  companyId      String
+  contextType    String
+  contextRef     String
+  draftText      String
+  confidence     Float
+  sourceSignals  Json?
+  expectedImpact Json?
+  rollbackPlan   Json?
+  status         AiResolutionDraftStatus @default(DRAFT)
+  createdBy      String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@index([tenantId, companyId, contextType, contextRef, status])
+}
+
+model AiFeedbackEvent {
+  id               String         @id @default(cuid())
+  tenantId         String
+  companyId        String
+  recommendationId String?
+  draftId          String?
+  actorUserId      String?
+  feedbackType     AiFeedbackType
+  reason           String?
+  signal           Json?
+  requestId        String?
+  createdAt        DateTime       @default(now())
+
+  @@index([tenantId, companyId, feedbackType, createdAt])
+  @@index([tenantId, companyId, recommendationId, createdAt])
+}
+
+model WorkflowPolicyProfile {
+  id          String             @id @default(cuid())
+  tenantId    String
+  companyId   String
+  key         String
+  name        String
+  description String?
+  mode        WorkflowPolicyMode @default(BALANCED)
+  strictness  Json?
+  isDefault   Boolean            @default(false)
+  isActive    Boolean            @default(true)
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([tenantId, companyId, key])
+  @@index([tenantId, companyId, isActive])
+}
+
+model PlatformFeatureFlag {
+  id        String   @id @default(cuid())
+  tenantId  String
+  companyId String
+  key       String
+  enabled   Boolean  @default(false)
+  config    Json?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, companyId, key])
+  @@index([tenantId, companyId, enabled])
 }
 
 model NumberSeries {

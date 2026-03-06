@@ -95,6 +95,17 @@ describe("proxy", () => {
     expect(verifySessionToken).toHaveBeenCalledWith("iam-cookie");
   });
 
+  it("does not bounce /auth/sign-up in IAM v2 when the IAM session is valid", async () => {
+    vi.stubEnv("IAM_V2_ENABLED", "1");
+    vi.mocked(verifySessionToken).mockResolvedValue(makePrincipal());
+
+    const response = await proxy(makeRequest("/auth/sign-up", { iam_session: "iam-cookie" }));
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(verifySessionToken).not.toHaveBeenCalled();
+  });
+
   it("bounces auth routes in legacy mode when the legacy session is valid", async () => {
     vi.stubEnv("IAM_V2_ENABLED", "0");
     vi.mocked(decryptSessionToken).mockResolvedValue(makeLegacyPayload());

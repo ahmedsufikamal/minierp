@@ -22,6 +22,7 @@ const protectedRoutes = [
   "/trade",
 ];
 const publicRoutes = ["/sign-in", "/sign-up", "/auth/sign-in", "/auth/sign-up", "/auth/verify", "/"];
+const publicRoutesWithoutSessionBounce = new Set(["/sign-up", "/auth/sign-up"]);
 
 function isIamV2Enabled(): boolean {
   return process.env.IAM_V2_ENABLED === "1";
@@ -67,7 +68,12 @@ export async function proxy(req: NextRequest) {
   const isAuthenticatedForProtectedRoutes = hasLegacySessionCookie || hasIamSessionCookie;
 
   let hasValidSessionForPublicRouteRedirect = false;
-  if (isPublicRoute && path !== "/" && path !== "/dashboard") {
+  if (
+    isPublicRoute &&
+    path !== "/" &&
+    path !== "/dashboard" &&
+    !publicRoutesWithoutSessionBounce.has(path)
+  ) {
     if (isIamV2Enabled()) {
       hasValidSessionForPublicRouteRedirect = hasIamSessionCookie
         ? Boolean(await verifySessionToken(iamSessionToken!))

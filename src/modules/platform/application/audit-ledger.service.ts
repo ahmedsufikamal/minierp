@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { AuditEventOrigin } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PlatformError } from "@/modules/platform/domain/errors";
 import type { PlatformRequestContext } from "@/modules/platform/domain/types";
@@ -11,6 +12,8 @@ type AuditEventInput = {
   before?: unknown;
   after?: unknown;
   metadata?: Record<string, unknown>;
+  origin?: AuditEventOrigin;
+  decisionTrace?: unknown;
 };
 
 type ImmutableLedgerInput = {
@@ -50,6 +53,8 @@ export async function appendAuditEvent(ctx: PlatformRequestContext, input: Audit
       before: (input.before ?? null) as never,
       after: (input.after ?? null) as never,
       metadata: (input.metadata ?? null) as never,
+      origin: input.origin ?? AuditEventOrigin.HUMAN,
+      decisionTrace: (input.decisionTrace ?? null) as never,
       requestId: ctx.requestId,
       ipAddress: ctx.ipAddress ?? null,
       userAgent: ctx.userAgent ?? null,

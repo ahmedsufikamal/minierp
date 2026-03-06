@@ -6,11 +6,13 @@ import { useFormStatus } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { resetPasswordAction } from "@/app/auth-actions";
+import { ActionErrorMessage } from "@/components/auth/action-error-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import type { AuthActionError } from "@/modules/iam/interface/action-error";
 
-const initialState = { error: "" };
+const initialState: { error?: AuthActionError } = {};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -50,7 +52,7 @@ export default function ResetPasswordPage() {
             <Input name="currentPassword" type="password" placeholder="Current password" required />
             <Input name="newPassword" type="password" placeholder="New strong password" minLength={12} required />
             {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
-            {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+            <ActionErrorMessage error={state?.error} />
             <SubmitButton />
           </form>
         </CardContent>

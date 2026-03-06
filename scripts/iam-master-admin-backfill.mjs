@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { disconnectPrisma, prisma } from "./prisma-client.mjs";
 
 async function main() {
   const companies = await prisma.company.findMany({
@@ -76,5 +74,5 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await disconnectPrisma();
   });

@@ -11,14 +11,17 @@ describe("shell configuration", () => {
   it("resolves the active module from the pathname", () => {
     expect(resolveActiveModule("/stock/items").id).toBe("stock");
     expect(resolveActiveModule("/admin/users").id).toBe("workspace");
+    expect(resolveActiveModule("/ops/inbox").id).toBe("operations");
     expect(resolveActiveModule("/unknown").id).toBe("stock");
   });
 
   it("keeps flattened nav items unique by href and excludes non-clickable parents", () => {
     const items = flattenShellNavItems();
     const dashboardItems = items.filter((item) => item.href === "/dashboard");
+    const opsInboxItems = items.filter((item) => item.href === "/ops/inbox");
 
     expect(dashboardItems).toHaveLength(1);
+    expect(opsInboxItems).toHaveLength(1);
     expect(items.some((item) => item.label === "Tools")).toBe(false);
   });
 

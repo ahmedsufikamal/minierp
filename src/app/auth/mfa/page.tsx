@@ -3,23 +3,24 @@
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { enrollMfaAction, verifyMfaAction, verifyMfaRecoveryAction } from "@/app/auth-actions";
+import { ActionErrorMessage } from "@/components/auth/action-error-message";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import type { AuthActionError } from "@/modules/iam/interface/action-error";
 
-type EnrollState =
-  | { error: string }
-  | {
-      ok: true;
-      data: { secret: string; otpauthUri: string; recoveryCodes: string[] };
-    };
+type EnrollState = {
+  error?: AuthActionError;
+  ok?: true;
+  data?: { secret: string; otpauthUri: string; recoveryCodes: string[] };
+};
 
-type VerifyState = { error: string } | undefined;
-type RecoveryState = { error: string } | undefined;
+type VerifyState = { error?: AuthActionError };
+type RecoveryState = { error?: AuthActionError };
 
-const initEnroll: EnrollState = { error: "" };
-const initVerify: VerifyState = { error: "" };
-const initRecovery: RecoveryState = { error: "" };
+const initEnroll: EnrollState = {};
+const initVerify: VerifyState = {};
+const initRecovery: RecoveryState = {};
 
 export default function MfaPage() {
   const [enrollState, enrollAction] = useActionState(enrollMfaAction, initEnroll);
@@ -39,7 +40,7 @@ export default function MfaPage() {
           <form action={enrollAction} className="space-y-2">
             <Input name="label" placeholder="Device label (optional)" />
             <Button type="submit" className="w-full">Enroll TOTP</Button>
-            {enrollState?.error ? <p className="text-sm text-destructive">{enrollState.error}</p> : null}
+            <ActionErrorMessage error={enrollState?.error} />
           </form>
 
           {enrollState?.data ? (
@@ -61,14 +62,14 @@ export default function MfaPage() {
             {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
             <Input name="code" placeholder="123456" required />
             <Button type="submit" className="w-full" variant="outline">Verify MFA code</Button>
-            {verifyState?.error ? <p className="text-sm text-destructive">{verifyState.error}</p> : null}
+            <ActionErrorMessage error={verifyState?.error} />
           </form>
 
           <form action={recoveryAction} className="space-y-2">
             {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
             <Input name="code" placeholder="Recovery code" required />
             <Button type="submit" className="w-full" variant="secondary">Use recovery code</Button>
-            {recoveryState?.error ? <p className="text-sm text-destructive">{recoveryState.error}</p> : null}
+            <ActionErrorMessage error={recoveryState?.error} />
           </form>
         </CardContent>
       </Card>

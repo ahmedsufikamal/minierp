@@ -122,3 +122,82 @@ export type StockSettingsActivityDto = {
   created_at: string;
   metadata?: unknown;
 };
+
+export type OpsInboxItem = {
+  id: string;
+  itemType: "TASK" | "EXCEPTION";
+  title: string;
+  summary: string;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  status: string;
+  dueAt?: string | null;
+  sourceType: string;
+  sourceId?: string | null;
+  assigneeUserId?: string | null;
+  metadata?: unknown;
+  createdAt: string;
+};
+
+export type WorkflowActionCommand = {
+  actionId: string;
+  commandKey: string;
+  idempotencyKey: string;
+  status: "PENDING" | "SUCCEEDED" | "FAILED" | "REPLAYED";
+  reversibleState: {
+    revertActionId: string;
+    beforeState?: string | null;
+    afterState?: string | null;
+    rollbackReady: boolean;
+  };
+  executedAt: string;
+  result: Record<string, unknown>;
+};
+
+export type ActionRecommendation = {
+  id: string;
+  actionId: string;
+  actionLabel: string;
+  role: string;
+  score: number;
+  confidence: number;
+  rationale: unknown;
+  status: "ACTIVE" | "APPLIED" | "DISMISSED" | "EXPIRED";
+  contextType: string;
+  contextRef?: string | null;
+  createdAt: string;
+};
+
+export type CopilotResolutionDraft = {
+  id: string;
+  contextType: string;
+  contextRef: string;
+  draftText: string;
+  confidence: number;
+  sourceSignals: unknown;
+  expectedImpact: unknown;
+  rollbackPlan: unknown;
+  status: "DRAFT" | "APPLIED" | "DISCARDED";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AiFeedbackEvent = {
+  id: string;
+  recommendationId?: string | null;
+  draftId?: string | null;
+  feedbackType: "ACCEPT" | "EDIT" | "REJECT";
+  reason?: string | null;
+  signal?: unknown;
+  requestId?: string | null;
+  createdAt: string;
+};
+
+export type OperationalKpiSnapshot = {
+  windowDays: number;
+  taskOpenCount: number;
+  exceptionOpenCount: number;
+  actionExecutionCount: number;
+  actionSuccessRatePct: number;
+  aiAdoptionPct: number;
+  updatedAt: string;
+};

@@ -1,8 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { disconnectPrisma, prisma } from "../scripts/prisma-client.mjs";
 
 const SYSTEM_SEED_OWNER_EMAIL = process.env.SEED_OWNER_EMAIL || "owner@demo.local";
 const SYSTEM_SEED_MANAGER_EMAIL = process.env.SEED_MANAGER_EMAIL || "manager@demo.local";
@@ -1904,5 +1902,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await disconnectPrisma();
   });
