@@ -2,9 +2,10 @@ import PageHeader from "@/components/page-header";
 import { prisma } from "@/lib/prisma";
 import { getCompanyIdOrUserId } from "@/lib/auth";
 import { createBrand, deleteBrand } from "./actions";
+import { BrandImportDialog } from "./brand-import-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
-import { Tag } from "lucide-react";
+import { Download, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,25 @@ export default async function InventoryBrandsPage() {
     where: { companyId },
     orderBy: { name: "asc" },
   });
+  const templateHref = "/api/v1/inventory/brands/import/template";
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Brands" subtitle="Manage inventory brands." />
+      <PageHeader
+        title="Brands"
+        subtitle="Manage inventory brands."
+        actions={
+          <>
+            <Button asChild type="button" variant="outline">
+              <a href={templateHref}>
+                <Download className="mr-2 h-4 w-4" />
+                Download Template
+              </a>
+            </Button>
+            <BrandImportDialog templateHref={templateHref} />
+          </>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1 rounded-2xl border p-5">

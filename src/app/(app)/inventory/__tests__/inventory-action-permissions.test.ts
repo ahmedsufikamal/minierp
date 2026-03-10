@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   authorizeServerActionPermission: vi.fn(),
   previewImport: vi.fn(),
   executeImport: vi.fn(),
+  previewBrandImportFile: vi.fn(),
+  commitBrandImportRows: vi.fn(),
   revalidatePath: vi.fn(),
   prisma: {
     inventoryMove: {
@@ -30,6 +32,14 @@ vi.mock("@/application/inventory/import-service", () => ({
   executeImport: mocks.executeImport,
 }));
 
+vi.mock("@/modules/inventory/application/brand-import.service", () => ({
+  previewBrandImportFile: mocks.previewBrandImportFile,
+  commitBrandImportRows: mocks.commitBrandImportRows,
+  brandImportAcceptedRowsSchema: {
+    safeParse: (value: unknown) => ({ success: true, data: value }),
+  },
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }));
@@ -41,12 +51,15 @@ vi.mock("@/lib/prisma", () => ({
 import { previewExcelImport, executeExcelImport } from "@/app/(app)/inventory/import-actions";
 import { createMove, deleteMove } from "@/app/(app)/inventory/actions";
 import { createBrand, deleteBrand } from "@/app/(app)/inventory/brands/actions";
+import { commitBrandImport, previewBrandImport } from "@/app/(app)/inventory/brands/import-actions";
 import { createCategory, deleteCategory } from "@/app/(app)/inventory/categories/actions";
 
 afterEach(() => {
   mocks.authorizeServerActionPermission.mockReset();
   mocks.previewImport.mockReset();
   mocks.executeImport.mockReset();
+  mocks.previewBrandImportFile.mockReset();
+  mocks.commitBrandImportRows.mockReset();
   mocks.revalidatePath.mockReset();
   mocks.prisma.inventoryMove.create.mockReset();
   mocks.prisma.inventoryMove.deleteMany.mockReset();
@@ -138,6 +151,112 @@ describe("inventory import action permissions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/inventory/items");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/inventory/locations");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/inventory/snapshots");
+  });
+});
+
+describe("brand import action permissions", () => {
+  it("denies preview when inventory.import.read is missing", async () => {
+    mocks.authorizeServerActionPermission.mockResolvedValue({ allowed: false, context: null });
+
+    const formData = new FormData();
+    formData.append("file", new File(["xlsx"], "brands.xlsx"));
+
+    const result = await previewBrandImport(formData);
+
+    expect(mocks.authorizeServerActionPermission).toHaveBeenCalledWith({
+      iamPermission: "inventory.import.read",
+      legacyPermission: "inventory:read",
+    });
+    expect(result).toEqual({ ok: false, error: "Not authorized to preview brand imports." });
+    expect(mocks.previewBrandImportFile).not.toHaveBeenCalled();
+  });
+
+  it("allows preview when inventory.import.read is granted", async () => {
+    mocks.authorizeServerActionPermission.mockResolvedValue({
+      allowed: true,
+      context: {
+        userId: "user-1",
+        companyId: "company-1",
+        role: "OWNER",
+        permissions: ["inventory.import.read"],
+      },
+    });
+    mocks.previewBrandImportFile.mockResolvedValue({
+      ok: true,
+      data: {
+        fileName: "brands.xlsx",
+        rows: [],
+        acceptedRows: [],
+        summary: {
+          totalRows: 0,
+          validRows: 0,
+          skippedRows: 0,
+          invalidRows: 0,
+          duplicateInFileRows: 0,
+          duplicateExistingRows: 0,
+        },
+      },
+    });
+
+    const formData = new FormData();
+    formData.append("file", new File(["xlsx"], "brands.xlsx"));
+
+    const result = await previewBrandImport(formData);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.previewBrandImportFile).toHaveBeenCalledWith({
+      companyId: "company-1",
+      file: expect.any(File),
+    });
+  });
+
+  it("denies commit when inventory.import.write is missing", async () => {
+    mocks.authorizeServerActionPermission.mockResolvedValue({ allowed: false, context: null });
+
+    const result = await commitBrandImport([{ rowNumber: 2, name: "Brand X" }]);
+
+    expect(mocks.authorizeServerActionPermission).toHaveBeenCalledWith({
+      iamPermission: "inventory.import.write",
+      legacyPermission: "inventory:write",
+    });
+    expect(result).toEqual({ ok: false, error: "Not authorized to import brands." });
+    expect(mocks.commitBrandImportRows).not.toHaveBeenCalled();
+  });
+
+  it("allows commit when inventory.import.write is granted", async () => {
+    mocks.authorizeServerActionPermission.mockResolvedValue({
+      allowed: true,
+      context: {
+        userId: "user-2",
+        companyId: "company-2",
+        role: "OWNER",
+        permissions: ["inventory.import.write"],
+      },
+    });
+    mocks.commitBrandImportRows.mockResolvedValue({
+      totalRowsProcessed: 2,
+      successfulImports: 2,
+      skippedRows: 0,
+      failedRows: [],
+    });
+
+    const result = await commitBrandImport([{ rowNumber: 2, name: "Brand X" }]);
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        totalRowsProcessed: 2,
+        successfulImports: 2,
+        skippedRows: 0,
+        failedRows: [],
+      },
+    });
+    expect(mocks.commitBrandImportRows).toHaveBeenCalledWith({
+      companyId: "company-2",
+      rows: [{ rowNumber: 2, name: "Brand X" }],
+    });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/inventory/brands");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/stock/setup/brand");
   });
 });
 
