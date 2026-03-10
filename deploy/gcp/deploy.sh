@@ -9,6 +9,9 @@ if [[ ! -f "$DEFAULT_ENV_FILE" ]]; then
   DEFAULT_ENV_FILE="$SCRIPT_DIR/env.example"
 fi
 ENV_FILE="${1:-$DEFAULT_ENV_FILE}"
+PRESET_IMAGE_TAG="${IMAGE_TAG-}"
+PRESET_BUILD_MACHINE_TYPE="${BUILD_MACHINE_TYPE-}"
+PRESET_SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD-}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Environment file not found: $ENV_FILE" >&2
@@ -18,6 +21,16 @@ fi
 set -a
 source "$ENV_FILE"
 set +a
+
+if [[ -n "$PRESET_IMAGE_TAG" ]]; then
+  IMAGE_TAG="$PRESET_IMAGE_TAG"
+fi
+if [[ -n "$PRESET_BUILD_MACHINE_TYPE" ]]; then
+  BUILD_MACHINE_TYPE="$PRESET_BUILD_MACHINE_TYPE"
+fi
+if [[ -n "$PRESET_SKIP_IMAGE_BUILD" ]]; then
+  SKIP_IMAGE_BUILD="$PRESET_SKIP_IMAGE_BUILD"
+fi
 
 PROJECT_ID="${PROJECT_ID:-}"
 REGION="${REGION:-asia-southeast1}"
@@ -37,6 +50,8 @@ MIGRATION_JOB_NAME="${MIGRATION_JOB_NAME:-minierp-prisma-migrate}"
 NODE_IMAGE_NAME="${NODE_IMAGE_NAME:-minierp-node}"
 RUST_IMAGE_NAME="${RUST_IMAGE_NAME:-minierp-rust}"
 IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)}"
+BUILD_MACHINE_TYPE="${BUILD_MACHINE_TYPE:-e2-highcpu-8}"
+SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
 
 WEB_CPU="${WEB_CPU:-1}"
 WEB_MEMORY="${WEB_MEMORY:-1Gi}"
@@ -61,11 +76,11 @@ NODE_IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/${NODE_I
 RUST_IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/${RUST_IMAGE_NAME}:${IMAGE_TAG}"
 
 print_cmd() {
-  printf '+'
+  printf '+' >&2
   for arg in "$@"; do
-    printf ' %q' "$arg"
+    printf ' %q' "$arg" >&2
   done
-  printf '\n'
+  printf '\n' >&2
 }
 
 run_cmd() {
@@ -86,6 +101,15 @@ read_secret() {
   gcloud secrets versions access latest --secret "$1" --project "$PROJECT_ID"
 }
 
+read_recent_text_logs() {
+  local service_name="$1"
+  gcloud logging read \
+    "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${service_name}\"" \
+    --project "$PROJECT_ID" \
+    --limit 50 \
+    --format='value(textPayload)'
+}
+
 upsert_secret_value() {
   local name="$1"
   local value="$2"
@@ -93,11 +117,11 @@ upsert_secret_value() {
   if ! secret_exists "$name"; then
     run_cmd gcloud secrets create "$name" \
       --project "$PROJECT_ID" \
-      --replication-policy automatic
+      --replication-policy automatic >/dev/null
   fi
 
   print_cmd gcloud secrets versions add "$name" --project "$PROJECT_ID" --data-file=-
-  printf '%s' "$value" | gcloud secrets versions add "$name" --project "$PROJECT_ID" --data-file=-
+  printf '%s' "$value" | gcloud secrets versions add "$name" --project "$PROJECT_ID" --data-file=- >/dev/null
 }
 
 ensure_secret_value() {
@@ -130,6 +154,25 @@ maybe_upsert_secret_from_env() {
   fi
 }
 
+check_worker_logs() {
+  local service_name="$1"
+  local wrapper_pattern="$2"
+  local worker_pattern="$3"
+  local logs
+
+  logs="$(read_recent_text_logs "$service_name")"
+
+  if ! grep -Fq "$wrapper_pattern" <<<"$logs"; then
+    echo "Missing worker health listener log for ${service_name}: ${wrapper_pattern}" >&2
+    exit 1
+  fi
+
+  if ! grep -Fq "$worker_pattern" <<<"$logs"; then
+    echo "Missing worker queue startup log for ${service_name}: ${worker_pattern}" >&2
+    exit 1
+  fi
+}
+
 append_if_set() {
   local array_name="$1"
   local key="$2"
@@ -154,15 +197,23 @@ ensure_gcloud_ready() {
 }
 
 build_images() {
-  run_cmd gcloud builds submit "$ROOT_DIR" \
-    --project "$PROJECT_ID" \
-    --tag "$NODE_IMAGE_URI" \
-    --file "$ROOT_DIR/Dockerfile"
+  if [[ "$SKIP_IMAGE_BUILD" == "1" ]]; then
+    echo "Skipping image builds. Using existing tags:"
+    echo "  NODE_IMAGE_URI=$NODE_IMAGE_URI"
+    echo "  RUST_IMAGE_URI=$RUST_IMAGE_URI"
+    return
+  fi
 
   run_cmd gcloud builds submit "$ROOT_DIR" \
     --project "$PROJECT_ID" \
-    --tag "$RUST_IMAGE_URI" \
-    --file "$ROOT_DIR/apps/api-rust/Dockerfile"
+    --machine-type "$BUILD_MACHINE_TYPE" \
+    --tag "$NODE_IMAGE_URI"
+
+  run_cmd gcloud builds submit "$ROOT_DIR" \
+    --project "$PROJECT_ID" \
+    --machine-type "$BUILD_MACHINE_TYPE" \
+    --config "$ROOT_DIR/deploy/gcp/cloudbuild.rust.yaml" \
+    --substitutions "_IMAGE_URI=$RUST_IMAGE_URI"
 }
 
 load_runtime_secrets() {
@@ -193,7 +244,7 @@ load_infra_addresses() {
 
   REDIS_HOST="$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" --region "$REGION" --project "$PROJECT_ID" --format='value(host)')"
   REDIS_PORT="$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" --region "$REGION" --project "$PROJECT_ID" --format='value(port)')"
-  REDIS_AUTH_TOKEN_VALUE="$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" --region "$REGION" --project "$PROJECT_ID" --format='value(authString)')"
+  REDIS_AUTH_TOKEN_VALUE="$(gcloud redis instances get-auth-string "$REDIS_INSTANCE_NAME" --region "$REGION" --project "$PROJECT_ID" --format='value(authString)')"
   if [[ -z "$REDIS_HOST" || -z "$REDIS_AUTH_TOKEN_VALUE" ]]; then
     echo "Failed to resolve Memorystore connection details for $REDIS_INSTANCE_NAME" >&2
     exit 1
@@ -457,11 +508,13 @@ read_logs_and_health() {
   IAM_WORKER_URL="$(gcloud run services describe "$IAM_WORKER_SERVICE_NAME" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
   INVENTORY_WORKER_URL="$(gcloud run services describe "$INVENTORY_WORKER_SERVICE_NAME" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
 
-  print_cmd curl -fsS -H "Authorization: Bearer <identity-token>" "${IAM_WORKER_URL}/healthz"
-  curl -fsS -H "Authorization: Bearer ${id_token}" "${IAM_WORKER_URL}/healthz"
+  check_worker_logs "$IAM_WORKER_SERVICE_NAME" \
+    "[iam-worker-service] health endpoint listening" \
+    "[iam-worker] Listening on queue"
 
-  print_cmd curl -fsS -H "Authorization: Bearer <identity-token>" "${INVENTORY_WORKER_URL}/healthz"
-  curl -fsS -H "Authorization: Bearer ${id_token}" "${INVENTORY_WORKER_URL}/healthz"
+  check_worker_logs "$INVENTORY_WORKER_SERVICE_NAME" \
+    "[inventory-worker-service] health endpoint listening" \
+    "[inventory-worker] Listening on queue"
 
   gcloud run services logs read "$WEB_SERVICE_NAME" --project "$PROJECT_ID" --region "$REGION" --limit 30
   gcloud run services logs read "$RUST_SERVICE_NAME" --project "$PROJECT_ID" --region "$REGION" --limit 30

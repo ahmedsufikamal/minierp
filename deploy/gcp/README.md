@@ -5,6 +5,8 @@
 - A billing-enabled Google Cloud project. The current default is `sara-agro-9` in `asia-southeast1`.
 - `gcloud` authenticated on the deployment machine.
 - The deployment machine must be able to run `gcloud builds submit`.
+- The default Cloud Build worker size is `e2-highcpu-8`. Override `BUILD_MACHINE_TYPE` in `deploy/gcp/.env.gcp` if you need a different supported builder size.
+- Set `SKIP_IMAGE_BUILD=1` together with an existing `IMAGE_TAG` only when you are retrying a deploy against images that were already pushed successfully.
 - If you use the provided VM, repair its home ownership first:
 
 ```bash

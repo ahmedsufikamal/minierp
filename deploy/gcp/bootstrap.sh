@@ -33,11 +33,12 @@ DB_INSTANCE_NAME="${DB_INSTANCE_NAME:-minierp-pg}"
 DB_NAME="${DB_NAME:-minierp}"
 DB_USER="${DB_USER:-minierp_app}"
 DB_TIER="${DB_TIER:-db-custom-2-7680}"
+DB_EDITION="${DB_EDITION:-ENTERPRISE}"
 DB_STORAGE_SIZE_GB="${DB_STORAGE_SIZE_GB:-100}"
 DB_BACKUP_START_TIME="${DB_BACKUP_START_TIME:-03:00}"
 DB_AVAILABILITY_TYPE="${DB_AVAILABILITY_TYPE:-REGIONAL}"
 REDIS_INSTANCE_NAME="${REDIS_INSTANCE_NAME:-minierp-redis}"
-REDIS_TIER="${REDIS_TIER:-standard-ha}"
+REDIS_TIER="${REDIS_TIER:-standard}"
 REDIS_SIZE_GB="${REDIS_SIZE_GB:-1}"
 REDIS_VERSION="${REDIS_VERSION:-redis_7_2}"
 REDIS_ZONE="${REDIS_ZONE:-${REGION}-a}"
@@ -51,11 +52,11 @@ fi
 SERVICE_ACCOUNT_EMAIL="${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 print_cmd() {
-  printf '+'
+  printf '+' >&2
   for arg in "$@"; do
-    printf ' %q' "$arg"
+    printf ' %q' "$arg" >&2
   done
-  printf '\n'
+  printf '\n' >&2
 }
 
 run_cmd() {
@@ -74,11 +75,11 @@ upsert_secret_value() {
   if ! secret_exists "$name"; then
     run_cmd gcloud secrets create "$name" \
       --project "$PROJECT_ID" \
-      --replication-policy automatic
+      --replication-policy automatic >/dev/null
   fi
 
   print_cmd gcloud secrets versions add "$name" --project "$PROJECT_ID" --data-file=-
-  printf '%s' "$value" | gcloud secrets versions add "$name" --project "$PROJECT_ID" --data-file=-
+  printf '%s' "$value" | gcloud secrets versions add "$name" --project "$PROJECT_ID" --data-file=- >/dev/null
 }
 
 ensure_secret_value() {
@@ -229,6 +230,7 @@ ensure_cloud_sql() {
   run_cmd gcloud sql instances create "$DB_INSTANCE_NAME" \
     --database-version POSTGRES_16 \
     --region "$REGION" \
+    --edition "$DB_EDITION" \
     --tier "$DB_TIER" \
     --storage-type SSD \
     --storage-size "$DB_STORAGE_SIZE_GB" \
@@ -267,11 +269,19 @@ ensure_database_and_user() {
 
 ensure_redis() {
   if gcloud redis instances describe "$REDIS_INSTANCE_NAME" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    local current_policy
+    current_policy="$(gcloud redis instances describe "$REDIS_INSTANCE_NAME" --region "$REGION" --project "$PROJECT_ID" --format='value(redisConfigs.maxmemory-policy)')"
+    if [[ "$current_policy" != "noeviction" ]]; then
+      run_cmd gcloud redis instances update "$REDIS_INSTANCE_NAME" \
+        --region "$REGION" \
+        --project "$PROJECT_ID" \
+        --update-redis-config maxmemory-policy=noeviction
+    fi
     return
   fi
 
   local zone_flags=(--zone "$REDIS_ZONE")
-  if [[ "$REDIS_TIER" == "standard-ha" ]]; then
+  if [[ "$REDIS_TIER" == "standard" ]]; then
     zone_flags+=(--alternative-zone "$REDIS_ALTERNATIVE_ZONE")
   fi
 
@@ -280,9 +290,10 @@ ensure_redis() {
     --tier "$REDIS_TIER" \
     --size "$REDIS_SIZE_GB" \
     --redis-version "$REDIS_VERSION" \
+    --redis-config maxmemory-policy=noeviction \
     --network "$NETWORK_NAME" \
     --connect-mode private-service-access \
-    --auth-enabled \
+    --enable-auth \
     "${zone_flags[@]}" \
     --project "$PROJECT_ID"
 }
