@@ -1,9 +1,11 @@
 import { CommandPalette, CommandPaletteProvider } from "@/components/command-palette";
 import { AppShell } from "@/components/shell/AppShell";
 import { getCurrentUser } from "@/lib/auth";
+import { getActiveCompanyBranding } from "@/modules/iam/application/company-branding.server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  const branding = await getActiveCompanyBranding(user?.activeCompanyId);
 
   return (
     <CommandPaletteProvider>
@@ -13,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to main content
       </a>
-      <AppShell user={user}>{children}</AppShell>
+      <AppShell user={user} branding={branding}>{children}</AppShell>
       <CommandPalette />
     </CommandPaletteProvider>
   );

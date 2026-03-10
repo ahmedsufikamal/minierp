@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { Menu, Plus, Search, Upload } from "lucide-react";
+import { CompanyBrandAsset } from "@/components/company-brand-asset";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useCommandPalette } from "@/components/command-palette";
+import {
+  resolveCompanyBrandingFallback,
+  type ActiveCompanyBranding,
+} from "@/modules/iam/application/company-branding";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +19,12 @@ import { cn } from "@/lib/utils";
 
 interface TopbarProps {
   onOpenMobile: () => void;
+  branding?: ActiveCompanyBranding | null;
 }
 
-export function Topbar({ onOpenMobile }: TopbarProps) {
+export function Topbar({ onOpenMobile, branding }: TopbarProps) {
   const { setOpen: setCommandOpen } = useCommandPalette();
+  const companyFallback = resolveCompanyBrandingFallback(branding?.companyName);
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-[hsl(var(--surface-1))/0.94] px-3 backdrop-blur md:px-4">
@@ -41,7 +48,7 @@ export function Topbar({ onOpenMobile }: TopbarProps) {
         </kbd>
       </button>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2 md:gap-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm">
@@ -66,6 +73,30 @@ export function Topbar({ onOpenMobile }: TopbarProps) {
         <Button variant="outline" size="sm" className="hidden md:inline-flex">
           <Upload className="mr-1 h-4 w-4" /> Import
         </Button>
+        <Link
+          href="/org/settings"
+          className={cn(
+            "group flex shrink-0 items-center gap-2 rounded-2xl border border-[hsl(var(--border)/0.9)]",
+            "bg-[hsl(var(--surface-2))] px-2 py-1.5 shadow-sm transition-colors hover:border-[hsl(var(--ring)/0.45)]",
+            "hover:bg-[hsl(var(--surface-interactive))]",
+          )}
+          aria-label={`Open organization settings for ${companyFallback.label}`}
+        >
+          <div className="hidden min-w-0 text-right xl:block">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              Company brand
+            </p>
+            <p className="max-w-[140px] truncate text-sm font-medium text-foreground">
+              {companyFallback.label}
+            </p>
+          </div>
+          <CompanyBrandAsset
+            branding={branding}
+            className="h-10 w-[86px] border-0 bg-transparent px-0 py-0 shadow-none sm:w-[104px] lg:w-[128px]"
+            fallbackClassName="border-[hsl(var(--border)/0.6)] bg-[hsl(var(--surface-1))]"
+            dataTestId="topbar-company-brand"
+          />
+        </Link>
       </div>
     </header>
   );

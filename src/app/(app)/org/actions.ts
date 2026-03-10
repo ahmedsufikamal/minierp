@@ -3,6 +3,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requirePermission, requirePlatformAdmin, requireStepUp, setActiveCompany } from "@/modules/iam";
@@ -21,10 +22,17 @@ import {
   mapRoleToUserTypeLevel,
   normalizeUserTypeLevel,
 } from "@/modules/iam/application/level-policy";
-import { IamError } from "@/modules/iam/domain/errors";
+import { normalizeBrandingLogoInput } from "@/modules/iam/application/company-branding";
+import { IamError, isIamError } from "@/modules/iam/domain/errors";
 import { createOrgSchema, invitePayloadSchema, roleUpsertSchema } from "@/modules/iam/interface/schemas";
 import { getIdentityProvider } from "@/modules/iam/infrastructure/provider";
 import { writeIamAudit } from "@/modules/iam/infrastructure/audit";
+
+export type OrgSettingsActionState = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+};
 
 export async function switchOrgAction(formData: FormData) {
   const principal = await requireAuth();
@@ -147,103 +155,123 @@ export async function createOrgAction(formData: FormData) {
   return { ok: true, companyId: company.id };
 }
 
-export async function saveOrgSettingsAction(formData: FormData) {
-  const principal = await requirePermission("admin.settings");
-  await requireStepUp();
+export async function saveOrgSettingsAction(
+  _prevState: OrgSettingsActionState,
+  formData: FormData,
+): Promise<OrgSettingsActionState> {
+  try {
+    const principal = await requirePermission("admin.settings");
+    await requireStepUp();
 
-  const existing = await prisma.company.findUnique({
-    where: { id: principal.activeCompanyId },
-    select: {
-      primaryDomain: true,
-      allowedDomains: true,
-      domainVerificationStatus: true,
-    },
-  });
-
-  const logoUrl = String(formData.get("logoUrl") || "").trim() || null;
-  const primaryColor = String(formData.get("primaryColor") || "").trim() || null;
-  const accentColor = String(formData.get("accentColor") || "").trim() || null;
-  const fontFamily = String(formData.get("fontFamily") || "").trim() || null;
-  const primaryDomain = String(formData.get("primaryDomain") || "").trim().toLowerCase() || null;
-  const allowedDomainsRaw = String(formData.get("allowedDomains") || "").trim();
-
-  const allowedAuthMethods = {
-    PASSWORD: formData.get("auth_password") === "on",
-    MAGIC_LINK: formData.get("auth_magic_link") === "on",
-    OAUTH_GOOGLE: formData.get("auth_google") === "on",
-    OAUTH_MICROSOFT: formData.get("auth_microsoft") === "on",
-  };
-
-  const enabledMethods = Object.entries(allowedAuthMethods)
-    .filter(([, enabled]) => enabled)
-    .map(([method]) => method);
-
-  const mfaMode = String(formData.get("mfaMode") || "OPTIONAL");
-  const turnstileEnabled = formData.get("turnstileEnabled") === "on";
-  const nextAllowedDomains = allowedDomainsRaw
-    ? allowedDomainsRaw
-        .split(",")
-        .map((v) => v.trim().toLowerCase())
-        .filter(Boolean)
-    : [];
-  const previousAllowedDomains = Array.isArray(existing?.allowedDomains)
-    ? existing.allowedDomains.map((value) => String(value).toLowerCase().trim()).filter(Boolean)
-    : [];
-  const domainsChanged =
-    (existing?.primaryDomain ?? null) !== primaryDomain ||
-    JSON.stringify(previousAllowedDomains) !== JSON.stringify(nextAllowedDomains);
-
-  await prisma.company.update({
-    where: { id: principal.activeCompanyId },
-    data: {
-      logoUrl,
-      primaryColor,
-      accentColor,
-      fontFamily,
-      primaryDomain,
-      allowedDomains: nextAllowedDomains,
-      domainVerificationStatus: domainsChanged ? "PENDING" : undefined,
-      domainVerificationToken: domainsChanged ? null : undefined,
-      domainVerificationGeneratedAt: domainsChanged ? null : undefined,
-      allowedAuthMethods: enabledMethods,
-      mfaPolicy: {
-        mode: mfaMode,
-        enforceForRoles: ["OWNER", "ADMIN"],
-        allowOtpFallback: true,
+    const existing = await prisma.company.findUnique({
+      where: { id: principal.activeCompanyId },
+      select: {
+        primaryDomain: true,
+        allowedDomains: true,
+        domainVerificationStatus: true,
       },
-      botProtectionPolicy: {
+    });
+
+    const logoUrl = normalizeBrandingLogoInput(formData.get("logoUrl"));
+    const primaryColor = String(formData.get("primaryColor") || "").trim() || null;
+    const accentColor = String(formData.get("accentColor") || "").trim() || null;
+    const fontFamily = String(formData.get("fontFamily") || "").trim() || null;
+    const primaryDomain = String(formData.get("primaryDomain") || "").trim().toLowerCase() || null;
+    const allowedDomainsRaw = String(formData.get("allowedDomains") || "").trim();
+
+    const allowedAuthMethods = {
+      PASSWORD: formData.get("auth_password") === "on",
+      MAGIC_LINK: formData.get("auth_magic_link") === "on",
+      OAUTH_GOOGLE: formData.get("auth_google") === "on",
+      OAUTH_MICROSOFT: formData.get("auth_microsoft") === "on",
+    };
+
+    const enabledMethods = Object.entries(allowedAuthMethods)
+      .filter(([, enabled]) => enabled)
+      .map(([method]) => method);
+
+    const mfaMode = String(formData.get("mfaMode") || "OPTIONAL");
+    const turnstileEnabled = formData.get("turnstileEnabled") === "on";
+    const nextAllowedDomains = allowedDomainsRaw
+      ? allowedDomainsRaw
+          .split(",")
+          .map((v) => v.trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+    const previousAllowedDomains = Array.isArray(existing?.allowedDomains)
+      ? existing.allowedDomains.map((value) => String(value).toLowerCase().trim()).filter(Boolean)
+      : [];
+    const domainsChanged =
+      (existing?.primaryDomain ?? null) !== primaryDomain ||
+      JSON.stringify(previousAllowedDomains) !== JSON.stringify(nextAllowedDomains);
+
+    await prisma.company.update({
+      where: { id: principal.activeCompanyId },
+      data: {
+        logoUrl,
+        primaryColor,
+        accentColor,
+        fontFamily,
+        primaryDomain,
+        allowedDomains: nextAllowedDomains,
+        domainVerificationStatus: domainsChanged ? "PENDING" : undefined,
+        domainVerificationToken: domainsChanged ? null : undefined,
+        domainVerificationGeneratedAt: domainsChanged ? null : undefined,
+        allowedAuthMethods: enabledMethods,
+        mfaPolicy: {
+          mode: mfaMode,
+          enforceForRoles: ["OWNER", "ADMIN"],
+          allowOtpFallback: true,
+        },
+        botProtectionPolicy: {
+          turnstileEnabled,
+          rateLimitWindowSeconds: 60,
+          rateLimitMaxAttempts: 8,
+        },
+      },
+    });
+
+    await writeIamAudit({
+      action: "POLICY_UPDATED",
+      companyId: principal.activeCompanyId,
+      actorUserId: principal.userId,
+      entityType: "Company",
+      entityId: principal.activeCompanyId,
+      before: existing
+        ? {
+            primaryDomain: existing.primaryDomain,
+            allowedDomains: existing.allowedDomains,
+            domainVerificationStatus: existing.domainVerificationStatus,
+          }
+        : null,
+      after: {
+        primaryDomain,
+        allowedDomains: nextAllowedDomains,
+        domainVerificationStatus: domainsChanged ? "PENDING" : existing?.domainVerificationStatus,
+        enabledMethods,
+        mfaMode,
         turnstileEnabled,
-        rateLimitWindowSeconds: 60,
-        rateLimitMaxAttempts: 8,
       },
-    },
-  });
+    });
 
-  await writeIamAudit({
-    action: "POLICY_UPDATED",
-    companyId: principal.activeCompanyId,
-    actorUserId: principal.userId,
-    entityType: "Company",
-    entityId: principal.activeCompanyId,
-    before: existing
-      ? {
-          primaryDomain: existing.primaryDomain,
-          allowedDomains: existing.allowedDomains,
-          domainVerificationStatus: existing.domainVerificationStatus,
-        }
-      : null,
-    after: {
-      primaryDomain,
-      allowedDomains: nextAllowedDomains,
-      domainVerificationStatus: domainsChanged ? "PENDING" : existing?.domainVerificationStatus,
-      enabledMethods,
-      mfaMode,
-      turnstileEnabled,
-    },
-  });
-
-  revalidatePath("/org/settings");
-  return { ok: true };
+    revalidatePath("/", "layout");
+    revalidatePath("/auth/sign-in");
+    revalidatePath("/auth/sign-up");
+    revalidatePath("/org/settings");
+    return { ok: true as const };
+  } catch (error) {
+    if (isIamError(error)) {
+      if (error.code === "STEP_UP_REQUIRED" || error.code === "MFA_REQUIRED") {
+        redirect("/auth/mfa?required=1&next=/org/settings");
+      }
+      return {
+        ok: false as const,
+        error: error.message,
+        code: error.code,
+      };
+    }
+    throw error;
+  }
 }
 
 export async function inviteMemberAction(formData: FormData) {

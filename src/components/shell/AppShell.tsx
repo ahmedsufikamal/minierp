@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import type { ActiveCompanyBranding } from "@/modules/iam/application/company-branding";
 import { readStoredSidebarCollapsed, writeStoredSidebarCollapsed } from "./sidebar-state";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -17,9 +18,10 @@ interface AppShellProps {
     impersonatorUserId?: string | null;
     impersonationExpiresAt?: string | Date | null;
   } | null;
+  branding?: ActiveCompanyBranding | null;
 }
 
-export function AppShell({ children, user }: AppShellProps) {
+export function AppShell({ children, user, branding }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarReady, setSidebarReady] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -85,7 +87,7 @@ export function AppShell({ children, user }: AppShellProps) {
         </Dialog>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar onOpenMobile={() => setMobileOpen(true)} />
+          <Topbar onOpenMobile={() => setMobileOpen(true)} branding={branding} />
           {user?.isImpersonating ? (
             <div className="state-warning flex items-center justify-between gap-3 border-b px-4 py-2 text-xs">
               <span>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireTenantMembership, requirePermission, requireStepUp } from "@/modules/iam";
 import { IamError } from "@/modules/iam/domain/errors";
+import { MAX_COMPANY_LOGO_URL_LENGTH } from "@/modules/iam/application/company-branding";
 import { parseBody, ok, err } from "@/modules/iam/interface/http";
 import { assertSameOrigin } from "@/modules/iam/interface/origin";
 import { policyConfigSchema } from "@/modules/iam/interface/schemas";
@@ -9,7 +10,7 @@ import { z } from "zod";
 const updateOrgSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
-  logoUrl: z.string().max(1024).optional(),
+  logoUrl: z.string().max(MAX_COMPANY_LOGO_URL_LENGTH).optional(),
   primaryColor: z.string().max(64).optional(),
   accentColor: z.string().max(64).optional(),
   fontFamily: z.string().max(160).optional(),
