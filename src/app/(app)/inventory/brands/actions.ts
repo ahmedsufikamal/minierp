@@ -21,6 +21,7 @@ export async function createBrand(formData: FormData) {
     update: {},
   });
   revalidatePath("/inventory/brands");
+  revalidatePath("/stock/setup/brand");
   return;
 }
 
@@ -35,5 +36,6 @@ export async function deleteBrand(id: string) {
   const { companyId } = auth.context;
   await prisma.brand.deleteMany({ where: { id, companyId } });
   revalidatePath("/inventory/brands");
+  revalidatePath("/stock/setup/brand");
   return;
 }

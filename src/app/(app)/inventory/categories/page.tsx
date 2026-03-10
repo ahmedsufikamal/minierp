@@ -56,21 +56,24 @@ export default async function InventoryCategoriesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {categories.map((category) => (
-                    <tr key={category.id} className="border-b last:border-0">
-                      <td className="px-4 py-3">{category.name}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {category.subCategories.length > 0
-                          ? category.subCategories.map((s) => s.name).join(", ")
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <form action={async () => deleteCategory(category.id)}>
-                          <Button type="submit" variant="utility" size="xs">Delete</Button>
-                        </form>
-                      </td>
-                    </tr>
-                  ))}
+                  {categories.map((category) => {
+                    const deleteCategoryAction = deleteCategory.bind(null, category.id);
+                    return (
+                      <tr key={category.id} className="border-b last:border-0">
+                        <td className="px-4 py-3">{category.name}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {category.subCategories.length > 0
+                            ? category.subCategories.map((s) => s.name).join(", ")
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <form action={deleteCategoryAction}>
+                            <Button type="submit" variant="utility" size="xs">Delete</Button>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

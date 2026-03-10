@@ -54,16 +54,19 @@ export default async function InventoryBrandsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {brands.map((brand) => (
-                    <tr key={brand.id} className="border-b last:border-0">
-                      <td className="px-4 py-3">{brand.name}</td>
-                      <td className="px-4 py-3">
-                        <form action={async () => deleteBrand(brand.id)}>
-                          <Button type="submit" variant="utility" size="xs">Delete</Button>
-                        </form>
-                      </td>
-                    </tr>
-                  ))}
+                  {brands.map((brand) => {
+                    const deleteBrandAction = deleteBrand.bind(null, brand.id);
+                    return (
+                      <tr key={brand.id} className="border-b last:border-0">
+                        <td className="px-4 py-3">{brand.name}</td>
+                        <td className="px-4 py-3">
+                          <form action={deleteBrandAction}>
+                            <Button type="submit" variant="utility" size="xs">Delete</Button>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
