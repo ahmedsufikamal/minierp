@@ -93,13 +93,13 @@ export default async function OrgSettingsPage() {
       <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-xl">Company numbering</CardTitle>
+            <CardTitle className="text-xl">Company code format settings</CardTitle>
             <CardDescription>
-              Manage SKU and document code formats for this company from the dedicated numbering workspace.
+              Manage YGEN quote, challan, invoice, spot sale, and budgetary format rules from the dedicated numbering workspace.
             </CardDescription>
           </div>
           <Button asChild variant="outline" size="sm">
-            <Link href="/org/settings/company-numbering">Open company numbering</Link>
+            <Link href="/org/settings/company-numbering">Open company code settings</Link>
           </Button>
         </CardHeader>
       </Card>

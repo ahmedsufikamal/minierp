@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { saveOrgSettingsAction, type OrgSettingsActionState } from "@/app/(app)/org/actions";
 import { Button } from "@/components/ui/button";
@@ -38,11 +38,7 @@ export function OrgSettingsForm({
   turnstileEnabled,
 }: OrgSettingsFormProps) {
   const [state, formAction, pending] = useActionState(saveOrgSettingsAction, initialActionState);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  const hydrated = true;
 
   useEffect(() => {
     if (state?.ok) {

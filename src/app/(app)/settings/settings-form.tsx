@@ -70,12 +70,12 @@ export function SettingsForm({ defaults }: { defaults: Defaults }) {
       </div>
 
       <div className="rounded-2xl border p-4 space-y-2">
-        <h3 className="font-medium">Number sequences</h3>
+        <h3 className="font-medium">Company code format settings</h3>
         <p className="text-sm text-muted-foreground">
-          Number sequence management has moved to Company Numbering under organization settings.
+          YGEN document format and numbering compatibility settings live under organization settings.
         </p>
         <Link href="/org/settings/company-numbering" className="text-sm font-medium text-primary hover:underline">
-          Open Company Numbering →
+          Open company code settings →
         </Link>
       </div>
 

@@ -12,9 +12,9 @@ export default async function CompanyNumberingPage() {
   return (
     <div className="max-w-5xl space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Company Numbering</h1>
+        <h1 className="text-2xl font-semibold">Company Code Format Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Configure SKU and company document code formats. Numbering is company-scoped and generated server-side.
+          Configure YGEN company document code formats from a single tenant-aware admin workspace. Rich settings are saved server-side and projected back into the current numbering compatibility layer.
         </p>
         <Link href="/org/settings" className="text-sm font-medium text-primary hover:underline">
           Back to organization settings

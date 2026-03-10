@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { cn } from "@/lib/cn";
 
 type SettingsTab =
@@ -197,31 +198,10 @@ export function InventorySettingsClient({ canEdit }: { canEdit: boolean }) {
     return JSON.stringify(saved) !== JSON.stringify(draft);
   }, [saved, draft]);
 
-  useEffect(() => {
-    if (!dirty) return;
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    const onDocumentClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      const anchor = target?.closest("a");
-      if (!anchor) return;
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
-      if (!window.confirm("You have unsaved stock settings changes. Leave without saving?")) {
-        event.preventDefault();
-      }
-    };
-    document.addEventListener("click", onDocumentClick, true);
-    return () => document.removeEventListener("click", onDocumentClick, true);
-  }, [dirty]);
+  useUnsavedChangesGuard({
+    enabled: dirty,
+    message: "You have unsaved stock settings changes. Leave without saving?",
+  });
 
   const setField = <T extends keyof StockSettingsDto>(field: T, value: StockSettingsDto[T]) => {
     setDraft((current) => (current ? { ...current, [field]: value } : current));

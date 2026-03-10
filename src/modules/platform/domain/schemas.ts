@@ -143,7 +143,12 @@ export const companyNumberingPatchSchema = z.object({
         isActive: z.boolean().optional(),
       }),
     )
-    .min(1),
+    .min(1)
+    .optional(),
+  action: z.enum(["SAVE", "RESET"]).optional(),
+  settings: z.unknown().optional(),
+}).refine((value) => value.action === "RESET" || Boolean(value.formats?.length) || value.settings, {
+  message: "Provide formats, settings, or a reset action.",
 });
 
 export const companyNumberingPreviewSchema = z.object({
@@ -154,6 +159,9 @@ export const companyNumberingPreviewSchema = z.object({
   sequence: z.number().int().min(1).optional(),
   fiscalYear: z.string().trim().max(20).optional(),
   date: z.coerce.date().optional(),
+  definition: z.unknown().optional(),
+  variantId: z.string().trim().min(1).max(120).optional(),
+  sample: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const reportDefinitionSchema = z.object({

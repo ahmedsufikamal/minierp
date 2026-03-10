@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   normalizeBrandingLogoInput,
@@ -28,11 +28,8 @@ export function CompanyBrandAsset({
     () => resolveCompanyBrandingFallback(branding?.companyName),
     [branding?.companyName],
   );
-  const [imageFailed, setImageFailed] = useState(false);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [logoUrl]);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const imageFailed = Boolean(logoUrl && failedLogoUrl === logoUrl);
 
   return (
     <div
@@ -50,7 +47,7 @@ export function CompanyBrandAsset({
           src={logoUrl}
           alt={`${fallback.label} logo`}
           className={cn("h-full w-full object-contain", imageClassName)}
-          onError={() => setImageFailed(true)}
+          onError={() => setFailedLogoUrl(logoUrl)}
         />
       ) : (
         <div
