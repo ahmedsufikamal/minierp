@@ -21,6 +21,13 @@ interface AppShellProps {
   branding?: ActiveCompanyBranding | null;
 }
 
+function formatUtcTime(value?: string | Date | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.toISOString().slice(11, 16)} UTC`;
+}
+
 export function AppShell({ children, user, branding }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarReady, setSidebarReady] = useState(false);
@@ -93,7 +100,7 @@ export function AppShell({ children, user, branding }: AppShellProps) {
               <span>
                 Impersonation active
                 {user.impersonationExpiresAt
-                  ? ` · Expires ${new Date(user.impersonationExpiresAt).toLocaleTimeString()}`
+                  ? ` · Expires ${formatUtcTime(user.impersonationExpiresAt)}`
                   : ""}
               </span>
               <button

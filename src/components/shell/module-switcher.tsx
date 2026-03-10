@@ -10,6 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useMounted } from "@/hooks/use-mounted";
 import { cn } from "@/lib/utils";
 import type { ShellModule } from "./shell-config";
 
@@ -21,6 +22,7 @@ interface ModuleSwitcherProps {
 }
 
 export function ModuleSwitcher({ activeModule, modules, collapsed, subtext }: ModuleSwitcherProps) {
+  const mounted = useMounted();
   const [previewModuleId, setPreviewModuleId] = useState(activeModule.id);
 
   useEffect(() => {
@@ -41,39 +43,45 @@ export function ModuleSwitcher({ activeModule, modules, collapsed, subtext }: Mo
   );
 
   const ActiveIcon = activeModule.icon;
+  const trigger = (
+    <Button
+      variant="ghost"
+      className={cn(
+        "h-auto w-full items-start justify-start rounded-2xl border border-border/80 bg-[hsl(var(--surface-2))] px-3 py-3 text-left hover:bg-[hsl(var(--surface-3))]",
+        collapsed && "justify-center px-2.5",
+      )}
+      title={collapsed ? `${activeModule.label} module` : undefined}
+      aria-label="Switch module"
+      type="button"
+    >
+      {collapsed ? (
+        <ActiveIcon className="h-5 w-5 shrink-0" />
+      ) : (
+        <>
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-[hsl(var(--surface-1))] text-foreground">
+            <MiniERPLogo size="icon" showWordmark={false} className="scale-[0.48]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-semibold text-foreground">
+                {activeModule.label}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </div>
+            <p className="truncate text-xs text-muted-foreground">{subtext}</p>
+          </div>
+        </>
+      )}
+    </Button>
+  );
+
+  if (!mounted) {
+    return trigger;
+  }
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className={cn(
-            "h-auto w-full items-start justify-start rounded-2xl border border-border/80 bg-[hsl(var(--surface-2))] px-3 py-3 text-left hover:bg-[hsl(var(--surface-3))]",
-            collapsed && "justify-center px-2.5",
-          )}
-          title={collapsed ? `${activeModule.label} module` : undefined}
-          aria-label="Switch module"
-        >
-          {collapsed ? (
-            <ActiveIcon className="h-5 w-5 shrink-0" />
-          ) : (
-            <>
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-[hsl(var(--surface-1))] text-foreground">
-                <MiniERPLogo size="icon" showWordmark={false} className="scale-[0.48]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-foreground">
-                    {activeModule.label}
-                  </span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </div>
-                <p className="truncate text-xs text-muted-foreground">{subtext}</p>
-              </div>
-            </>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent
         className="w-[min(92vw,760px)] rounded-2xl border border-border bg-popover p-0 text-popover-foreground"
         align="start"

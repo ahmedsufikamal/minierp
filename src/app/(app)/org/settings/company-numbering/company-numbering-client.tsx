@@ -116,6 +116,26 @@ function cloneEnvelope(envelope: CompanyCodeFormatSettingsEnvelope): CompanyCode
   return cloneCompanyCodeSettingsEnvelope(envelope);
 }
 
+function formatEnvelopeSource(source: CompanyCodeFormatSettingsEnvelope["source"]): string {
+  switch (source) {
+    case "stored":
+      return "Stored";
+    case "derived-flat":
+      return "Recovered from current numbering";
+    case "ygen-defaults":
+      return "YGEN defaults draft";
+    default:
+      return source;
+  }
+}
+
+function formatUtcTimestamp(value?: string | null): string {
+  if (!value) return "Not saved yet";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Invalid timestamp";
+  return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
 function buildBlueprint(variant: CodeFormatVariant): string {
   return variant.tokens
     .map((token) => {
@@ -887,7 +907,7 @@ function CodeFormatCard({
             <dl className="mt-4 space-y-3 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Effective date</dt>
-                <dd>{definition.effectiveDate || "Phase 2 placeholder"}</dd>
+                <dd>{definition.effectiveDate || "Not scheduled"}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Updated by</dt>
@@ -895,7 +915,7 @@ function CodeFormatCard({
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Updated at</dt>
-                <dd>{definition.updatedAt ? new Date(definition.updatedAt).toLocaleString() : "Not saved yet"}</dd>
+                <dd>{formatUtcTimestamp(definition.updatedAt)}</dd>
               </div>
             </dl>
           </div>
@@ -1152,7 +1172,7 @@ export function CompanyNumberingClient({ canManage }: { canManage: boolean }) {
               </div>
               <div className="rounded-2xl border border-[hsl(var(--border)/0.78)] bg-[hsl(var(--surface-2))/0.6] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Saved source</p>
-                <p className="mt-2 text-2xl font-semibold text-foreground">{draftEnvelope.source}</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{formatEnvelopeSource(draftEnvelope.source)}</p>
                 <p className="mt-1 text-sm text-muted-foreground">Rich config persists in NumberSeries metadata.</p>
               </div>
               <div className="rounded-2xl border border-[hsl(var(--border)/0.78)] bg-[hsl(var(--surface-2))/0.6] p-4">

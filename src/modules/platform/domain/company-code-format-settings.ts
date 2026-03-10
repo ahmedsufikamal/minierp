@@ -550,7 +550,7 @@ function buildDefaultDefinition(key: CompanyCodeDefinitionKey): CodeFormatDefini
         key,
         internalKey: key,
         displayName: "Invoice Code",
-        description: "Standard and previous-year invoice variants with a project-ready placeholder kept disabled by default.",
+        description: "Standard and previous-year invoice variants, plus a project-ready variant kept disabled by default.",
         enabled: true,
         adminNotes: null,
         activeVariantId: "standard",

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   resolveCustomizationRuntime: vi.fn(),
   listCompanyNumberingMasterConfig: vi.fn(),
   updateCompanyNumberingMasterConfig: vi.fn(),
+  saveCompanyCodeSettings: vi.fn(),
   previewCompanyNumberingPattern: vi.fn(),
 }));
 
@@ -69,6 +70,7 @@ vi.mock("@/modules/platform/application/automation-runtime.service", () => ({
 vi.mock("@/modules/platform/application/company-numbering.service", () => ({
   listCompanyNumberingMasterConfig: mocks.listCompanyNumberingMasterConfig,
   updateCompanyNumberingMasterConfig: mocks.updateCompanyNumberingMasterConfig,
+  saveCompanyCodeSettings: mocks.saveCompanyCodeSettings,
   previewCompanyNumberingPattern: mocks.previewCompanyNumberingPattern,
 }));
 
@@ -261,6 +263,7 @@ describe("new parity endpoint permission checks", () => {
 
     expect(mocks.listCompanyNumberingMasterConfig).not.toHaveBeenCalled();
     expect(mocks.updateCompanyNumberingMasterConfig).not.toHaveBeenCalled();
+    expect(mocks.saveCompanyCodeSettings).not.toHaveBeenCalled();
     expect(mocks.previewCompanyNumberingPattern).not.toHaveBeenCalled();
   });
 

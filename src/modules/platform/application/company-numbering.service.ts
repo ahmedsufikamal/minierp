@@ -624,6 +624,8 @@ export async function allocateCompanyRequiredSeriesNumber(
   },
 ): Promise<{ seriesId: string; value: number; number: string; periodKey: string }> {
   await ensureCompanySeriesRows(ctx);
+  // Phase 1 keeps live issuance on the existing flat allocator. Variant-aware routing
+  // will be introduced later once the server-side selector can resolve the rich config.
   return allocateSeriesNumber(ctx, {
     key: input.key,
     companyId: ctx.companyId,

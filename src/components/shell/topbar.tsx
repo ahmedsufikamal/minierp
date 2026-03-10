@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useMounted } from "@/hooks/use-mounted";
 import { cn } from "@/lib/utils";
 
 interface TopbarProps {
@@ -23,8 +24,14 @@ interface TopbarProps {
 }
 
 export function Topbar({ onOpenMobile, branding }: TopbarProps) {
+  const mounted = useMounted();
   const { setOpen: setCommandOpen } = useCommandPalette();
   const companyFallback = resolveCompanyBrandingFallback(branding?.companyName);
+  const createTrigger = (
+    <Button size="sm" type="button">
+      <Plus className="mr-1 h-4 w-4" /> Create
+    </Button>
+  );
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-[hsl(var(--surface-1))/0.94] px-3 backdrop-blur md:px-4">
@@ -49,27 +56,27 @@ export function Topbar({ onOpenMobile, branding }: TopbarProps) {
       </button>
 
       <div className="ml-auto flex items-center gap-2 md:gap-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> Create
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href="/selling/sales-orders">New sales order</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/selling/quotations">New quotation</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/buying/material-requests">New material request</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/manufacturing/work-orders">New work order</Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {mounted ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>{createTrigger}</DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href="/selling/sales-orders">New sales order</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/selling/quotations">New quotation</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/buying/material-requests">New material request</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/manufacturing/work-orders">New work order</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          createTrigger
+        )}
         <Button variant="outline" size="sm" className="hidden md:inline-flex">
           <Upload className="mr-1 h-4 w-4" /> Import
         </Button>
