@@ -41,6 +41,11 @@ async function processJob(name, data, jobId) {
     throw new Error(`Unknown inventory job: ${name}`);
   }
 
+  const companyId = data?.companyId;
+  if (!companyId) {
+    throw new Error("Inventory job payload missing companyId");
+  }
+
   const response = await fetch(`${apiBaseUrl}/api/v1/inventory/admin/jobs/process`, {
     method: "POST",
     headers: {
@@ -49,6 +54,7 @@ async function processJob(name, data, jobId) {
     },
     body: JSON.stringify({
       jobId: data?.jobId || jobId,
+      companyId,
     }),
   });
 
@@ -96,4 +102,3 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   void shutdown("SIGINT");
 });
-

@@ -2,25 +2,21 @@
 
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
-import { enrollMfaAction, verifyMfaAction, verifyMfaRecoveryAction } from "@/app/auth-actions";
+import {
+  enrollMfaAction,
+  type MfaEnrollActionState,
+  type MfaVerifyActionState,
+  verifyMfaAction,
+  verifyMfaRecoveryAction,
+} from "@/app/auth-actions";
 import { ActionErrorMessage } from "@/components/auth/action-error-message";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { AuthActionError } from "@/modules/iam/interface/action-error";
 
-type EnrollState = {
-  error?: AuthActionError;
-  ok?: true;
-  data?: { secret: string; otpauthUri: string; recoveryCodes: string[] };
-};
-
-type VerifyState = { error?: AuthActionError };
-type RecoveryState = { error?: AuthActionError };
-
-const initEnroll: EnrollState = {};
-const initVerify: VerifyState = {};
-const initRecovery: RecoveryState = {};
+const initEnroll: MfaEnrollActionState = {};
+const initVerify: MfaVerifyActionState = {};
+const initRecovery: MfaVerifyActionState = {};
 
 export default function MfaPage() {
   const [enrollState, enrollAction] = useActionState(enrollMfaAction, initEnroll);

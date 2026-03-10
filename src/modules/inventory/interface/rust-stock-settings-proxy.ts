@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { InventoryError } from "@/modules/inventory/domain/errors";
+import { attachRustServiceAuthorization } from "@/modules/inventory/interface/rust-proxy-auth";
 import type { InventoryRequestContext } from "@/modules/inventory/domain/types";
 import { resolveRustBaseUrl, resolveRustTrustedProxySecret } from "@/modules/inventory/interface/rust-proxy-env";
 
@@ -50,6 +51,7 @@ export async function proxyStockSettingsToRust(params: {
   );
   headers.set("x-request-id", params.ctx.requestId);
   headers.set("x-forwarded-proto", "https");
+  await attachRustServiceAuthorization(headers, baseUrl);
 
   const hasBody = params.request.method !== "GET" && params.request.method !== "HEAD";
   const body = hasBody ? await params.request.arrayBuffer() : undefined;

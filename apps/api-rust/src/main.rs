@@ -4587,7 +4587,18 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let bind_addr = env::var("RUST_API_BIND").unwrap_or_else(|_| "127.0.0.1:4000".to_string());
+    let bind_addr = env::var("RUST_API_BIND")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            env::var("PORT")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .map(|port| format!("0.0.0.0:{port}"))
+        })
+        .unwrap_or_else(|| "0.0.0.0:4000".to_string());
     let socket_addr: SocketAddr = bind_addr.parse()?;
 
     let state = Arc::new(AppState {

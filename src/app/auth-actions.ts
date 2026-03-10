@@ -30,6 +30,25 @@ import {
   mapAuthActionError,
 } from "@/modules/iam/application/auth-action-error-mapper";
 
+export type MfaEnrollActionState = {
+  error?: AuthActionError;
+  ok?: true;
+  data?: { secret: string; otpauthUri: string; recoveryCodes: string[] };
+};
+
+export type AuthErrorActionState = {
+  error?: AuthActionError;
+};
+
+export type MagicLinkActionState = {
+  error?: AuthActionError;
+  ok?: true;
+};
+
+export type MfaVerifyActionState = {
+  error?: AuthActionError;
+};
+
 function isIamV2Enabled(): boolean {
   return process.env.IAM_V2_ENABLED === "1";
 }
@@ -132,7 +151,10 @@ function getConfiguredSeedDemoEmails(): Set<string> {
   );
 }
 
-export async function signup(prevState: unknown, formData: FormData) {
+export async function signup(
+  prevState: AuthErrorActionState,
+  formData: FormData,
+): Promise<AuthErrorActionState> {
   const ctx = await requestContext();
   const parsed = signUpSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
@@ -170,7 +192,10 @@ export async function signup(prevState: unknown, formData: FormData) {
   redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
-export async function signin(prevState: unknown, formData: FormData) {
+export async function signin(
+  prevState: AuthErrorActionState,
+  formData: FormData,
+): Promise<AuthErrorActionState> {
   const ctx = await requestContext();
   const parsed = signInSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
@@ -254,7 +279,10 @@ export async function signin(prevState: unknown, formData: FormData) {
   redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
-export async function resetPasswordAction(prevState: unknown, formData: FormData) {
+export async function resetPasswordAction(
+  prevState: AuthErrorActionState,
+  formData: FormData,
+): Promise<AuthErrorActionState> {
   const ctx = await requestContext();
   const parsed = resetPasswordSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
@@ -324,7 +352,10 @@ export async function resetPasswordAction(prevState: unknown, formData: FormData
   redirect(`/auth/sign-in?passwordReset=1${next}`);
 }
 
-export async function sendMagicLinkAction(prevState: unknown, formData: FormData) {
+export async function sendMagicLinkAction(
+  prevState: MagicLinkActionState,
+  formData: FormData,
+): Promise<MagicLinkActionState> {
   const ctx = await requestContext();
   const parsed = sendMagicLinkSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
@@ -353,7 +384,10 @@ export async function sendMagicLinkAction(prevState: unknown, formData: FormData
   return { ok: true };
 }
 
-export async function verifyMagicLinkAction(prevState: unknown, formData: FormData) {
+export async function verifyMagicLinkAction(
+  prevState: AuthErrorActionState,
+  formData: FormData,
+): Promise<AuthErrorActionState> {
   const ctx = await requestContext();
   const parsed = verifyMagicLinkSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
@@ -383,7 +417,10 @@ export async function verifyMagicLinkAction(prevState: unknown, formData: FormDa
   redirect("/dashboard");
 }
 
-export async function enrollMfaAction(prevState: unknown, formData: FormData) {
+export async function enrollMfaAction(
+  prevState: MfaEnrollActionState,
+  formData: FormData,
+): Promise<MfaEnrollActionState> {
   const ctx = await requestContext();
   const parsed = mfaEnrollSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
@@ -418,7 +455,10 @@ export async function enrollMfaAction(prevState: unknown, formData: FormData) {
   }
 }
 
-export async function verifyMfaAction(prevState: unknown, formData: FormData) {
+export async function verifyMfaAction(
+  prevState: MfaVerifyActionState,
+  formData: FormData,
+): Promise<MfaVerifyActionState> {
   const ctx = await requestContext();
   const parsed = mfaVerifySchema.safeParse(formToObject(formData));
   if (!parsed.success) {
@@ -456,7 +496,10 @@ export async function verifyMfaAction(prevState: unknown, formData: FormData) {
   redirect(safeNextPath(parsed.data.next) ?? "/dashboard");
 }
 
-export async function verifyMfaRecoveryAction(prevState: unknown, formData: FormData) {
+export async function verifyMfaRecoveryAction(
+  prevState: MfaVerifyActionState,
+  formData: FormData,
+): Promise<MfaVerifyActionState> {
   const ctx = await requestContext();
   const parsed = mfaRecoveryVerifySchema.safeParse(formToObject(formData));
   if (!parsed.success) {

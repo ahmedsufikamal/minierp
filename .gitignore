@@ -13,6 +13,7 @@
 .env
 .env.local
 .env.*.local
+deploy/gcp/.env.gcp
 
 # logs
 npm-debug.log*

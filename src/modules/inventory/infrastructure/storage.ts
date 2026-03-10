@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { getStorageSigningSecret } from "@/lib/runtime-env";
+import { getStorageSigningSecret, isProductionRuntime } from "@/lib/runtime-env";
 
 export type PresignedUpload = {
   url: string;
@@ -15,11 +15,18 @@ export type PresignedDownload = {
 };
 
 function getStorageBaseUrl(): string {
-  return (
-    process.env.INVENTORY_STORAGE_PUBLIC_BASE_URL ||
-    process.env.S3_PUBLIC_BASE_URL ||
-    "http://localhost:9000/local"
-  );
+  const configured = process.env.INVENTORY_STORAGE_PUBLIC_BASE_URL || process.env.S3_PUBLIC_BASE_URL;
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  if (isProductionRuntime()) {
+    throw new Error(
+      "INVENTORY_STORAGE_PUBLIC_BASE_URL or S3_PUBLIC_BASE_URL is required in production until object storage is configured",
+    );
+  }
+
+  return "http://localhost:9000/local";
 }
 
 function signedToken(storageKey: string, ttlSeconds: number): string {
