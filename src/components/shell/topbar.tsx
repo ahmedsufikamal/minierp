@@ -77,26 +77,15 @@ export function Topbar({ onOpenMobile, branding }: TopbarProps) {
         ) : (
           createTrigger
         )}
-        <Button variant="outline" size="sm" className="hidden md:inline-flex">
-          <Upload className="mr-1 h-4 w-4" /> Import
-        </Button>
         <Link
           href="/org/settings"
           className={cn(
-            "group flex shrink-0 items-center gap-2 rounded-2xl border border-[hsl(var(--border)/0.9)]",
+            "group flex shrink-0 items-center rounded-2xl border border-[hsl(var(--border)/0.9)]",
             "bg-[hsl(var(--surface-2))] px-2 py-1.5 shadow-sm transition-colors hover:border-[hsl(var(--ring)/0.45)]",
             "hover:bg-[hsl(var(--surface-interactive))]",
           )}
           aria-label={`Open organization settings for ${companyFallback.label}`}
         >
-          <div className="hidden min-w-0 text-right xl:block">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Company brand
-            </p>
-            <p className="max-w-[140px] truncate text-sm font-medium text-foreground">
-              {companyFallback.label}
-            </p>
-          </div>
           <CompanyBrandAsset
             branding={branding}
             className="h-10 w-[86px] border-0 bg-transparent px-0 py-0 shadow-none sm:w-[104px] lg:w-[128px]"
